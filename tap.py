@@ -23,6 +23,7 @@ if __name__.startswith("__mitmproxy_script__"):
         del sys.modules[_name]
 
 from cachetap import config, record, segments
+from cachetap.providers import base
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -69,12 +70,6 @@ def _cache_controls(o):
             yield from _cache_controls(x)
 
 
-def _version(model, family):
-    """("gpt-5.6-luna", "gpt") -> (5, 6). Date suffixes are not mistaken for a minor version."""
-    m = re.search(family + r"-(\d+)(?:[.-](\d{1,2})(?!\d))?", model or "")
-    return (int(m.group(1)), int(m.group(2) or 0)) if m else None
-
-
 def cache_ttl(req):
     """How long the provider keeps this prefix cached, and how we know.
 
@@ -95,7 +90,7 @@ def cache_ttl(req):
         else:
             source = "por defecto de Claude"
         return {"ttl_s": ttl, "ttl_source": source, "ttl_anchor": "start"}
-    gpt = _version(model, "gpt")
+    gpt = base.version(model, "gpt")
     if gpt and gpt >= (5, 6):
         declared = isinstance(req.get("prompt_cache_options"), dict) and req["prompt_cache_options"].get("ttl")
         source = "declarado en prompt_cache_options" if declared else "por defecto de GPT-5.6 y posteriores"
@@ -132,7 +127,7 @@ def min_cacheable(model):
         return 1024
     if re.search(r"fable|mythos", model) and "preview" not in model:
         return 512
-    opus, sonnet, haiku = (_version(model, f"claude-{f}") for f in ("opus", "sonnet", "haiku"))
+    opus, sonnet, haiku = (base.version(model, f"claude-{f}") for f in ("opus", "sonnet", "haiku"))
     if (opus and opus >= (5, 0)) or (sonnet and sonnet >= (5, 0)):
         return 512
     if opus == (4, 7) or haiku == (3, 5) or "mythos" in model:
