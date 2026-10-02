@@ -31,7 +31,6 @@ MIME = {
     ".woff2": "font/woff2",
 }
 LLM_PATHS = ("/messages", "/responses", "/chat/completions")
-FIRST_TOKEN = (b"content_block_delta", b"output_text.delta", b'"delta":{"content"', b"reasoning")
 STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
 SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
 UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
@@ -44,16 +43,6 @@ STATE = {"next_id": 1, "next_conv": 1, "server": None}
 
 
 # ---------- request analysis ----------
-
-def effort_of(req):
-    oc = req.get("output_config") or {}
-    r = req.get("reasoning")
-    return (
-        (oc.get("effort") if isinstance(oc, dict) else None)
-        or (r.get("effort") if isinstance(r, dict) else None)
-        or req.get("reasoning_effort")
-    )
-
 
 def _common(a, b):
     n = 0
@@ -170,27 +159,6 @@ def _output_text(body):
     return "".join(out)[:2000], stop
 
 
-def normalize(events):
-    merged = {}
-    for e in events:
-        merged.update({k: v for k, v in e["usage"].items() if v is not None})
-    if not merged:
-        return None
-    if "cache_read_input_tokens" in merged or "cache_creation_input_tokens" in merged:
-        read = merged.get("cache_read_input_tokens") or 0
-        write = merged.get("cache_creation_input_tokens") or 0
-        unc = merged.get("input_tokens") or 0
-        return {"read": read, "write": write, "uncached": unc, "input_total": read + write + unc,
-                "output": merged.get("output_tokens") or 0, "reasoning": None}
-    inp = merged.get("input_tokens", merged.get("prompt_tokens")) or 0
-    det = merged.get("input_tokens_details") or merged.get("prompt_tokens_details") or {}
-    odet = merged.get("output_tokens_details") or merged.get("completion_tokens_details") or {}
-    read = det.get("cached_tokens") or 0
-    return {"read": read, "write": None, "uncached": inp - read, "input_total": inp,
-            "output": merged.get("output_tokens", merged.get("completion_tokens")) or 0,
-            "reasoning": odet.get("reasoning_tokens")}
-
-
 def judge(rec):
     u = rec.get("usage")
     if not u:
@@ -280,7 +248,7 @@ def request(flow):
             "host": flow.request.pretty_host,
             "path": flow.request.path.split("?")[0],
             "model": req.get("model"),
-            "effort": effort_of(req),
+            "effort": providers.effort_of(req),
             "effort_fields": {k: req[k] for k in ("output_config", "thinking", "reasoning", "reasoning_effort", "tool_choice", "max_tokens", "max_output_tokens", "stream") if k in req},
             "_params": segments.dump({k: req.get(k) for k in ("thinking", "tool_choice")}),
             "req_bytes": len(flow.request.raw_content or b""),
@@ -311,7 +279,7 @@ def responseheaders(flow):
     def stream(data: bytes):
         if data:
             st["chunks"].append(data)
-            if st["first"] is None and any(k in data for k in FIRST_TOKEN):
+            if st["first"] is None and any(k in data for k in providers.FIRST_TOKEN):
                 st["first"] = time.time()
         return data
 
@@ -346,7 +314,7 @@ def response(flow):
             "ttft_s": round(st["first"] - t0, 3) if st["first"] else None,
             "total_s": round(now - t0, 3),
             "raw_usage": events,
-            "usage": normalize(events),
+            "usage": providers.normalize(events),
             "output": output if flow.response.status_code < 400 else body[:2000],
             "stop_reason": stop,
         })

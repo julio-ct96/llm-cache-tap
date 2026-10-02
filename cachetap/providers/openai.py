@@ -4,6 +4,8 @@ import re
 
 from cachetap.providers import base
 
+FIRST_TOKEN = (b"output_text.delta", b'"delta":{"content"', b"reasoning")
+
 
 def owns(model):
     return bool(base.version(model, "gpt") or re.match(r"o\d", model))
@@ -29,3 +31,21 @@ def cache_ttl(req, model):
 
 def min_cacheable(model):
     return 1024
+
+
+def effort(req):
+    r = req.get("reasoning")
+    return (
+        (r.get("effort") if isinstance(r, dict) else None)
+        or req.get("reasoning_effort")
+    )
+
+
+def normalize(merged):
+    inp = merged.get("input_tokens", merged.get("prompt_tokens")) or 0
+    det = merged.get("input_tokens_details") or merged.get("prompt_tokens_details") or {}
+    odet = merged.get("output_tokens_details") or merged.get("completion_tokens_details") or {}
+    read = det.get("cached_tokens") or 0
+    return {"read": read, "write": None, "uncached": inp - read, "input_total": inp,
+            "output": merged.get("output_tokens", merged.get("completion_tokens")) or 0,
+            "reasoning": odet.get("reasoning_tokens")}

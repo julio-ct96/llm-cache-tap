@@ -77,6 +77,29 @@ class MinCacheableTest(unittest.TestCase):
                 self.assertEqual(anthropic.min_cacheable(model), expected)
 
 
+class EffortTest(unittest.TestCase):
+    def test_declared(self):
+        self.assertEqual(anthropic.effort({"output_config": {"effort": "high"}}), "high")
+
+    def test_not_a_dict(self):
+        self.assertIsNone(anthropic.effort({"output_config": "x"}))
+
+    def test_absent(self):
+        self.assertIsNone(anthropic.effort({}))
+
+
+class NormalizeTest(unittest.TestCase):
+    def test_cache_fields(self):
+        merged = {"input_tokens": 20, "cache_creation_input_tokens": 3000, "cache_read_input_tokens": 0, "output_tokens": 50}
+        self.assertEqual(
+            anthropic.normalize(merged),
+            {"read": 0, "write": 3000, "uncached": 20, "input_total": 3020, "output": 50, "reasoning": None},
+        )
+
+    def test_other_shape(self):
+        self.assertIsNone(anthropic.normalize({"prompt_tokens": 5}))
+
+
 class WrittenTtlTest(unittest.TestCase):
     def test_one_hour(self):
         self.assertEqual(anthropic.written_ttl([made(0, 5000)]), 3600)

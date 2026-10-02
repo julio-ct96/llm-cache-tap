@@ -5,6 +5,7 @@ import re
 from cachetap.providers import base
 
 TTL_NAMES = {"5m": 300, "30m": 1800, "1h": 3600}
+FIRST_TOKEN = (b"content_block_delta",)
 
 
 def owns(model):
@@ -46,6 +47,21 @@ def min_cacheable(model):
     if opus in ((4, 6), (4, 5)) or haiku == (4, 5):
         return 4096
     return 1024
+
+
+def effort(req):
+    oc = req.get("output_config") or {}
+    return oc.get("effort") if isinstance(oc, dict) else None
+
+
+def normalize(merged):
+    if "cache_read_input_tokens" in merged or "cache_creation_input_tokens" in merged:
+        read = merged.get("cache_read_input_tokens") or 0
+        write = merged.get("cache_creation_input_tokens") or 0
+        unc = merged.get("input_tokens") or 0
+        return {"read": read, "write": write, "uncached": unc, "input_total": read + write + unc,
+                "output": merged.get("output_tokens") or 0, "reasoning": None}
+    return None
 
 
 def written_ttl(events):

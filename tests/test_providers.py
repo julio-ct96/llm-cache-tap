@@ -43,6 +43,40 @@ class MinCacheableTest(unittest.TestCase):
         self.assertEqual(providers.min_cacheable(None), 1024)
 
 
+class FirstTokenTest(unittest.TestCase):
+    def test_marks(self):
+        self.assertEqual(len(providers.FIRST_TOKEN), 4)
+        self.assertEqual(providers.FIRST_TOKEN[0], b"content_block_delta")
+
+
+class EffortOfTest(unittest.TestCase):
+    def test_both_shapes(self):
+        self.assertEqual(providers.effort_of({"output_config": {"effort": "high"}, "reasoning_effort": "low"}), "high")
+
+    def test_absent(self):
+        self.assertIsNone(providers.effort_of({}))
+
+
+class NormalizeTest(unittest.TestCase):
+    def test_empty(self):
+        self.assertIsNone(providers.normalize([]))
+
+    def test_merged_events(self):
+        events = [
+            {"event": "a", "usage": {"input_tokens": 20, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 10, "output_tokens": 1}},
+            {"event": "b", "usage": {"output_tokens": 50, "input_tokens": None}},
+        ]
+        usage = providers.normalize(events)
+        self.assertEqual(usage["output"], 50)
+        self.assertEqual(usage["uncached"], 20)
+        self.assertEqual(usage["input_total"], 30)
+
+    def test_openai_usage(self):
+        usage = providers.normalize([{"event": "a", "usage": {"prompt_tokens": 10}}])
+        self.assertIsNone(usage["write"])
+        self.assertEqual(usage["input_total"], 10)
+
+
 class WrittenTtlTest(unittest.TestCase):
     def test_confirmed_write(self):
         events = [{"event": "x", "usage": {"cache_creation": {"ephemeral_1h_input_tokens": 9}}}]

@@ -6,6 +6,8 @@ from cachetap.providers import anthropic, openai
 # the order is the order in which providers are tried
 PROVIDERS = (anthropic, openai)
 
+FIRST_TOKEN = anthropic.FIRST_TOKEN + openai.FIRST_TOKEN
+
 
 def cache_ttl(req):
     """How long the provider keeps this prefix cached, and how we know.
@@ -35,3 +37,22 @@ def min_cacheable(model):
 
 def written_ttl(events):
     return anthropic.written_ttl(events)
+
+
+def effort_of(req):
+    """Reasoning effort, judged by the shape of the message and not by the model name."""
+    return anthropic.effort(req) or openai.effort(req)
+
+
+def normalize(events):
+    """Token usage of a response, in one shape for every provider."""
+    merged = {}
+    for e in events:
+        merged.update({k: v for k, v in e["usage"].items() if v is not None})
+    if not merged:
+        return None
+    for provider in PROVIDERS:
+        usage = provider.normalize(merged)
+        if usage is not None:
+            return usage
+    return None

@@ -62,3 +62,35 @@ class CacheTtlTest(unittest.TestCase):
 class MinCacheableTest(unittest.TestCase):
     def test_gpt_5_6(self):
         self.assertEqual(openai.min_cacheable("gpt-5.6"), 1024)
+
+
+class EffortTest(unittest.TestCase):
+    def test_reasoning(self):
+        self.assertEqual(openai.effort({"reasoning": {"effort": "low"}}), "low")
+
+    def test_reasoning_effort(self):
+        self.assertEqual(openai.effort({"reasoning_effort": "medium"}), "medium")
+
+    def test_not_a_dict(self):
+        self.assertIsNone(openai.effort({"reasoning": "x"}))
+
+
+class NormalizeTest(unittest.TestCase):
+    def test_responses_shape(self):
+        merged = {
+            "input_tokens": 4200,
+            "input_tokens_details": {"cached_tokens": 3900},
+            "output_tokens": 80,
+            "output_tokens_details": {"reasoning_tokens": 30},
+        }
+        self.assertEqual(
+            openai.normalize(merged),
+            {"read": 3900, "write": None, "uncached": 300, "input_total": 4200, "output": 80, "reasoning": 30},
+        )
+
+    def test_chat_completions_shape(self):
+        merged = {"prompt_tokens": 1600, "prompt_tokens_details": {"cached_tokens": 1400}, "completion_tokens": 40}
+        self.assertEqual(
+            openai.normalize(merged),
+            {"read": 1400, "write": None, "uncached": 200, "input_total": 1600, "output": 40, "reasoning": None},
+        )
