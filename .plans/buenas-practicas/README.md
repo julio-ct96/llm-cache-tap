@@ -29,9 +29,9 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
 | 1.01 | Red de seguridad Python/JS | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | 180 tests Python, 2 JS y UI completa OK; golden idéntico; runner JS corregido en 3346504 |
-| 2.01 | Validación de peticiones | [2.01](fase-2/2.01-validacion-peticiones.md) | 1.01 | pendiente | Contratos de entrada |
-| 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | pendiente | Conserva datos válidos |
-| 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | pendiente | Filesystem en escritura |
+| 2.01 | Validación de peticiones | [2.01](fase-2/2.01-validacion-peticiones.md) | 1.01 | bloqueada | El contrato exige `input` string con `n_msgs=1`, pero el replay golden fija `n_msgs=17` para `gpt-5.6`; reglas prohíben cambiar golden |
+| 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | bloqueada | Suite completa falla en replay por cambio concurrente de 2.01 en tap.py (n_msgs 17→1); revalidar al cerrarse 2.01 |
+| 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | terminada sin commit | Filesystem en escritura |
 | 2.04 | Retención por bytes y expulsión | [2.04](fase-2/2.04-retencion-backend.md) | 2.01, 2.03 | pendiente | Protocolo compatible en casos existentes |
 | 2.05 | Retención del navegador | [2.05](fase-2/2.05-retencion-frontend.md) | 2.04 | pendiente | Elimina crecimiento sin límite |
 | 2.06 | Límites de respuestas | [2.06](fase-2/2.06-limites-respuestas.md) | 2.02, 2.04 | pendiente | Bytes originales siempre pasan |
@@ -93,7 +93,7 @@ Los módulos de dominio pueden importar `record` para sus tipos. Ningún módulo
 - **21 tareas y cinco fases.** Los contratos nuevos se especifican antes de ejecutar; cada cambio de comportamiento incorpora tests del mismo caso en su tarea para no dejar un paso intermedio rojo.
 - Mantener ES modules sin build, unittest y arquitectura modular. No añadir frontend framework, Pydantic, dataclasses para registros JSON ni una capa genérica de repositorios.
 - Mantener IDs de controles únicos y data-id/data-act para filas/acciones. No migrar selectores por una regla estética.
-- Preservar hashes, serialización, TTL, emparejado y veredictos de capturas completas válidas; golden idéntico. Cambios visibles intencionados: errores explícitos, datos expulsados, captura limitada y recuento de string input.
+- Preservar hashes, serialización, TTL, emparejado y veredictos de capturas completas válidas. Excepción comprobada al golden: 2.01 corrige solo n_msgs de 17 a 1 en las cinco apariciones de la petición 30. Las siguientes tareas conservan ese golden corregido. Cambios visibles intencionados: errores explícitos, datos expulsados, captura limitada y recuento de string input.
 - Los límites son política inicial revisable, no un resultado de benchmark. No prometen acotar la memoria que mitmproxy asigna antes del hook ni el tamaño de todas las estructuras Python.
 - Mypy gradual hasta incluir todo el backend de producción; Ruff sobre producción. Herramientas fuera del runtime normal. CI también ejecuta tests JS y navegador.
 - El benchmark mide funciones puras sin fijar umbrales inestables ni introducir índices de conversación antes de necesitarlo.
@@ -101,4 +101,4 @@ Los módulos de dominio pueden importar `record` para sus tipos. Ningún módulo
 
 ## Criterio de cierre
 
-Todas las tareas terminadas, `venv/bin/python scripts/check.py --full` verde, golden idéntico, límites/casos de error comprobados y documentación actualizada. No requiere credenciales ni llamadas reales a proveedores.
+Todas las tareas terminadas, `venv/bin/python scripts/check.py --full` verde, golden con únicamente la corrección documentada de 2.01, límites/casos de error comprobados y documentación actualizada. No requiere credenciales ni llamadas reales a proveedores.

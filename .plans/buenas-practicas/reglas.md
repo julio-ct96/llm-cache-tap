@@ -27,7 +27,7 @@ Lee este fichero, la fila de tu tarea en el índice y tu fichero de tarea. Las d
 - Python compatible con 3.12; documentación y notas del panel en español, identificadores y docstrings del código en inglés.
 - Los tests usan cuerpos sintéticos, logs temporales y puertos efímeros. Nunca escriben en `data/requests.jsonl`, ni usan 8899/8900, ni acceden a `ca/`.
 - Las pruebas de concurrencia usan barreras/eventos y deadlines; no dependen de un `sleep` para ordenar operaciones.
-- `golden.json` permanece idéntico: las nuevas condiciones se prueban con casos independientes. Si una tarea descubre que necesita cambiar el golden, se bloquea y solicita revisar el plan.
+- `golden.json` permanece idéntico salvo la corrección intencionada de 2.01: las cinco apariciones de n_msgs del registro 30 pasan de 17 a 1 (tres eventos, un registro y una línea de log). Solo el orquestador regenera con TAP_UPDATE_GOLDEN=1 y comprueba esas cinco diferencias exactas. Las demás tareas conservan el golden corregido. Cualquier diferencia adicional bloquea la tarea.
 - No añadas campos con valor por defecto a todos los registros: los nuevos indicadores de captura aparecen solo cuando corresponden.
 - Al modificar `cachetap/`, termina con `touch tap.py` para permitir la recarga del addon. Es una operación de fecha, no un cambio de contenido fuera de alcance.
 - No hagas `git add`, `git commit`, `git stash` ni instales hooks. No cambies configuraciones globales.
