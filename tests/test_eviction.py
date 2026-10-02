@@ -20,6 +20,9 @@ class EvictionTest(unittest.TestCase):
         self.assertEqual(result["body_ids"], [3, 4, 5])
         self.assertEqual(len(result["log_lines"]), 5)
         self.assertEqual(len(result["events"]), 15)
+        record_events = [event for event in result["events"] if event["type"] == "record"]
+        self.assertEqual(record_events[9]["evicted_ids"], [1])
+        self.assertEqual(record_events[12]["evicted_ids"], [2])
 
 
 if __name__ == "__main__":

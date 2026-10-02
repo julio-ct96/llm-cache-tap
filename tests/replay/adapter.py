@@ -14,6 +14,7 @@ def reset(log_path):
     store.CLIENTS.clear()
     store.STATE["next_id"] = 1
     store.STATE["next_conv"] = 1
+    store.STATE["body_bytes"] = 0
     config.LOG = log_path
 
 

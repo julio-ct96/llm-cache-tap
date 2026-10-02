@@ -12,3 +12,5 @@ UI_PORT = int(os.environ.get("TAP_UI_PORT", "8900"))
 TTL_FORCED = int(os.environ.get("TAP_TTL_S") or 0) or None
 TTL_S = TTL_FORCED or 300
 MAX = 300
+MAX_REQUEST_BYTES = 4 * 1024 * 1024
+MAX_BODY_BYTES = 64 * 1024 * 1024

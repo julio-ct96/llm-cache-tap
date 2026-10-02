@@ -3,7 +3,9 @@ import logging
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from cachetap import config
 from tests.replay import adapter
 from tests.replay.flows import FakeFlow, FakeRequest
 
@@ -52,6 +54,28 @@ class FlowsTest(unittest.TestCase):
         self.assertEqual(len(logs.output), 1)
         self.assertIn("messages debe ser una lista o null", logs.output[0])
         self.assertNotIn(body, logs.output[0])
+
+    def test_request_at_byte_limit_is_captured_and_over_limit_is_skipped(self):
+        with mock.patch.object(config, "MAX_REQUEST_BYTES", 2):
+            accepted = FakeFlow(FakeRequest(
+                "POST", "api.anthropic.com", "/v1/messages", "{}", 1790000000.0
+            ))
+            adapter.hooks().request(accepted)
+            self.assertEqual(accepted.metadata["tap_id"], 1)
+            self.assertEqual(adapter.records()[0]["req_bytes"], 2)
+
+            oversized = FakeFlow(FakeRequest(
+                "POST", "api.anthropic.com", "/v1/messages", "{} ", 1790000001.0
+            ))
+            raw_content = oversized.request.raw_content
+            with mock.patch.object(oversized.request, "get_text", side_effect=AssertionError("read body")):
+                with self.assertLogs("tap", level="WARNING") as logs:
+                    adapter.hooks().request(oversized)
+            self.assertEqual(oversized.request.raw_content, raw_content)
+            self.assertNotIn("tap_id", oversized.metadata)
+            self.assertEqual(len(adapter.records()), 1)
+            self.assertIn("límite de tamaño de petición", logs.output[0])
+            self.assertNotIn("{}", logs.output[0])
 
     def test_input_string_counts_as_one_message(self):
         flow = FakeFlow(FakeRequest(

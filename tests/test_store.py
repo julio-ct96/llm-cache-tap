@@ -36,6 +36,34 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(list(store.RECORDS), [2, 3])
         self.assertEqual(list(store.BODIES), [2, 3])
 
+    def test_byte_budget_counts_utf8_and_evicts_fifo(self):
+        with mock.patch.object(config, "MAX_BODY_BYTES", 4):
+            self.assertEqual(store.add({"id": 1}, "ñ"), [])
+            self.assertEqual(store.add({"id": 2}, "ab"), [])
+            self.assertEqual(store.add({"id": 3}, "c"), [1])
+        self.assertEqual(list(store.RECORDS), [2, 3])
+        self.assertEqual(list(store.BODIES), [2, 3])
+        self.assertEqual(store.STATE["body_bytes"], 3)
+
+    def test_replacing_id_adjusts_body_byte_count(self):
+        store.add({"id": 1}, "ñ")
+        store.add({"id": 2}, "ab")
+        self.assertEqual(store.add({"id": 1}, "a"), [])
+        self.assertEqual(store.STATE["body_bytes"], 3)
+        self.assertEqual(list(store.RECORDS), [1, 2])
+        self.assertEqual(store.BODIES[1], "a")
+
+    def test_body_larger_than_budget_is_not_retained_and_publishes_eviction(self):
+        q = adapter.subscribe()
+        with mock.patch.object(config, "MAX_BODY_BYTES", 2):
+            evicted = store.add({"id": 1}, "abc")
+            store.push({"id": 1}, evicted)
+        self.assertEqual(evicted, [1])
+        self.assertEqual(store.RECORDS, {})
+        self.assertEqual(store.BODIES, {})
+        self.assertEqual(store.STATE["body_bytes"], 0)
+        self.assertEqual(q.get_nowait(), {"type": "evict", "ids": [1]})
+
     def test_publish(self):
         q = adapter.subscribe()
         store.publish({"type": "x"})
@@ -74,6 +102,7 @@ class StoreTest(unittest.TestCase):
         store.clear()
         self.assertEqual(len(store.RECORDS), 0)
         self.assertEqual(len(store.BODIES), 0)
+        self.assertEqual(store.STATE["body_bytes"], 0)
         self.assertEqual(q.get_nowait(), {"type": "clear"})
 
 

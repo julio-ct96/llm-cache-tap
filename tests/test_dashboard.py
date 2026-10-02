@@ -124,6 +124,7 @@ class DashboardTest(unittest.TestCase):
             self.assertEqual(event["type"], "snapshot")
             self.assertEqual(len(event["recs"]), 2)
             self.assertEqual(event["ttl"], 300)
+            self.assertEqual(event["max_records"], config.MAX)
         finally:
             conn.close()
 

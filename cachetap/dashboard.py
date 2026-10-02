@@ -81,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(f"data: {json.dumps({'type': 'snapshot', 'recs': snap, 'ttl': config.TTL_S})}\n\n".encode())
+            self.wfile.write(f"data: {json.dumps({'type': 'snapshot', 'recs': snap, 'ttl': config.TTL_S, 'max_records': config.MAX})}\n\n".encode())
             self.wfile.flush()
             while True:
                 try:

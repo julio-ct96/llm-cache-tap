@@ -37,6 +37,9 @@ def request(flow):
         return
     # the stream hook below sees raw bytes, so ask for an uncompressed response
     flow.request.headers["accept-encoding"] = "identity"
+    if len(flow.request.raw_content or b"") > config.MAX_REQUEST_BYTES:
+        logger.warning("Petición no inspeccionable: límite de tamaño de petición")
+        return
     text = flow.request.get_text(strict=False) or ""
     try:
         req = request_body.parse(text)
@@ -71,8 +74,8 @@ def request(flow):
             rec["prev_id"] = None
         else:
             linking.link(rec, req, best, best_n, store.BODIES.get(best["id"]))
-        store.add(rec, text)
-        store.push(rec)
+        evicted_ids = store.add(rec, text)
+        store.push(rec, evicted_ids)
     flow.metadata["tap_id"] = rid
 
 
