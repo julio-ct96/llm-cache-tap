@@ -4,6 +4,7 @@ import { tick } from './cache-timer.js';
 import { showDetail, closeDetail } from './detail.js';
 import { SELECT_FILTERS, TOGGLE_FILTERS, pressed, render, resetFilters } from './list.js';
 import { connect } from './stream.js';
+import { loadHelp } from './help.js';
 
 // ---------- events ----------
 
@@ -66,4 +67,5 @@ setInterval(tick, 1000);
 
 $('help-open').addEventListener('click', () => $('help').showModal());
 
+loadHelp();
 connect();

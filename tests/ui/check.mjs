@@ -249,6 +249,13 @@ async function main() {
       const sizes = await js(`[...document.querySelectorAll('#help table')].map((table) => table.tBodies[0].rows.length)`);
       const minimum = (await js(`!!document.getElementById('help-min')`)) ? 5 : 4;
       expect(sizes, [5, 5, minimum], 'rows per help table');
+      if (minimum === 5) {
+        const first = await js(`(() => { const row = document.querySelector('#help-ttl tr'); return [row.cells[0].textContent, [...row.querySelectorAll('code')].map((c) => c.textContent)]; })()`);
+        expect(first, ['Claude (todos)', ['cache_control', 'ttl: "1h"']], 'first TTL row');
+        const tokens = await js(`[...document.querySelectorAll('#help-min tr')].map((row) => row.cells[1].textContent)`);
+        expect(tokens, ['512', '1.024', '2.048', '4.096', '1.024'], 'minimum cacheable column');
+        expect(await text('#help-reviewed'), 'octubre de 2026', '#help-reviewed');
+      }
       await js(`document.getElementById('help').close()`);
     });
     await check('C16', 'the bundled fonts load', async () => {

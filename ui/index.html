@@ -125,27 +125,16 @@
         </p>
         <table>
           <thead><tr><th>Modelos</th><th>TTL</th><th>Cuenta desde</th></tr></thead>
-          <tbody>
-            <tr><td>Claude (todos)</td><td>5 min, o 1 h si <code>cache_control</code> lleva <code>ttl: "1h"</code></td><td>inicio de la petición</td></tr>
-            <tr><td>GPT-5.6 y posteriores</td><td>30 min (<code>prompt_cache_options.ttl</code>)</td><td>última escritura o lectura</td></tr>
-            <tr><td>GPT-5 a 5.5 y GPT-4.1</td><td><code>in_memory</code>: 5–10 min, hasta 1 h · <code>24h</code>: unos 30 min, hasta 24 h</td><td>última actividad</td></tr>
-            <tr><td>GPT anteriores y serie o</td><td>5–10 min, hasta 1 h</td><td>última actividad</td></tr>
-            <tr><td>Otros proveedores</td><td>5 min, supuesto</td><td>final de la petición</td></tr>
-          </tbody>
+          <tbody id="help-ttl"></tbody>
         </table>
         <p>Toda lectura de caché renueva el plazo. <code>TAP_TTL_S</code> fuerza un único TTL para todas las peticiones.</p>
 
         <h3>Mínimo cacheable</h3>
         <table>
           <thead><tr><th>Modelos</th><th class="num">Tokens</th></tr></thead>
-          <tbody>
-            <tr><td>Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x</td><td class="num">512</td></tr>
-            <tr><td>Claude Opus 4.8, Sonnet 4.6 y 4.5 · modelos GPT</td><td class="num">1.024</td></tr>
-            <tr><td>Claude Opus 4.7</td><td class="num">2.048</td></tr>
-            <tr><td>Claude Opus 4.6 y 4.5, Haiku 4.5</td><td class="num">4.096</td></tr>
-          </tbody>
+          <tbody id="help-min"></tbody>
         </table>
-        <p>Valores de las guías de caché de Anthropic y OpenAI, revisados en octubre de 2026.</p>
+        <p>Valores de las guías de caché de Anthropic y OpenAI, revisados en <span id="help-reviewed"></span>.</p>
       </div>
     </dialog>
 
