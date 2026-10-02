@@ -42,7 +42,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 2.15 | Cierre del backend | `fase-2/2.15-cierre-backend.md` | 2.14 | terminada con commit | |
 | 3.00 | Test de recursos de la interfaz | `fase-3/3.00-test-recursos-ui.md` | — | terminada con commit | |
 | 3.01 | JS: `format.js` y `prefs.js` | `fase-3/3.01-js-format-prefs.md` | 3.00, 1.10, 2.15 | terminada con commit | |
-| 3.02 | JS: `state.js` | `fase-3/3.02-js-state.md` | 3.01 | pendiente | |
+| 3.02 | JS: `state.js` | `fase-3/3.02-js-state.md` | 3.01 | terminada con commit | |
 | 3.03 | JS: `parts.js` y `cache-timer.js` | `fase-3/3.03-js-parts-timer.md` | 3.02 | pendiente | |
 | 3.04 | JS: `list.js` | `fase-3/3.04-js-list.md` | 3.03 | pendiente | |
 | 3.05 | JS: `detail.js` | `fase-3/3.05-js-detail.md` | 3.04 | pendiente | |

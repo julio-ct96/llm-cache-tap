@@ -1,6 +1,7 @@
 import { jsonTree } from './json-tree.js';
 import { $, esc, num, secs, clock, duration } from './format.js';
 import { store } from './prefs.js';
+import { state } from './state.js';
 
 const BAD_VERDICTS = ['MISS', 'PARTIAL', 'ERR'];
 const SELECT_FILTERS = [
@@ -8,12 +9,6 @@ const SELECT_FILTERS = [
   ['f-conv', 'conv', 'todas las conversaciones'],
 ];
 const TOGGLE_FILTERS = ['f-bad', 'f-eff'];
-
-const recs = new Map();
-let visible = []; // records that pass the filters, in display order
-let successors = new Map(); // record id -> the next request of its conversation
-let selected = null;
-let ttl = 300;
 
 const pressed = (id) => $(id).getAttribute('aria-pressed') === 'true';
 
@@ -50,7 +45,7 @@ function shareBar(u, wide = false) {
   </div>`;
 }
 
-const ttlOf = (r) => r.ttl_s ?? ttl;
+const ttlOf = (r) => r.ttl_s ?? state.ttl;
 
 /** "TTL 5 min (puede durar hasta 1 h) · por defecto de Claude" */
 function ttlLabel(r) {
@@ -68,7 +63,7 @@ function timerHtml(r) {
   if (r.state !== 'done' || r.ts_end == null || r.verdict === 'N/A') return '–';
   const total = ttlOf(r);
   const bar = (width) => `<span class="ttl-bar"><i style="width:${width}%"></i></span>`;
-  const next = successors.get(r.id);
+  const next = state.successors.get(r.id);
   if (!next) {
     const from = r.ttl_anchor === 'start' ? r.ts : r.ts_end;
     return `<span class="ttl" data-from="${from}" data-ttl="${total}" data-max="${r.ttl_max_s ?? 0}" title="${esc(ttlLabel(r))}">
@@ -79,9 +74,9 @@ function timerHtml(r) {
   const left = total - age;
   const title = esc(`parado por #${next.id} a los ${age} s · ${ttlLabel(r)}`);
   if (left > 0) return `<span class="ttl stopped" title="${title}">${bar((100 * left) / total)}<span class="ttl-text">${clock(left)}</span></span>`;
-  const state = age < (r.ttl_max_s ?? 0) ? 'dudosa' : 'caducada';
-  const cls = state === 'dudosa' ? 'doubtful' : 'over-ttl';
-  return `<span class="ttl stopped ${cls}" title="${title}">${bar(0)}<span class="ttl-text">${state}</span></span>`;
+  const expiry = age < (r.ttl_max_s ?? 0) ? 'dudosa' : 'caducada';
+  const cls = expiry === 'dudosa' ? 'doubtful' : 'over-ttl';
+  return `<span class="ttl stopped ${cls}" title="${title}">${bar(0)}<span class="ttl-text">${expiry}</span></span>`;
 }
 
 function tick() {
@@ -103,11 +98,11 @@ function rowHtml(r) {
   const effort = r.effort_changed
     ? `<span class="chip changed">${esc(r.prev_effort ?? '∅')} → ${esc(r.effort ?? '∅')}</span>`
     : `<span class="chip">${esc(r.effort ?? '–')}</span>`;
-  const prevRec = recs.get(r.prev_id);
+  const prevRec = state.recs.get(r.prev_id);
   const late = prevRec && (r.age_s ?? r.gap_s) > ttlOf(prevRec);
   const gap = r.gap_s == null ? '–' : `<span class="${late ? 'over-ttl' : ''}">${r.gap_s.toFixed(0)} s</span>`;
   const prev = r.prev_id ? ` <span class="muted">← #${r.prev_id}</span>` : '';
-  const classes = [r.id === selected ? 'selected' : '', r.server_side ? 'server' : ''].join(' ');
+  const classes = [r.id === state.selected ? 'selected' : '', r.server_side ? 'server' : ''].join(' ');
   return `<tr data-id="${r.id}" class="${classes}">
     <td class="num">${r.id}</td>
     <td class="mono">${esc(r.time)}</td>
@@ -128,21 +123,21 @@ function rowHtml(r) {
 }
 
 function render() {
-  successors = new Map();
-  for (const r of [...recs.values()].sort((a, b) => a.id - b.id)) {
-    if (r.prev_id != null && !successors.has(r.prev_id)) successors.set(r.prev_id, r);
+  state.successors = new Map();
+  for (const r of [...state.recs.values()].sort((a, b) => a.id - b.id)) {
+    if (r.prev_id != null && !state.successors.has(r.prev_id)) state.successors.set(r.prev_id, r);
   }
-  visible = [...recs.values()].filter(passes).sort((a, b) => b.id - a.id);
-  $('rows').innerHTML = visible.map(rowHtml).join('');
+  state.visible = [...state.recs.values()].filter(passes).sort((a, b) => b.id - a.id);
+  $('rows').innerHTML = state.visible.map(rowHtml).join('');
   tick();
-  $('empty').hidden = recs.size > 0;
-  $('no-match').hidden = recs.size === 0 || visible.length > 0;
+  $('empty').hidden = state.recs.size > 0;
+  $('no-match').hidden = state.recs.size === 0 || state.visible.length > 0;
 
-  const done = visible.filter((r) => r.state === 'done');
+  const done = state.visible.filter((r) => r.state === 'done');
   const effort = done.filter((r) => r.effort_changed && r.prev_id);
   const read = done.reduce((sum, r) => sum + (r.usage?.read || 0), 0);
   const total = done.reduce((sum, r) => sum + (r.usage?.input_total || 0), 0);
-  $('s-n').textContent = visible.length;
+  $('s-n').textContent = state.visible.length;
   $('s-hit').textContent = done.filter((r) => r.verdict === 'HIT').length;
   $('s-miss').textContent = done.filter((r) => ['MISS', 'PARTIAL'].includes(r.verdict)).length;
   $('s-srv').textContent = done.filter((r) => r.server_side).length;
@@ -154,7 +149,7 @@ function syncFilters() {
   for (const [id, key, all] of SELECT_FILTERS) {
     const select = $(id);
     const current = select.value;
-    const values = [...new Set([...recs.values()].map((r) => r[key]).filter(Boolean))].sort();
+    const values = [...new Set([...state.recs.values()].map((r) => r[key]).filter(Boolean))].sort();
     select.innerHTML = `<option value="">${all}</option>` + values.map((v) => `<option>${esc(v)}</option>`).join('');
     select.value = values.includes(current) ? current : '';
   }
@@ -208,7 +203,7 @@ function summaryHtml(r) {
   const prevEffort = r.prev_id ? ` <span class="muted">(anterior #${r.prev_id}: ${esc(r.prev_effort ?? '–')})</span>` : '';
   const prefix = r.prev_id == null ? 'sin petición anterior' : r.prefix_intact ? 'intacto' : 'modificado en ' + esc(r.diverge_at);
   const gap = r.gap_s != null ? ` · ${r.gap_s} s tras la anterior` : '';
-  const next = successors.get(r.id);
+  const next = state.successors.get(r.id);
   const stopped = next ? `parado por #${next.id} a los ${next.age_s ?? next.gap_s} s · ` : '';
   const cacheNote = stopped + esc(ttlLabel(r));
   const reasoning = u.reasoning != null ? ` (razonamiento ${num(u.reasoning)})` : '';
@@ -281,7 +276,7 @@ async function loadBody(id) {
   if (body.id !== id) {
     host.innerHTML = '<p class="muted">cargando…</p>';
     const res = await fetch(`/api/body/${id}`);
-    if (selected !== id) return;
+    if (state.selected !== id) return;
     const text = res.ok ? await res.text() : '';
     body = { id, value: parseJson(text) ?? text };
   }
@@ -336,16 +331,16 @@ function renderDetail(r) {
 }
 
 async function showDetail(id, reveal = false) {
-  selected = id;
+  state.selected = id;
   render();
   if (reveal) $('rows').querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' });
   const res = await fetch(`/api/record/${id}`);
-  if (!res.ok || selected !== id) return;
+  if (!res.ok || state.selected !== id) return;
   renderDetail(await res.json());
 }
 
 function closeDetail() {
-  selected = null;
+  state.selected = null;
   detail.hidden = true;
   $('resizer').hidden = true;
   render();
@@ -376,7 +371,7 @@ detail.addEventListener(
     if (!key) return;
     sectionsOpen[key] = e.target.open;
     store.set('sections', sectionsOpen);
-    if (key === 'body' && e.target.open) loadBody(selected);
+    if (key === 'body' && e.target.open) loadBody(state.selected);
   },
   true,
 );
@@ -441,7 +436,7 @@ document.addEventListener('keydown', (e) => {
   const typing = e.target instanceof Element && e.target.matches('input, select, textarea');
   if (e.key === 'Escape') {
     if (typing) e.target.blur();
-    else if (selected != null) closeDetail();
+    else if (state.selected != null) closeDetail();
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -451,11 +446,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const step = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[e.key];
-  if (!step || !visible.length) return;
+  if (!step || !state.visible.length) return;
   e.preventDefault();
-  const index = visible.findIndex((r) => r.id === selected);
-  const next = index === -1 ? 0 : Math.min(visible.length - 1, Math.max(0, index + step));
-  showDetail(visible[next].id, true);
+  const index = state.visible.findIndex((r) => r.id === state.selected);
+  const next = index === -1 ? 0 : Math.min(state.visible.length - 1, Math.max(0, index + step));
+  showDetail(state.visible[next].id, true);
 });
 
 function setConnected(on) {
@@ -473,16 +468,16 @@ source.onerror = () => setConnected(false);
 source.onmessage = (message) => {
   const ev = JSON.parse(message.data);
   if (ev.type === 'snapshot') {
-    recs.clear();
-    ttl = ev.ttl;
-    ev.recs.forEach((r) => recs.set(r.id, r));
+    state.recs.clear();
+    state.ttl = ev.ttl;
+    ev.recs.forEach((r) => state.recs.set(r.id, r));
   } else if (ev.type === 'clear') {
-    recs.clear();
+    state.recs.clear();
     closeDetail();
   } else if (ev.type === 'record') {
-    recs.set(ev.rec.id, ev.rec);
+    state.recs.set(ev.rec.id, ev.rec);
     // a new request also stops the timer of the one it follows
-    if (ev.rec.id === selected || ev.rec.prev_id === selected) showDetail(selected);
+    if (ev.rec.id === state.selected || ev.rec.prev_id === state.selected) showDetail(state.selected);
   }
   syncFilters();
   render();
