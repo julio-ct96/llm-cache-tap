@@ -14,7 +14,8 @@ El plan se escribe una vez y se lee muchas, casi siempre por un modelo que no pu
 
 ## Cómo cortar las tareas
 
-- **Tamaño:** una tarea cabe en una sesión corta de un modelo pequeño. Si su fichero pasa de unas 100 líneas, pártela.
+- **Tamaño:** una tarea tiene un solo objetivo y una sola verificación, y cabe en una sesión corta de un modelo pequeño. Pártela cuando tenga dos objetivos
+  o cuando una mitad se pueda comprobar sin la otra, no por lo que ocupe su fichero: una tabla larga de casos no la hace grande.
 - **Mover es cortar y pegar.** Una tarea de extracción nombra cada función que se mueve, su nombre nuevo y cada sitio de llamada que cambia. Los cambios de lógica, si los hay, se enumeran aparte y son los únicos permitidos.
 - **Cambios mecánicos masivos:** lista todas las apariciones por función o bloque, di cuáles **no** se tocan aunque lo parezcan, y da recuentos que el ejecutor pueda comprobar.
 - **Independencia real:** dos tareas son paralelas solo si no comparten ningún fichero. Un índice o un fichero de registro compartido no cuenta si cada una edita solo su línea.

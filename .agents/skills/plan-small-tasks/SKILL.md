@@ -19,7 +19,7 @@ No la uses para un cambio que se resuelve en unas pocas ediciones: hazlo directa
 
 1. **Nada que interpretar.** Cada tarea dice qué leer, qué ficheros puede tocar, qué pasos dar y cómo comprobarlo. Las decisiones se toman al escribir el plan, no al ejecutarlo.
 2. **Sin código de ejemplo.** Se describe con tablas: qué se mueve, a dónde, con qué nombre; qué entrada da qué resultado. El código de ejemplo se copia mal y envejece.
-3. **Tareas pequeñas, verificables e independientes.** Un fichero por tarea, entre 20 y 100 líneas. Cada una deja el proyecto funcionando y con los tests en verde.
+3. **Tareas pequeñas, verificables e independientes.** Un fichero por tarea, con un solo objetivo. Cada una deja el proyecto funcionando y con los tests en verde.
 4. **Primero la red de seguridad.** Antes de tocar código existente, tests que fijen su comportamiento actual. Después, cada tarea se juzga contra ellos.
 5. **Hechos comprobados, no supuestos.** Todo número, nombre, recuento o resultado esperado que aparezca en el plan se ha verificado contra el código real antes de escribirlo.
 6. **Verificación con un comando.** Cada comprobación es un comando con su salida esperada. Lo que exija mirar a ojo o usar herramientas interactivas se automatiza antes.
