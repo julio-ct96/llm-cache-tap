@@ -10,7 +10,6 @@ show them; data/requests.jsonl only stores metrics.
 
 import hashlib
 import json
-import os
 import queue
 import re
 import sys
@@ -18,30 +17,21 @@ import threading
 import time
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
 if __name__.startswith("__mitmproxy_script__"):
     # mitmproxy re-executes this file on save; dropping cachetap modules reloads submodules too.
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-HERE =Path(__file__).resolve().parent
-DATA = HERE / "data"
-DATA.mkdir(exist_ok=True)
-LOG = DATA / "requests.jsonl"
-UI = HERE / "ui"
+from cachetap import config
+
 MIME = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".woff2": "font/woff2",
 }
-UI_PORT = int(os.environ.get("TAP_UI_PORT", "8900"))
-# TAP_TTL_S forces one TTL for every request; without it the TTL is worked out per request.
-TTL_FORCED = int(os.environ.get("TAP_TTL_S") or 0) or None
-TTL_S = TTL_FORCED or 300
 TTL_NAMES = {"5m": 300, "30m": 1800, "1h": 3600}
-MAX = 300
 LLM_PATHS = ("/messages", "/responses", "/chat/completions")
 FIRST_TOKEN = (b"content_block_delta", b"output_text.delta", b'"delta":{"content"', b"reasoning")
 STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
@@ -184,8 +174,8 @@ def cache_ttl(req):
     counts from the start or the end of the request. Sources: the prompt caching
     guides of Anthropic and OpenAI, as of October 2026.
     """
-    if TTL_FORCED:
-        return {"ttl_s": TTL_FORCED, "ttl_source": "forzado con TAP_TTL_S", "ttl_anchor": "end"}
+    if config.TTL_FORCED:
+        return {"ttl_s": config.TTL_FORCED, "ttl_source": "forzado con TAP_TTL_S", "ttl_anchor": "end"}
     model = str(req.get("model") or "").lower()
     if "claude" in model:
         # 5 minutes unless a breakpoint asks for 1 hour; the shortest one is the first to go
@@ -211,7 +201,7 @@ def cache_ttl(req):
             return {"ttl_s": 300, "ttl_max_s": 3600, "ttl_source": "por defecto: este modelo solo admite in_memory", "ttl_anchor": "end"}
         # the default retention depends on the organisation (24h unless it has zero data retention)
         return {"ttl_s": 300, "ttl_max_s": 86400, "ttl_source": "supuesto: la retención por defecto depende de la organización", "ttl_anchor": "end"}
-    return {"ttl_s": TTL_S, "ttl_source": "supuesto: proveedor sin TTL conocido", "ttl_anchor": "end"}
+    return {"ttl_s": config.TTL_S, "ttl_source": "supuesto: proveedor sin TTL conocido", "ttl_anchor": "end"}
 
 
 def written_ttl(events):
@@ -419,7 +409,7 @@ def judge(rec):
                 notes.append("cambiaron thinking/tool_choice")
             if not rec.get("prefix_intact"):
                 notes.append(f"el cliente modificó el prefijo en {rec.get('diverge_at')}")
-            ttl, age = prev.get("ttl_s", TTL_S), rec.get("age_s", 0)
+            ttl, age = prev.get("ttl_s", config.TTL_S), rec.get("age_s", 0)
             if age > ttl:
                 since = "el inicio" if prev.get("ttl_anchor") == "start" else "el final"
                 notes.append(f"pasaron {age:.0f} s desde {since} de #{prev['id']} (TTL {ttl} s, {prev.get('ttl_source')})")
@@ -486,7 +476,7 @@ def request(flow):
         link_to_previous(rec, req)
         RECORDS[rid] = rec
         BODIES[rid] = text
-        while len(RECORDS) > MAX:
+        while len(RECORDS) > config.MAX:
             old, _ = RECORDS.popitem(last=False)
             BODIES.pop(old, None)
         push(rec)
@@ -543,12 +533,12 @@ def response(flow):
             "stop_reason": stop,
         })
         written = written_ttl(events)
-        if written and not TTL_FORCED:
+        if written and not config.TTL_FORCED:
             minutes = written // 60
             rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
         judge(rec)
         push(rec)
-        with open(LOG, "a") as f:
+        with open(config.LOG, "a") as f:
             f.write(json.dumps({k: v for k, v in light(rec).items()}, ensure_ascii=False) + "\n")
 
 
@@ -602,8 +592,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, path):
         """Serve a dashboard file from ui/, and nothing outside of it."""
-        f = (UI / (path.lstrip("/") or "index.html")).resolve()
-        if UI not in f.parents or f.suffix not in MIME or not f.is_file():
+        f = (config.UI / (path.lstrip("/") or "index.html")).resolve()
+        if config.UI not in f.parents or f.suffix not in MIME or not f.is_file():
             return self._send(404, "{}")
         # fonts never change; everything else is edited live
         cache = "max-age=86400" if f.suffix == ".woff2" else "no-store"
@@ -630,7 +620,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(f"data: {json.dumps({'type': 'snapshot', 'recs': snap, 'ttl': TTL_S})}\n\n".encode())
+            self.wfile.write(f"data: {json.dumps({'type': 'snapshot', 'recs': snap, 'ttl': config.TTL_S})}\n\n".encode())
             self.wfile.flush()
             while True:
                 try:
@@ -648,11 +638,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def load(loader):
     ThreadingHTTPServer.allow_reuse_address = True
-    srv = ThreadingHTTPServer(("127.0.0.1", UI_PORT), Handler)
+    srv = ThreadingHTTPServer(("127.0.0.1", config.UI_PORT), Handler)
     srv.daemon_threads = True
     STATE["server"] = srv
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    print(f"[tap] dashboard: http://127.0.0.1:{UI_PORT}", flush=True)
+    print(f"[tap] dashboard: http://127.0.0.1:{config.UI_PORT}", flush=True)
 
 
 def done():

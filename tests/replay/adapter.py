@@ -1,6 +1,7 @@
 import queue
 
 import tap
+from cachetap import config
 
 
 def hooks():
@@ -13,7 +14,7 @@ def reset(log_path):
     tap.CLIENTS.clear()
     tap.STATE["next_id"] = 1
     tap.STATE["next_conv"] = 1
-    tap.LOG = log_path
+    config.LOG = log_path
 
 
 def records():
@@ -31,8 +32,8 @@ def subscribe():
 
 
 def set_max(n):
-    old = tap.MAX
-    tap.MAX = n
+    old = config.MAX
+    config.MAX = n
     return old
 
 
