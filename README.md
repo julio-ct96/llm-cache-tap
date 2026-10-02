@@ -21,13 +21,13 @@ cd llm-cache-tap
 ./start.sh
 ```
 
-La primera vez tarda alrededor de medio minuto. Cuando está listo escribe:
+La primera vez tarda alrededor de medio minuto. El panel queda disponible en:
 
 ```
-[tap] dashboard: http://127.0.0.1:8900
+http://127.0.0.1:8900
 ```
 
-Deja esa terminal abierta. Quedan en marcha dos cosas:
+El addon anuncia esa URL con `logger.info`; `start.sh` usa nivel `warn`, por lo que el aviso informativo no se muestra con su configuración predeterminada. Deja esa terminal abierta. Quedan en marcha dos cosas:
 
 | Qué | Dónde |
 | --- | --- |
@@ -90,6 +90,21 @@ TAP_PROXY_PORT=9001 ./via.sh opencode
 - `data/requests.jsonl` guarda solo métricas, no contenido. Esa carpeta tampoco se sube a git.
 - El panel solo responde a `127.0.0.1` y `localhost`.
 
+## Panel local y datos
+
+El servidor escucha solo en `127.0.0.1` (puerto `TAP_UI_PORT`, por defecto 8900) y atiende estas rutas:
+
+| Método y ruta | Respuesta |
+| --- | --- |
+| `GET /` y recursos de `ui/` | Interfaz estática; solo sirve ficheros dentro de `ui/` |
+| `GET /api/reference` | Referencia de TTL y mínimos cacheables de los proveedores |
+| `GET /api/record/<id>` | Registro público completo, sin claves internas |
+| `GET /api/body/<id>` | Cuerpo de petición retenido; devuelve 404 si ya fue expulsado |
+| `GET /events` | Stream SSE: `snapshot`, `record`, `evict` y `clear` |
+| `POST /api/clear` | Limpia registros retenidos y emite `clear` |
+
+Los contratos de Python están en `cachetap/record.py`: `Record` se completa progresivamente y solo requiere `id`; `state`, `verdict`, eventos y demás estados cerrados son `Literal`/`TypedDict`. En la API los registros de lista omiten campos pesados e internos; el endpoint de detalle expone los campos no internos. Los cuerpos no se escriben en el jsonl.
+
 ## Si algo falla
 
 | Síntoma | Causa y arreglo |
@@ -103,11 +118,37 @@ TAP_PROXY_PORT=9001 ./via.sh opencode
 
 ## Desarrollo
 
+Requisitos de las comprobaciones: Python 3.12 o superior, Node.js 24 (módulos ES y WebSocket global) y Chrome/Chromium para la suite de navegador. El entorno `venv/` debe tener las dependencias runtime y de desarrollo:
+
 ```bash
+python3 -m venv venv
+venv/bin/python -m pip install -r requirements-ci.txt  # dependencias directas para desarrollo/CI
+```
+
+`requirements-ci.txt` fija las dependencias directas de ejecución y referencia `requirements-dev.txt`; este último fija Ruff y mypy. No es un lock de dependencias transitivas. Para añadir las herramientas a un entorno existente que ya tenga mitmproxy:
+
+```bash
+venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Comprobaciones:
+
+```bash
+venv/bin/python scripts/check.py          # Ruff, mypy, 229 tests Python y checks JS
+venv/bin/python scripts/check.py --full   # lo anterior y la suite completa de Chrome
+node tests/ui/check.mjs --full            # suite de navegador por separado
 venv/bin/python -m unittest discover -s tests -t . -q   # tests, sin dependencias extra
+node --test tests/ui/unit/*.test.mjs                   # tests unitarios JS
+node tests/ui/benchmark.mjs                            # benchmark informativo, sin umbral
 venv/bin/python tests/replay/serve.py                   # panel con datos de prueba en el puerto 8901, sin proxy
 ```
 
+La comprobación `--full` inicia el replay en `127.0.0.1:8901` y Chrome headless en el puerto de depuración `9334`; `TAP_UI_PORT`, `TAP_DEBUG_PORT` y `CHROME_BIN` permiten sustituirlos. No uses los puertos 8899/8900 para pruebas. La suite completa ejercita interfaz, accesibilidad/errores visibles, filtros, datos SSE y carreras; el runner local ejecuta también Ruff, formato, mypy, unittest y Node.
+
+Los límites de `cachetap/config.py` son políticas del inspector, no cotas de memoria del proceso: 300 registros; 4 MiB por cuerpo de petición inspeccionable; 64 MiB de cuerpos UTF-8 retenidos en conjunto; 8 MiB por buffer de respuesta; 16 capturas de respuesta simultáneas y 512 eventos pendientes por cliente SSE. Una petición mayor de 4 MiB pasa sin inspección. Al exceder el límite de una respuesta se descarta su buffer y su veredicto pasa a `N/A`; si se alcanzan 16 capturas, las siguientes respuestas pasan sin captura y también quedan `N/A`. El tráfico hacia el proveedor conserva sus bytes originales. El presupuesto solo contabiliza los cuerpos retenidos: no incluye las estructuras Python, buffers internos de mitmproxy ni la memoria total/RSS del proceso. Una cola SSE llena se vacía, recibe una señal de desconexión y se cierra; EventSource se reconecta y recibe un snapshot completo.
+
+`venv/bin/python scripts/check.py --full` pasó localmente con Python 3.14.6 y Node 24.14.1. La suite comprobó 229 tests Python y 11 tests unitarios JS; el chequeo UI completo es el comando `node tests/ui/check.mjs --full`. El workflow de GitHub está configurado para Python 3.12, Node 24 y Chrome, pero no se consultó un resultado remoto en esta sesión. El benchmark de `tests/ui/benchmark.mjs` es informativo (30, 300 y 3000 registros); no fija umbrales ni demuestra una mejora temporal frente a una versión anterior.
+
 mitmproxy recarga `tap.py` cada vez que se guarda; lo capturado en memoria se pierde en cada recarga.
 
-El mapa del código para agentes está en [`AGENTS.md`](AGENTS.md) y el plan de refactorización en curso, en `.plans/arquitectura-localidad/`.
+El mapa del código para agentes y las reglas de mantenimiento están en [`AGENTS.md`](AGENTS.md). Planes completados: [arquitectura por localidad](.plans/arquitectura-localidad/README.md) y [buenas prácticas](.plans/buenas-practicas/README.md).

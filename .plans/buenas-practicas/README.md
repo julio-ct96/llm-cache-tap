@@ -48,7 +48,7 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | 4.05 | Tipos de integración | [4.05](fase-4/4.05-tipos-integracion.md) | 4.04 | terminada con commit | Mypy incluye 14 fuentes; 226 tests, replay/golden y UI pasan |
 | 5.01 | Ruff y formato | [5.01](fase-5/5.01-lint-formato.md) | 4.05 | terminada con commit | Ruff 0.14.0; lint, formato, mypy y 226 tests OK; AST idéntico salvo import combinado; golden intacto |
 | 5.02 | Comando unificado y CI | [5.02](fase-5/5.02-comprobacion-unificada.md) | 5.01, 3.03 | terminada con commit | Runner subprocess, workflow Python 3.12/Node 24/Chrome y requirements CI; 229 tests, JS 11/11, UI full, YAML ruamel, lint, formato y mypy OK |
-| 5.03 | Documentación y cierre | [5.03](fase-5/5.03-documentacion-cierre.md) | 5.02 | pendiente | Verificación completa |
+| 5.03 | Documentación y cierre | [5.03](fase-5/5.03-documentacion-cierre.md) | 5.02 | terminada con commit | `scripts/check.py --full`: Ruff, formato, mypy, 229 tests Python, JS 11/11 y UI completa OK; golden intacto; benchmark informativo 30/300/3000: medianas 0.017/0.076/0.692 ms; workflow remoto no consultado (gh no instalado) |
 
 ## Paralelismo permitido
 
@@ -102,3 +102,11 @@ Los módulos de dominio pueden importar `record` para sus tipos. Ningún módulo
 ## Criterio de cierre
 
 Todas las tareas terminadas, `venv/bin/python scripts/check.py --full` verde, golden con únicamente la corrección documentada de 2.01, límites/casos de error comprobados y documentación actualizada. No requiere credenciales ni llamadas reales a proveedores.
+
+## Cierre verificado
+
+- Las 21 tareas quedan terminadas con commit y publicadas en origin/main. No se consultó ni se afirma un resultado del workflow remoto.
+- `venv/bin/python scripts/check.py --full`: código 0; Ruff, formato, mypy, 229 tests Python, 11 tests JS y UI Chrome completa pasaron.
+- `venv/bin/python .plans/buenas-practicas/check_plan.py`: índice, enlaces y dependencias válidos. `git diff --check`: sin errores.
+- `node tests/ui/benchmark.mjs`: medianas observadas 0.017 ms (30), 0.076 ms (300), 0.692 ms (3000); informativo, sin comparación temporal ni umbral de aceptación.
+- El golden permanece idéntico al esperado: la única corrección histórica es 2.01, cinco valores `n_msgs` del registro 30 de 17 a 1; no hubo regeneración en este cierre.
