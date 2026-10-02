@@ -11,6 +11,10 @@ files = [
     "cachetap/linking.py",
     "cachetap/verdict.py",
     "cachetap/response_body.py",
+    "cachetap/store.py",
+    "cachetap/dashboard.py",
+    "cachetap/config.py",
+    "tap.py",
 ]
 check_untyped_defs = true
 disallow_untyped_defs = true

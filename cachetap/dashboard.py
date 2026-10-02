@@ -5,6 +5,7 @@ import queue
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 from cachetap import config, providers, record, store
 
@@ -17,14 +18,20 @@ MIME = {
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *a):
+    def log_message(self, format: str, *args: Any) -> None:
         pass
 
-    def _local(self):
+    def _local(self) -> bool:
         host = (self.headers.get("Host") or "").split(":")[0]
         return host in ("127.0.0.1", "localhost")
 
-    def _send(self, code, body, ctype="application/json; charset=utf-8", cache="no-store"):
+    def _send(
+        self,
+        code: int,
+        body: str | bytes,
+        ctype: str = "application/json; charset=utf-8",
+        cache: str = "no-store",
+    ) -> None:
         data = body if isinstance(body, bytes) else body.encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -33,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if not self._local():
             return self._send(403, "{}")
         path = self.path.split("?")[0]
@@ -53,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, body) if body is not None else self._send(404, "{}")
         self._static(path)
 
-    def _static(self, path):
+    def _static(self, path: str) -> None:
         """Serve a dashboard file from ui/, and nothing outside of it."""
         f = (config.UI / (path.lstrip("/") or "index.html")).resolve()
         if config.UI not in f.parents or f.suffix not in MIME or not f.is_file():
@@ -62,7 +69,7 @@ class Handler(BaseHTTPRequestHandler):
         cache = "max-age=86400" if f.suffix == ".woff2" else "no-store"
         self._send(200, f.read_bytes(), MIME[f.suffix], cache)
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         if not self._local():
             return self._send(403, "{}")
         if self.path == "/api/clear":
@@ -71,7 +78,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, "{}")
         self._send(404, "{}")
 
-    def _events(self):
+    def _events(self) -> None:
         with store.LOCK:
             snap = [record.light(r) for r in store.RECORDS.values()]
             q = store.subscribe()
@@ -80,7 +87,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(f"data: {json.dumps({'type': 'snapshot', 'recs': snap, 'ttl': config.TTL_S, 'max_records': config.MAX})}\n\n".encode())
+            snapshot: record.SnapshotEvent = {
+                "type": "snapshot",
+                "recs": snap,
+                "ttl": config.TTL_S,
+                "max_records": config.MAX,
+            }
+            self.wfile.write(f"data: {json.dumps(snapshot)}\n\n".encode())
             self.wfile.flush()
             while True:
                 try:
@@ -98,10 +111,10 @@ class Handler(BaseHTTPRequestHandler):
                 store.unsubscribe(q)
 
 
-_server = None
+_server: ThreadingHTTPServer | None = None
 
 
-def start():
+def start() -> ThreadingHTTPServer:
     global _server
     ThreadingHTTPServer.allow_reuse_address = True
     srv = ThreadingHTTPServer(("127.0.0.1", config.UI_PORT), Handler)
@@ -111,7 +124,7 @@ def start():
     return srv
 
 
-def stop():
+def stop() -> None:
     global _server
     if _server:
         _server.shutdown()

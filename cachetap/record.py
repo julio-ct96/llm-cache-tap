@@ -98,6 +98,35 @@ class Record(TypedDict):
     capture_limited: NotRequired[CaptureLimit]
 
 
+class RecordEvent(TypedDict):
+    type: Required[Literal["record"]]
+    rec: Required[dict[str, object]]
+    evicted_ids: NotRequired[list[int]]
+
+
+class SnapshotEvent(TypedDict):
+    type: Required[Literal["snapshot"]]
+    recs: Required[list[dict[str, object]]]
+    ttl: Required[int]
+    max_records: Required[int]
+
+
+class ClearEvent(TypedDict):
+    type: Required[Literal["clear"]]
+
+
+class EvictEvent(TypedDict):
+    type: Required[Literal["evict"]]
+    ids: Required[list[int]]
+
+
+class DisconnectEvent(TypedDict):
+    type: Required[Literal["disconnect"]]
+
+
+type Event = RecordEvent | SnapshotEvent | ClearEvent | EvictEvent | DisconnectEvent
+
+
 # Fields that only travel in /api/record/<id>, not in the list nor in the jsonl.
 HEAVY = ("segs", "raw_usage", "output", "effort_fields", "resp_headers", "diff")
 
