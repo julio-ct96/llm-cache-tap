@@ -28,7 +28,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 2.01 | Paquete y recarga en caliente | `fase-2/2.01-paquete-y-recarga.md` | 1.07, 1.08, 1.09 | terminada con commit | |
 | 2.02 | `config.py` | `fase-2/2.02-config.md` | 2.01 | terminada con commit | |
 | 2.03 | `record.py` | `fase-2/2.03-record.md` | 2.02 | terminada con commit | |
-| 2.04 | `segments.py` | `fase-2/2.04-segments.md` | 2.03 | pendiente | |
+| 2.04 | `segments.py` | `fase-2/2.04-segments.md` | 2.03 | terminada con commit | |
 | 2.05 | `providers/base.py` | `fase-2/2.05-providers-base.md` | 2.04 | pendiente | |
 | 2.06 | Anthropic: reglas por modelo | `fase-2/2.06-anthropic-modelo.md` | 2.05 | pendiente | |
 | 2.07 | OpenAI: reglas por modelo | `fase-2/2.07-openai-modelo.md` | 2.06 | pendiente | |
