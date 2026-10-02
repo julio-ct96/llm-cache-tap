@@ -171,6 +171,8 @@ async function main() {
   });
   if (STYLES) {
     // layout-independent properties only: widths and timer texts change from one run to the next
+    await js(`document.fonts.ready.then(() => true)`);
+    await sleep(300);
     const props = ['display', 'position', 'color', 'background-color', 'font-family', 'font-size', 'font-weight', 'line-height', 'padding', 'margin', 'border', 'border-radius', 'text-align', 'white-space', 'overflow', 'gap', 'flex', 'opacity', 'cursor'];
     const styles = await js(`[...document.querySelectorAll('body, body *')].map((el) => {
       const computed = getComputedStyle(el);
