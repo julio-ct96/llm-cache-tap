@@ -14,7 +14,7 @@ def _rel(path):
 
 
 def _is_exported(source, name):
-    pattern = r'export\s+(?:async\s+function|function|const|let|class)\s+' + re.escape(name) + r'\b'
+    pattern = r'export\s+(?:async\s+function|function|const|let|class)\s+' + re.escape(name) + r'(?![\w$])'
     return re.search(pattern, source) is not None
 
 
