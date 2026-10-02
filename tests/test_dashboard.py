@@ -22,7 +22,7 @@ class DashboardTest(unittest.TestCase):
         server = ThreadingHTTPServer(("127.0.0.1", 0), adapter.handler())
         server.daemon_threads = True
         self.port = server.server_address[1]
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
 
