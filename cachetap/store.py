@@ -10,7 +10,7 @@ LOCK = threading.Lock()
 RECORDS: "OrderedDict[int, dict]" = OrderedDict()
 BODIES: dict = {}
 CLIENTS: list = []
-STATE = {"next_id": 1, "next_conv": 1, "server": None}
+STATE = {"next_id": 1, "next_conv": 1}
 
 
 # Every function below except `publish` must be called with LOCK held by the caller.

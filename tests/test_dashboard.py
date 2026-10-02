@@ -3,7 +3,9 @@ import json
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
+from unittest import mock
 
+from cachetap import config, dashboard
 from tests.replay import adapter, builders, scenario
 from tests.replay.scenario import Step
 
@@ -126,6 +128,21 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(adapter.records(), [])
         self.assertEqual(adapter.body_ids(), [])
         self.assertEqual(q.get_nowait(), {"type": "clear"})
+
+    def test_start_and_stop(self):
+        with mock.patch.object(config, "UI_PORT", 0):
+            servidor = dashboard.start()
+        self.addCleanup(dashboard.stop)
+        port = servidor.server_address[1]
+        self.assertNotEqual(port, 0)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        self.addCleanup(conn.close)
+        conn.request("GET", "/")
+        res = conn.getresponse()
+        res.read()
+        self.assertEqual(res.status, 200)
+        dashboard.stop()
+        dashboard.stop()
 
 
 if __name__ == "__main__":

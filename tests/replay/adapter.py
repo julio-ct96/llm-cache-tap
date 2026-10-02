@@ -1,7 +1,7 @@
 import queue
 
 import tap
-from cachetap import config, store
+from cachetap import config, dashboard, store
 
 
 def hooks():
@@ -38,4 +38,4 @@ def set_max(n):
 
 
 def handler():
-    return tap.Handler
+    return dashboard.Handler
