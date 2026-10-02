@@ -2,7 +2,6 @@
 
 from typing import Literal, Mapping, NotRequired, Required, TypedDict
 
-
 type JsonValue = None | bool | int | float | str | list["JsonValue"] | JsonObject
 type JsonObject = dict[str, JsonValue]
 type CacheTTLAnchor = Literal["start", "end"]

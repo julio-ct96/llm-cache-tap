@@ -15,7 +15,12 @@ def usage_events(body: str) -> list[record.UsageEvent]:
         for holder in (ev, ev.get("message"), ev.get("response")):
             if isinstance(holder, dict) and isinstance(holder.get("usage"), dict):
                 # Any is confined to the json.loads boundary; event and usage retain wire values.
-                events.append({"event": ev.get("type") or ev.get("object") or "json", "usage": holder["usage"]})
+                events.append(
+                    {
+                        "event": ev.get("type") or ev.get("object") or "json",
+                        "usage": holder["usage"],
+                    }
+                )
                 return
 
     stripped = body.lstrip()

@@ -23,7 +23,18 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config, dashboard, linking, providers, record, request_body, response_body, segments, store, verdict
+from cachetap import (  # noqa: E402  # mitmproxy reloads cachetap modules above before this import.
+    config,
+    dashboard,
+    linking,
+    providers,
+    record,
+    request_body,
+    response_body,
+    segments,
+    store,
+    verdict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +46,20 @@ class StreamState(TypedDict):
     limited: record.CaptureLimit | None
     reserved: bool
 
+
 LLM_PATHS = ("/messages", "/responses", "/chat/completions")
-SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
+SAFE_HEADER = re.compile(
+    r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I
+)
 UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
 
 # ---------- mitmproxy hooks ----------
 
+
 def _is_llm(flow: mitmproxy.http.HTTPFlow) -> bool:
-    return flow.request.method == "POST" and flow.request.path.split("?")[0].rstrip("/").endswith(LLM_PATHS)
+    return flow.request.method == "POST" and flow.request.path.split("?")[0].rstrip("/").endswith(
+        LLM_PATHS
+    )
 
 
 def request(flow: mitmproxy.http.HTTPFlow) -> None:
@@ -60,7 +77,13 @@ def request(flow: mitmproxy.http.HTTPFlow) -> None:
         logger.warning("Petición no inspeccionable: %s", exc)
         return
     messages = req.get("messages") or req.get("input") or []
-    n_msgs = int(bool(messages)) if isinstance(messages, str) else len(messages) if isinstance(messages, (list, dict)) else 0
+    n_msgs = (
+        int(bool(messages))
+        if isinstance(messages, str)
+        else len(messages)
+        if isinstance(messages, (list, dict))
+        else 0
+    )
     tools = req.get("tools")
     request_start = flow.request.timestamp_start
     model = req.get("model")
@@ -72,7 +95,20 @@ def request(flow: mitmproxy.http.HTTPFlow) -> None:
             "path": flow.request.path.split("?")[0],
             "model": model if isinstance(model, str) else None,
             "effort": providers.effort_of(req),
-            "effort_fields": {k: req[k] for k in ("output_config", "thinking", "reasoning", "reasoning_effort", "tool_choice", "max_tokens", "max_output_tokens", "stream") if k in req},
+            "effort_fields": {
+                k: req[k]
+                for k in (
+                    "output_config",
+                    "thinking",
+                    "reasoning",
+                    "reasoning_effort",
+                    "tool_choice",
+                    "max_tokens",
+                    "max_output_tokens",
+                    "stream",
+                )
+                if k in req
+            },
             "_params": segments.dump({k: req.get(k) for k in ("thinking", "tool_choice")}),
             "req_bytes": len(flow.request.raw_content or b""),
             "n_tools": len(tools) if isinstance(tools, (list, dict)) else 0,
@@ -91,7 +127,9 @@ def request(flow: mitmproxy.http.HTTPFlow) -> None:
             rec["conv"] = store.new_conv()
             rec["prev_id"] = None
         else:
-            linking.link(rec, req, previous, matched_message_count, store.BODIES.get(previous["id"]))
+            linking.link(
+                rec, req, previous, matched_message_count, store.BODIES.get(previous["id"])
+            )
         evicted_ids = store.add(rec, text)
         store.push(rec, evicted_ids)
     flow.metadata["tap_id"] = rid
@@ -103,7 +141,13 @@ def responseheaders(flow: mitmproxy.http.HTTPFlow) -> None:
         return
     with store.LOCK:
         reserved = store.begin_capture(rid)
-        st: StreamState = {"chunks": [], "first": None, "bytes": 0, "limited": None, "reserved": reserved}
+        st: StreamState = {
+            "chunks": [],
+            "first": None,
+            "bytes": 0,
+            "limited": None,
+            "reserved": reserved,
+        }
         if not reserved:
             st["limited"] = "active_captures"
         flow.metadata["tap_stream"] = st
@@ -134,7 +178,11 @@ def responseheaders(flow: mitmproxy.http.HTTPFlow) -> None:
             request_end = flow.request.timestamp_end
             if response_start is not None and request_end is not None:
                 rec["hdr_s"] = round(response_start - request_end, 3)
-            rec["resp_headers"] = {k: v for k, v in flow.response.headers.items() if SAFE_HEADER.search(k) and not UNSAFE_HEADER.search(k)}
+            rec["resp_headers"] = {
+                k: v
+                for k, v in flow.response.headers.items()
+                if SAFE_HEADER.search(k) and not UNSAFE_HEADER.search(k)
+            }
             store.push(rec)
 
 
@@ -154,25 +202,36 @@ def response(flow: mitmproxy.http.HTTPFlow) -> None:
             rec = store.RECORDS.get(rid)
             if not rec:
                 return
-            rec.update({
-                "state": "done",
-                "ts_end": now,
-                "raw_usage": events,
-                "usage": providers.normalize(events) if limited is None else None,
-                "output": output if flow.response.status_code < 400 else body[:2000],
-                "stop_reason": stop,
-            })
+            rec.update(
+                {
+                    "state": "done",
+                    "ts_end": now,
+                    "raw_usage": events,
+                    "usage": providers.normalize(events) if limited is None else None,
+                    "output": output if flow.response.status_code < 400 else body[:2000],
+                    "stop_reason": stop,
+                }
+            )
             if t0 is not None:
                 rec["total_s"] = round(now - t0, 3)
                 rec["ttft_s"] = round(st["first"] - t0, 3) if st["first"] else None
             if limited:
-                note = "captura incompleta: límite de tamaño de respuesta" if limited == "response_size" else "captura incompleta: límite de respuestas simultáneas"
+                note = (
+                    "captura incompleta: límite de tamaño de respuesta"
+                    if limited == "response_size"
+                    else "captura incompleta: límite de respuestas simultáneas"
+                )
                 rec.update({"capture_limited": limited, "verdict": "N/A", "notes": [note]})
             else:
                 written = providers.written_ttl(events)
                 if written and not config.TTL_FORCED:
                     minutes = written // 60
-                    rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
+                    rec.update(
+                        {
+                            "ttl_s": written,
+                            "ttl_source": f"confirmado por usage: escritura a {minutes} min",
+                        }
+                    )
                 prev_id = rec.get("prev_id")
                 verdict.judge(rec, store.RECORDS.get(prev_id) if prev_id is not None else None)
             store.push(rec)
@@ -180,7 +239,9 @@ def response(flow: mitmproxy.http.HTTPFlow) -> None:
         try:
             store.append_log(log_rec)
         except OSError as exc:
-            logger.warning("No se pudo escribir el log del registro %s (%s)", rid, type(exc).__name__)
+            logger.warning(
+                "No se pudo escribir el log del registro %s (%s)", rid, type(exc).__name__
+            )
     finally:
         with store.LOCK:
             if st["reserved"]:
@@ -203,7 +264,14 @@ def error(flow: mitmproxy.http.HTTPFlow) -> None:
             st["chunks"].clear()
         rec = store.RECORDS.get(rid)
         if rec:
-            rec.update({"state": "error", "ts_end": time.time(), "verdict": "ERR", "notes": [str(flow.error)]})
+            rec.update(
+                {
+                    "state": "error",
+                    "ts_end": time.time(),
+                    "verdict": "ERR",
+                    "notes": [str(flow.error)],
+                }
+            )
             store.push(rec)
 
 

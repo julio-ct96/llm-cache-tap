@@ -4,7 +4,6 @@ import json
 
 from cachetap import record
 
-
 MAX_CONTAINER_DEPTH = 100
 
 
@@ -40,7 +39,9 @@ def _validate_tree(root: record.JsonValue) -> None:
             cache_control = value.get("cache_control")
             if isinstance(cache_control, dict):
                 ttl = cache_control.get("ttl")
-                _require(ttl is None or isinstance(ttl, str), "cache_control.ttl debe ser texto o null")
+                _require(
+                    ttl is None or isinstance(ttl, str), "cache_control.ttl debe ser texto o null"
+                )
             stack.extend((child, depth + 1) for child in value.values())
         elif isinstance(value, list):
             _require(depth <= MAX_CONTAINER_DEPTH, "profundidad JSON superior a 100 contenedores")
@@ -64,7 +65,10 @@ def parse(text: str) -> record.JsonObject:
     tools = req.get("tools")
     _require(tools is None or isinstance(tools, list), "tools debe ser una lista de objetos o null")
     if isinstance(tools, list):
-        _require(all(isinstance(tool, dict) for tool in tools), "tools debe ser una lista de objetos o null")
+        _require(
+            all(isinstance(tool, dict) for tool in tools),
+            "tools debe ser una lista de objetos o null",
+        )
 
     _optional_type(req, "messages", list, "messages debe ser una lista o null")
     _optional_type(req, "input", (str, list), "input debe ser texto, una lista o null")

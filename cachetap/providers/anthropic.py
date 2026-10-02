@@ -41,7 +41,11 @@ class MinimumHelpRow(TypedDict):
 
 
 TTL_HELP: list[TTLHelpRow] = [
-    {"models": "Claude (todos)", "ttl": '5 min, o 1 h si `cache_control` lleva `ttl: "1h"`', "anchor": "inicio de la petición"},
+    {
+        "models": "Claude (todos)",
+        "ttl": '5 min, o 1 h si `cache_control` lleva `ttl: "1h"`',
+        "anchor": "inicio de la petición",
+    },
 ]
 
 
@@ -64,7 +68,11 @@ def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL:
 
 
 MIN_CACHEABLE_HELP: list[MinimumHelpRow] = [
-    {"models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x", "tokens": 512, "example": "claude-opus-5-5"},
+    {
+        "models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x",
+        "tokens": 512,
+        "example": "claude-opus-5-5",
+    },
     {"models": "Claude Opus 4.8, Sonnet 4.6 y 4.5", "tokens": 1024, "example": "claude-sonnet-4-5"},
     {"models": "Claude Opus 4.7", "tokens": 2048, "example": "claude-opus-4-7"},
     {"models": "Claude Opus 4.6 y 4.5, Haiku 4.5", "tokens": 4096, "example": "claude-haiku-4-5"},
@@ -96,12 +104,24 @@ def normalize(merged: record.JsonObject) -> record.Usage | None:
         write = merged.get("cache_creation_input_tokens", 0)
         unc = merged.get("input_tokens", 0)
         read = read if isinstance(read, int) and not isinstance(read, bool) and read >= 0 else 0
-        write = write if isinstance(write, int) and not isinstance(write, bool) and write >= 0 else 0
+        write = (
+            write if isinstance(write, int) and not isinstance(write, bool) and write >= 0 else 0
+        )
         unc = unc if isinstance(unc, int) and not isinstance(unc, bool) and unc >= 0 else 0
         output = merged.get("output_tokens", 0)
-        output = output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
-        return {"read": read, "write": write, "uncached": unc, "input_total": read + write + unc,
-                "output": output, "reasoning": None}
+        output = (
+            output
+            if isinstance(output, int) and not isinstance(output, bool) and output >= 0
+            else 0
+        )
+        return {
+            "read": read,
+            "write": write,
+            "uncached": unc,
+            "input_total": read + write + unc,
+            "output": output,
+            "reasoning": None,
+        }
     return None
 
 

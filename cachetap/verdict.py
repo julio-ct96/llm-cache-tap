@@ -23,7 +23,9 @@ def judge(rec: record.Record, prev: record.Record | None) -> None:
         result = "HIT" if read >= 0.9 * total else "PARTIAL"
     notes, server_side = [], False
     if result == "N/A":
-        notes.append(f"menos de {minimum} tokens de entrada: por debajo del mínimo cacheable de este modelo")
+        notes.append(
+            f"menos de {minimum} tokens de entrada: por debajo del mínimo cacheable de este modelo"
+        )
     elif not prev:
         notes.append("primera petición de esta conversación")
         if read:
@@ -34,7 +36,9 @@ def judge(rec: record.Record, prev: record.Record | None) -> None:
             if rec.get("effort_changed"):
                 notes.append(f"hit pese al cambio de esfuerzo ({ef})")
             if not rec.get("prefix_intact"):
-                notes.append(f"el cliente modificó el prefijo en {rec.get('diverge_at')}; el hit viene de una variante ya cacheada")
+                notes.append(
+                    f"el cliente modificó el prefijo en {rec.get('diverge_at')}; el hit viene de una variante ya cacheada"
+                )
         else:
             if rec.get("model_changed"):
                 notes.append(f"cambió el modelo ({rec.get('prev_model')} → {rec.get('model')})")
@@ -47,10 +51,14 @@ def judge(rec: record.Record, prev: record.Record | None) -> None:
             ttl, age = prev.get("ttl_s", config.TTL_S), rec.get("age_s", 0)
             if age > ttl:
                 since = "el inicio" if prev.get("ttl_anchor") == "start" else "el final"
-                notes.append(f"pasaron {age:.0f} s desde {since} de #{prev['id']} (TTL {ttl} s, {prev.get('ttl_source')})")
+                notes.append(
+                    f"pasaron {age:.0f} s desde {since} de #{prev['id']} (TTL {ttl} s, {prev.get('ttl_source')})"
+                )
             if prev.get("state") != "done" or (prev.get("status") or 0) >= 400:
                 notes.append(f"la petición anterior (#{prev['id']}) no terminó bien")
             if not notes:
                 server_side = True
-                notes.append(f"sin causa en el cliente: mismo prefijo, mismo esfuerzo, {rec.get('gap_s')} s desde #{prev['id']}")
+                notes.append(
+                    f"sin causa en el cliente: mismo prefijo, mismo esfuerzo, {rec.get('gap_s')} s desde #{prev['id']}"
+                )
     rec["verdict"], rec["notes"], rec["server_side"] = result, notes, server_side

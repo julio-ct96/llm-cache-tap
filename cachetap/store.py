@@ -23,6 +23,7 @@ STATE: dict[str, int] = {"next_id": 1, "next_conv": 1, "body_bytes": 0}
 # State functions require LOCK held by the caller. None of them takes LOCK itself.
 # append_log is the exception: it performs filesystem I/O and must run outside LOCK.
 
+
 def subscribe() -> EventQueue:
     q: EventQueue = queue.Queue(maxsize=config.MAX_CLIENT_EVENTS)
     CLIENTS.append(q)
@@ -32,6 +33,7 @@ def subscribe() -> EventQueue:
 def unsubscribe(q: EventQueue) -> None:
     if q in CLIENTS:
         CLIENTS.remove(q)
+
 
 def publish(ev: record.Event) -> None:
     for q in list(CLIENTS):

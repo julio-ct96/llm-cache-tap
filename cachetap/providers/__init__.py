@@ -2,15 +2,14 @@
 
 from typing import TypedDict
 
-from cachetap import config
-from cachetap import record
+from cachetap import config, record
 from cachetap.providers import anthropic, openai
-
 
 # the order is the order in which providers are tried
 PROVIDERS = (anthropic, openai)
 
 FIRST_TOKEN = anthropic.FIRST_TOKEN + openai.FIRST_TOKEN
+
 
 class Reference(TypedDict):
     ttl: list[anthropic.TTLHelpRow]
@@ -44,12 +43,20 @@ def cache_ttl(req: record.JsonObject) -> record.CacheTTL:
     guides of Anthropic and OpenAI, as of October 2026.
     """
     if config.TTL_FORCED:
-        return {"ttl_s": config.TTL_FORCED, "ttl_source": "forzado con TAP_TTL_S", "ttl_anchor": "end"}
+        return {
+            "ttl_s": config.TTL_FORCED,
+            "ttl_source": "forzado con TAP_TTL_S",
+            "ttl_anchor": "end",
+        }
     model = str(req.get("model") or "").lower()
     for provider in PROVIDERS:
         if provider.owns(model):
             return provider.cache_ttl(req, model)
-    return {"ttl_s": config.TTL_S, "ttl_source": "supuesto: proveedor sin TTL conocido", "ttl_anchor": "end"}
+    return {
+        "ttl_s": config.TTL_S,
+        "ttl_source": "supuesto: proveedor sin TTL conocido",
+        "ttl_anchor": "end",
+    }
 
 
 def min_cacheable(model: str | None) -> int:
@@ -83,8 +90,13 @@ def normalize(events: list[record.UsageEvent]) -> record.Usage | None:
     """Token usage of a response, in one shape for every provider."""
     merged: record.JsonObject = {}
     counters = {
-        "input_tokens", "prompt_tokens", "output_tokens", "completion_tokens",
-        "cache_read_input_tokens", "cache_creation_input_tokens", "cached_tokens",
+        "input_tokens",
+        "prompt_tokens",
+        "output_tokens",
+        "completion_tokens",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+        "cached_tokens",
         "reasoning_tokens",
     }
     for e in events:
@@ -92,9 +104,16 @@ def normalize(events: list[record.UsageEvent]) -> record.Usage | None:
             continue
         usage = e["usage"]
         for key, value in usage.items():
-            if key in counters and (not isinstance(value, int) or isinstance(value, bool) or value < 0):
+            if key in counters and (
+                not isinstance(value, int) or isinstance(value, bool) or value < 0
+            ):
                 continue
-            if key in ("input_tokens_details", "prompt_tokens_details", "output_tokens_details", "completion_tokens_details"):
+            if key in (
+                "input_tokens_details",
+                "prompt_tokens_details",
+                "output_tokens_details",
+                "completion_tokens_details",
+            ):
                 if not isinstance(value, dict):
                     continue
                 value = {

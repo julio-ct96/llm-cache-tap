@@ -57,7 +57,11 @@ def link(
     rec["prev_id"] = previous["id"]
     rec["gap_s"] = round(rec["ts"] - (previous.get("ts_end") or previous["ts"]), 1)
     # age of the previous cache entry, counted the way its provider counts it
-    anchor = previous["ts"] if previous.get("ttl_anchor") == "start" else previous.get("ts_end") or previous["ts"]
+    anchor = (
+        previous["ts"]
+        if previous.get("ttl_anchor") == "start"
+        else previous.get("ts_end") or previous["ts"]
+    )
     rec["age_s"] = round(rec["ts"] - anchor, 1)
     rec["prev_effort"] = previous.get("effort")
     rec["prev_model"] = previous.get("model")

@@ -46,7 +46,7 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | 4.04a | Tipos de proveedores | [4.04a](fase-4/4.04a-tipos-proveedores.md) | 4.01, 4.03 | terminada con commit | Mypy y 226 tests OK; golden idéntico; modelo opcional reflejado en dispatcher |
 | 4.04 | Tipos del núcleo | [4.04](fase-4/4.04-tipos-nucleo.md) | 4.04a | terminada con commit | Mypy y 226 tests OK; replay/golden intacto; Any limitado al decode JSON; narrowing simplificado en revisión |
 | 4.05 | Tipos de integración | [4.05](fase-4/4.05-tipos-integracion.md) | 4.04 | terminada con commit | Mypy incluye 14 fuentes; 226 tests, replay/golden y UI pasan |
-| 5.01 | Ruff y formato | [5.01](fase-5/5.01-lint-formato.md) | 4.05 | pendiente | Diff mecánico aislado |
+| 5.01 | Ruff y formato | [5.01](fase-5/5.01-lint-formato.md) | 4.05 | terminada con commit | Ruff 0.14.0; lint, formato, mypy y 226 tests OK; AST idéntico salvo import combinado; golden intacto |
 | 5.02 | Comando unificado y CI | [5.02](fase-5/5.02-comprobacion-unificada.md) | 5.01, 3.03 | pendiente | No necesita tráfico real |
 | 5.03 | Documentación y cierre | [5.03](fase-5/5.03-documentacion-cierre.md) | 5.02 | pendiente | Verificación completa |
 

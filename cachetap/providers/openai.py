@@ -26,9 +26,21 @@ class MinimumHelpRow(TypedDict):
 
 
 TTL_HELP: list[TTLHelpRow] = [
-    {"models": "GPT-5.6 y posteriores", "ttl": "30 min (`prompt_cache_options.ttl`)", "anchor": "última escritura o lectura"},
-    {"models": "GPT-5 a 5.5 y GPT-4.1", "ttl": "`in_memory`: 5–10 min, hasta 1 h · `24h`: unos 30 min, hasta 24 h", "anchor": "última actividad"},
-    {"models": "GPT anteriores y serie o", "ttl": "5–10 min, hasta 1 h", "anchor": "última actividad"},
+    {
+        "models": "GPT-5.6 y posteriores",
+        "ttl": "30 min (`prompt_cache_options.ttl`)",
+        "anchor": "última escritura o lectura",
+    },
+    {
+        "models": "GPT-5 a 5.5 y GPT-4.1",
+        "ttl": "`in_memory`: 5–10 min, hasta 1 h · `24h`: unos 30 min, hasta 24 h",
+        "anchor": "última actividad",
+    },
+    {
+        "models": "GPT anteriores y serie o",
+        "ttl": "5–10 min, hasta 1 h",
+        "anchor": "última actividad",
+    },
 ]
 
 
@@ -37,18 +49,42 @@ def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL | None:
     if gpt and gpt >= (5, 6):
         prompt_cache_options = req.get("prompt_cache_options")
         declared = isinstance(prompt_cache_options, dict) and prompt_cache_options.get("ttl")
-        source = "declarado en prompt_cache_options" if declared else "por defecto de GPT-5.6 y posteriores"
+        source = (
+            "declarado en prompt_cache_options"
+            if declared
+            else "por defecto de GPT-5.6 y posteriores"
+        )
         return {"ttl_s": 1800, "ttl_source": source, "ttl_anchor": "end"}
     if gpt or re.match(r"o\d", model):
         retention = req.get("prompt_cache_retention")
         if retention == "24h":
-            return {"ttl_s": 1800, "ttl_max_s": 86400, "ttl_source": "declarado: retención 24h", "ttl_anchor": "end"}
+            return {
+                "ttl_s": 1800,
+                "ttl_max_s": 86400,
+                "ttl_source": "declarado: retención 24h",
+                "ttl_anchor": "end",
+            }
         if retention == "in_memory":
-            return {"ttl_s": 300, "ttl_max_s": 3600, "ttl_source": "declarado: retención in_memory", "ttl_anchor": "end"}
+            return {
+                "ttl_s": 300,
+                "ttl_max_s": 3600,
+                "ttl_source": "declarado: retención in_memory",
+                "ttl_anchor": "end",
+            }
         if not (gpt == (4, 1) or (gpt and (5, 0) <= gpt)):
-            return {"ttl_s": 300, "ttl_max_s": 3600, "ttl_source": "por defecto: este modelo solo admite in_memory", "ttl_anchor": "end"}
+            return {
+                "ttl_s": 300,
+                "ttl_max_s": 3600,
+                "ttl_source": "por defecto: este modelo solo admite in_memory",
+                "ttl_anchor": "end",
+            }
         # the default retention depends on the organisation (24h unless it has zero data retention)
-        return {"ttl_s": 300, "ttl_max_s": 86400, "ttl_source": "supuesto: la retención por defecto depende de la organización", "ttl_anchor": "end"}
+        return {
+            "ttl_s": 300,
+            "ttl_max_s": 86400,
+            "ttl_source": "supuesto: la retención por defecto depende de la organización",
+            "ttl_anchor": "end",
+        }
     return None
 
 
@@ -63,10 +99,7 @@ def min_cacheable(model: str) -> int:
 
 def effort(req: record.JsonObject) -> str | None:
     r = req.get("reasoning")
-    effort_value = (
-        (r.get("effort") if isinstance(r, dict) else None)
-        or req.get("reasoning_effort")
-    )
+    effort_value = (r.get("effort") if isinstance(r, dict) else None) or req.get("reasoning_effort")
     return effort_value if isinstance(effort_value, str) else None
 
 
@@ -105,9 +138,17 @@ def normalize(merged: record.JsonObject) -> record.Usage | None:
     read = read if isinstance(read, int) and not isinstance(read, bool) and read >= 0 else 0
     read = min(read, inp)
     output = merged.get("output_tokens", merged.get("completion_tokens", 0))
-    output = output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
+    output = (
+        output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
+    )
     reasoning = odet.get("reasoning_tokens")
     if not isinstance(reasoning, int) or isinstance(reasoning, bool) or reasoning < 0:
         reasoning = None
-    return {"read": read, "write": None, "uncached": inp - read, "input_total": inp,
-            "output": output, "reasoning": reasoning}
+    return {
+        "read": read,
+        "write": None,
+        "uncached": inp - read,
+        "input_total": inp,
+        "output": output,
+        "reasoning": reasoning,
+    }

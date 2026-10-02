@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._events()
         if path == "/api/reference":
             return self._send(200, json.dumps(providers.reference(), ensure_ascii=False))
-        m =re.match(r"^/api/(record|body)/(\d+)$", path)
+        m = re.match(r"^/api/(record|body)/(\d+)$", path)
         if m:
             rid = int(m.group(2))
             with store.LOCK:

@@ -11,7 +11,9 @@ from cachetap import record
 def strip_cache_control(value: record.JsonValue) -> record.JsonValue:
     """Drop cache_control markers: moving a breakpoint does not change the cached content."""
     if isinstance(value, dict):
-        return {key: strip_cache_control(item) for key, item in value.items() if key != "cache_control"}
+        return {
+            key: strip_cache_control(item) for key, item in value.items() if key != "cache_control"
+        }
     if isinstance(value, list):
         return [strip_cache_control(item) for item in value]
     return value
@@ -31,7 +33,9 @@ def preview(value: record.JsonValue, limit: int = 140) -> str:
     elif isinstance(value, list):
         text = " ".join(preview(item, 80) for item in value[:4])
     elif isinstance(value, dict):
-        content = value.get("content", value.get("text", value.get("output", value.get("arguments"))))
+        content = value.get(
+            "content", value.get("text", value.get("output", value.get("arguments")))
+        )
         block_type = value.get("type", "")
         if block_type == "tool_use":
             text = f"[tool_use {value.get('name')}]"
@@ -50,7 +54,9 @@ def preview(value: record.JsonValue, limit: int = 140) -> str:
     return re.sub(r"\s+", " ", text)[:limit]
 
 
-def build_segment(name: str, obj: record.JsonValue, preview_text: str | None = None) -> record.Segment:
+def build_segment(
+    name: str, obj: record.JsonValue, preview_text: str | None = None
+) -> record.Segment:
     raw = dump(obj)
     return {
         "name": name,
@@ -88,13 +94,20 @@ def segment_objects(request: record.JsonObject) -> list[tuple[str, record.JsonVa
         messages = [messages]
     if isinstance(messages, list):
         for index, message in enumerate(messages):
-            role = (message.get("role") or message.get("type") or "?") if isinstance(message, dict) else "text"
+            role = (
+                (message.get("role") or message.get("type") or "?")
+                if isinstance(message, dict)
+                else "text"
+            )
             result.append((f"msg{index}:{role}", message, None))
     return result
 
 
 def segments(request: record.JsonObject) -> list[record.Segment]:
-    return [build_segment(name, obj, preview_text) for name, obj, preview_text in segment_objects(request)]
+    return [
+        build_segment(name, obj, preview_text)
+        for name, obj, preview_text in segment_objects(request)
+    ]
 
 
 def first_diff(
@@ -108,16 +121,25 @@ def first_diff(
     try:
         # The previous request body is an external JSON decoder boundary.
         old_body: Any = json.loads(prev_body)
-        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(old_body))[name]
+        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(old_body))[
+            name
+        ]
         new = dict((segment_name, value) for segment_name, value, _ in segment_objects(req))[name]
     except (KeyError, ValueError):
         return None
     before, after = dump(strip_cache_control(old)), dump(strip_cache_control(new))
-    offset = next((index for index, (before_char, after_char) in enumerate(zip(before, after)) if before_char != after_char), min(len(before), len(after)))
+    offset = next(
+        (
+            index
+            for index, (before_char, after_char) in enumerate(zip(before, after))
+            if before_char != after_char
+        ),
+        min(len(before), len(after)),
+    )
     context_start = max(0, offset - 200)
     return {
         "segment": name,
         "offset": offset,
-        "before": before[context_start:offset + 300],
-        "after": after[context_start:offset + 300],
+        "before": before[context_start : offset + 300],
+        "after": after[context_start : offset + 300],
     }
