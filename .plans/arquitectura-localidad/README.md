@@ -30,7 +30,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 2.03 | `record.py` | `fase-2/2.03-record.md` | 2.02 | terminada con commit | |
 | 2.04 | `segments.py` | `fase-2/2.04-segments.md` | 2.03 | terminada con commit | |
 | 2.05 | `providers/base.py` | `fase-2/2.05-providers-base.md` | 2.04 | terminada con commit | |
-| 2.06 | Anthropic: reglas por modelo | `fase-2/2.06-anthropic-modelo.md` | 2.05 | pendiente | |
+| 2.06 | Anthropic: reglas por modelo | `fase-2/2.06-anthropic-modelo.md` | 2.05 | terminada con commit | |
 | 2.07 | OpenAI: reglas por modelo | `fase-2/2.07-openai-modelo.md` | 2.06 | pendiente | |
 | 2.08 | Despacho por modelo | `fase-2/2.08-despacho-modelo.md` | 2.07 | pendiente | |
 | 2.09 | Esfuerzo, usage y primer token | `fase-2/2.09-formato-mensaje.md` | 2.08 | pendiente | |
