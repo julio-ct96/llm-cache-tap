@@ -1,18 +1,21 @@
 """What depends on the model being Claude: cache TTL and minimum cacheable prefix."""
 
 import re
+from collections.abc import Iterator
+from typing import Required, TypedDict
 
+from cachetap import record
 from cachetap.providers import base
 
 TTL_NAMES = {"5m": 300, "30m": 1800, "1h": 3600}
 FIRST_TOKEN = (b"content_block_delta",)
 
 
-def owns(model):
+def owns(model: str) -> bool:
     return "claude" in model
 
 
-def cache_controls(o):
+def cache_controls(o: record.JsonValue) -> Iterator[record.JsonObject]:
     """Every cache_control object of the request, at any depth."""
     if isinstance(o, dict):
         for k, v in o.items():
@@ -25,15 +28,34 @@ def cache_controls(o):
             yield from cache_controls(x)
 
 
-TTL_HELP = [
+class TTLHelpRow(TypedDict):
+    models: Required[str]
+    ttl: Required[str]
+    anchor: Required[str]
+
+
+class MinimumHelpRow(TypedDict):
+    models: Required[str]
+    tokens: Required[int]
+    example: Required[str]
+
+
+TTL_HELP: list[TTLHelpRow] = [
     {"models": "Claude (todos)", "ttl": '5 min, o 1 h si `cache_control` lleva `ttl: "1h"`', "anchor": "inicio de la petición"},
 ]
 
 
-def cache_ttl(req, model):
+def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL:
     # 5 minutes unless a breakpoint asks for 1 hour; the shortest one is the first to go
     marks = list(cache_controls(req))
-    ttl = min((TTL_NAMES.get(m.get("ttl", "5m"), 300) for m in marks), default=300)
+    ttl = min(
+        (
+            TTL_NAMES.get(ttl_value, 300) if isinstance(ttl_value, str) else 300
+            for m in marks
+            for ttl_value in (m.get("ttl", "5m"),)
+        ),
+        default=300,
+    )
     if any("ttl" in m for m in marks):
         source = "declarado en cache_control"
     else:
@@ -41,7 +63,7 @@ def cache_ttl(req, model):
     return {"ttl_s": ttl, "ttl_source": source, "ttl_anchor": "start"}
 
 
-MIN_CACHEABLE_HELP = [
+MIN_CACHEABLE_HELP: list[MinimumHelpRow] = [
     {"models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x", "tokens": 512, "example": "claude-opus-5-5"},
     {"models": "Claude Opus 4.8, Sonnet 4.6 y 4.5", "tokens": 1024, "example": "claude-sonnet-4-5"},
     {"models": "Claude Opus 4.7", "tokens": 2048, "example": "claude-opus-4-7"},
@@ -49,7 +71,7 @@ MIN_CACHEABLE_HELP = [
 ]
 
 
-def min_cacheable(model):
+def min_cacheable(model: str) -> int:
     if re.search(r"fable|mythos", model) and "preview" not in model:
         return 512
     opus, sonnet, haiku = (base.version(model, f"claude-{f}") for f in ("opus", "sonnet", "haiku"))
@@ -62,12 +84,13 @@ def min_cacheable(model):
     return 1024
 
 
-def effort(req):
+def effort(req: record.JsonObject) -> str | None:
     oc = req.get("output_config") or {}
-    return oc.get("effort") if isinstance(oc, dict) else None
+    effort_value = oc.get("effort") if isinstance(oc, dict) else None
+    return effort_value if isinstance(effort_value, str) else None
 
 
-def normalize(merged):
+def normalize(merged: record.JsonObject) -> record.Usage | None:
     if "cache_read_input_tokens" in merged or "cache_creation_input_tokens" in merged:
         read = merged.get("cache_read_input_tokens", 0)
         write = merged.get("cache_creation_input_tokens", 0)
@@ -82,17 +105,18 @@ def normalize(merged):
     return None
 
 
-def deltas(ev):
+def deltas(ev: record.JsonObject) -> tuple[list[str], str | None]:
     """Texts and stop reason carried by one streamed event."""
     d = ev.get("delta")
     if not isinstance(d, dict):
         return [], None
-    texts = [d["text"]] if isinstance(d.get("text"), str) else []
+    text = d.get("text")
+    texts = [text] if isinstance(text, str) else []
     reason = d.get("stop_reason")
     return texts, reason if isinstance(reason, str) else None
 
 
-def written_ttl(events):
+def written_ttl(events: list[record.UsageEvent]) -> int | None:
     """TTL of what Claude actually wrote to cache, when the usage breaks it down."""
     for e in events:
         made = e["usage"].get("cache_creation")

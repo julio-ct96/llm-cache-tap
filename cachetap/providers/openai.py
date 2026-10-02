@@ -1,27 +1,42 @@
 """What depends on the model being from OpenAI: cache TTL and minimum cacheable prefix."""
 
 import re
+from typing import Required, TypedDict
 
+from cachetap import record
 from cachetap.providers import base
 
 FIRST_TOKEN = (b"output_text.delta", b'"delta":{"content"', b"reasoning")
 
 
-def owns(model):
+def owns(model: str) -> bool:
     return bool(base.version(model, "gpt") or re.match(r"o\d", model))
 
 
-TTL_HELP = [
+class TTLHelpRow(TypedDict):
+    models: Required[str]
+    ttl: Required[str]
+    anchor: Required[str]
+
+
+class MinimumHelpRow(TypedDict):
+    models: Required[str]
+    tokens: Required[int]
+    example: Required[str]
+
+
+TTL_HELP: list[TTLHelpRow] = [
     {"models": "GPT-5.6 y posteriores", "ttl": "30 min (`prompt_cache_options.ttl`)", "anchor": "última escritura o lectura"},
     {"models": "GPT-5 a 5.5 y GPT-4.1", "ttl": "`in_memory`: 5–10 min, hasta 1 h · `24h`: unos 30 min, hasta 24 h", "anchor": "última actividad"},
     {"models": "GPT anteriores y serie o", "ttl": "5–10 min, hasta 1 h", "anchor": "última actividad"},
 ]
 
 
-def cache_ttl(req, model):
+def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL | None:
     gpt = base.version(model, "gpt")
     if gpt and gpt >= (5, 6):
-        declared = isinstance(req.get("prompt_cache_options"), dict) and req["prompt_cache_options"].get("ttl")
+        prompt_cache_options = req.get("prompt_cache_options")
+        declared = isinstance(prompt_cache_options, dict) and prompt_cache_options.get("ttl")
         source = "declarado en prompt_cache_options" if declared else "por defecto de GPT-5.6 y posteriores"
         return {"ttl_s": 1800, "ttl_source": source, "ttl_anchor": "end"}
     if gpt or re.match(r"o\d", model):
@@ -34,26 +49,28 @@ def cache_ttl(req, model):
             return {"ttl_s": 300, "ttl_max_s": 3600, "ttl_source": "por defecto: este modelo solo admite in_memory", "ttl_anchor": "end"}
         # the default retention depends on the organisation (24h unless it has zero data retention)
         return {"ttl_s": 300, "ttl_max_s": 86400, "ttl_source": "supuesto: la retención por defecto depende de la organización", "ttl_anchor": "end"}
+    return None
 
 
-MIN_CACHEABLE_HELP = [
+MIN_CACHEABLE_HELP: list[MinimumHelpRow] = [
     {"models": "Modelos GPT", "tokens": 1024, "example": "gpt-5.6"},
 ]
 
 
-def min_cacheable(model):
+def min_cacheable(model: str) -> int:
     return 1024
 
 
-def effort(req):
+def effort(req: record.JsonObject) -> str | None:
     r = req.get("reasoning")
-    return (
+    effort_value = (
         (r.get("effort") if isinstance(r, dict) else None)
         or req.get("reasoning_effort")
     )
+    return effort_value if isinstance(effort_value, str) else None
 
 
-def deltas(ev):
+def deltas(ev: record.JsonObject) -> tuple[list[str], str | None]:
     """Texts and stop reason carried by one streamed event."""
     if not isinstance(ev, dict):
         return [], None
@@ -77,7 +94,7 @@ def deltas(ev):
     return texts, stop
 
 
-def normalize(merged):
+def normalize(merged: record.JsonObject) -> record.Usage | None:
     inp = merged.get("input_tokens", merged.get("prompt_tokens", 0))
     inp = inp if isinstance(inp, int) and not isinstance(inp, bool) and inp >= 0 else 0
     det = merged.get("input_tokens_details") or merged.get("prompt_tokens_details") or {}
