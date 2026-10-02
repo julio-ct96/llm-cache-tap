@@ -16,6 +16,7 @@ STATE = {"next_id": 1, "next_conv": 1, "body_bytes": 0}
 
 
 # State functions require LOCK held by the caller. None of them takes LOCK itself.
+# append_log is the exception: it performs filesystem I/O and must run outside LOCK.
 
 def subscribe():
     q = queue.Queue(maxsize=config.MAX_CLIENT_EVENTS)

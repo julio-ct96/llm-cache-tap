@@ -12,6 +12,7 @@ import logging
 import re
 import sys
 import time
+from copy import deepcopy
 
 if __name__.startswith("__mitmproxy_script__"):
     # mitmproxy re-executes this file on save; dropping cachetap modules reloads submodules too.
@@ -153,7 +154,11 @@ def response(flow):
                     rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
                 verdict.judge(rec, store.RECORDS.get(rec.get("prev_id")))
             store.push(rec)
-            store.append_log(rec)
+            log_rec = deepcopy(record.light(rec))
+        try:
+            store.append_log(log_rec)
+        except OSError as exc:
+            logger.warning("No se pudo escribir el log del registro %s (%s)", rid, type(exc).__name__)
     finally:
         with store.LOCK:
             if st["reserved"]:
@@ -182,7 +187,7 @@ def error(flow):
 
 def load(loader):
     dashboard.start()
-    print(f"[tap] dashboard: http://127.0.0.1:{config.UI_PORT}", flush=True)
+    logger.info("Panel disponible en http://127.0.0.1:%s", config.UI_PORT)
 
 
 def done():

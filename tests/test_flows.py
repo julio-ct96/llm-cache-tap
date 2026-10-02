@@ -183,6 +183,49 @@ class FlowsTest(unittest.TestCase):
         adapter.hooks().done()
         self.assertEqual(store.ACTIVE_CAPTURES, set())
 
+    def test_response_writes_independent_log_copy_outside_lock(self):
+        flow, _ = self._start_response()
+        observed = {}
+
+        def append_while_unlocked(rec):
+            acquired = store.LOCK.acquire(blocking=False)
+            observed["acquired"] = acquired
+            if acquired:
+                store.LOCK.release()
+            observed["record"] = rec
+            rec["notes"].append("log-only")
+
+        with mock.patch.object(store, "append_log", side_effect=append_while_unlocked):
+            adapter.hooks().response(flow)
+
+        self.assertTrue(observed["acquired"])
+        self.assertEqual(observed["record"]["state"], "done")
+        self.assertNotIn("log-only", store.RECORDS[flow.metadata["tap_id"]]["notes"])
+        self.assertIsNot(observed["record"], store.RECORDS[flow.metadata["tap_id"]])
+
+    def test_log_permission_error_keeps_done_event_and_hides_error_text(self):
+        flow, _ = self._start_response()
+        events = adapter.subscribe()
+        with mock.patch.object(store, "append_log", side_effect=PermissionError("private filesystem detail")):
+            with self.assertLogs("tap", level="WARNING") as logs:
+                adapter.hooks().response(flow)
+
+        rec = store.RECORDS[flow.metadata["tap_id"]]
+        self.assertEqual(rec["state"], "done")
+        event = events.get_nowait()
+        self.assertEqual(event["type"], "record")
+        self.assertEqual(event["rec"]["state"], "done")
+        self.assertIn(str(flow.metadata["tap_id"]), logs.output[0])
+        self.assertIn("PermissionError", logs.output[0])
+        self.assertNotIn("private filesystem detail", logs.output[0])
+        self.assertNotEqual(rec["state"], "error")
+
+    def test_load_logs_dashboard_url(self):
+        with mock.patch("tap.dashboard.start"):
+            with self.assertLogs("tap", level="INFO") as logs:
+                adapter.hooks().load(None)
+        self.assertIn("http://127.0.0.1:8900", logs.output[0])
+
 
 if __name__ == "__main__":
     unittest.main()
