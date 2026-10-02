@@ -39,7 +39,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 2.12 | `verdict.py` | `fase-2/2.12-verdict.md` | 2.11 | terminada con commit | |
 | 2.13 | `store.py` | `fase-2/2.13-store.md` | 2.12 | terminada con commit | |
 | 2.14 | `dashboard.py` | `fase-2/2.14-dashboard.md` | 2.13 | terminada con commit | |
-| 2.15 | Cierre del backend | `fase-2/2.15-cierre-backend.md` | 2.14 | pendiente | |
+| 2.15 | Cierre del backend | `fase-2/2.15-cierre-backend.md` | 2.14 | terminada con commit | |
 | 3.00 | Test de recursos de la interfaz | `fase-3/3.00-test-recursos-ui.md` | — | terminada con commit | |
 | 3.01 | JS: `format.js` y `prefs.js` | `fase-3/3.01-js-format-prefs.md` | 3.00, 1.10, 2.15 | pendiente | |
 | 3.02 | JS: `state.js` | `fase-3/3.02-js-state.md` | 3.01 | pendiente | |

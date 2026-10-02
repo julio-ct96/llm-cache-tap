@@ -24,12 +24,6 @@ LLM_PATHS = ("/messages", "/responses", "/chat/completions")
 SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
 UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
 
-# ---------- request analysis ----------
-
-# ---------- response analysis ----------
-
-# ---------- publishing ----------
-
 # ---------- mitmproxy hooks ----------
 
 def _is_llm(flow):
