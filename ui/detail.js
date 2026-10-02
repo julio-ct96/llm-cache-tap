@@ -5,6 +5,7 @@ import { $, esc, num, secs } from './format.js';
 import { badge, shareBar } from './parts.js';
 import { ttlLabel, timerHtml, tick } from './cache-timer.js';
 import { render } from './list.js';
+import { showStatus } from './status.js';
 
 // ---------- detail ----------
 
@@ -15,9 +16,19 @@ const copyable = new Map(); // section key -> value behind its "copiar" button
 const trees = new Map();
 let body = { id: null, value: undefined };
 let generation = 0;
+let recordController;
+let bodyController;
+
+function abortRequests() {
+  recordController?.abort();
+  bodyController?.abort();
+  recordController = undefined;
+  bodyController = undefined;
+}
 
 export function resetDetailCache() {
   generation++;
+  abortRequests();
   body = { id: null, value: undefined };
   trees.clear();
   copyable.clear();
@@ -122,21 +133,63 @@ function parseJson(text) {
   }
 }
 
-async function loadBody(id) {
-  const requestGeneration = generation;
+function currentDetail(requestGeneration, id, host) {
+  return requestGeneration === generation && state.selected === id && (!host || (host.isConnected && detail.contains(host)));
+}
+
+function showLoadError(host, message, action) {
+  host.replaceChildren();
+  const text = document.createElement('p');
+  text.className = 'muted';
+  text.textContent = message;
+  const retry = document.createElement('button');
+  retry.className = 'btn small';
+  retry.type = 'button';
+  retry.dataset.act = action;
+  retry.textContent = 'Reintentar';
+  host.append(text, retry);
+}
+
+async function loadBody(id, requestGeneration = generation) {
   const host = detail.querySelector('[data-tree="body"]');
-  if (!host) return;
+  if (!host || !currentDetail(requestGeneration, id, host)) return;
   if (body.id !== id) {
-    host.innerHTML = '<p class="muted">cargando…</p>';
-    const res = await fetch(`/api/body/${id}`);
-    if (requestGeneration !== generation || state.selected !== id) return;
-    const text = res.ok ? await res.text() : '';
-    if (requestGeneration !== generation || state.selected !== id) return;
-    body = { id, value: parseJson(text) ?? text };
+    bodyController?.abort();
+    const controller = new AbortController();
+    bodyController = controller;
+    host.textContent = 'cargando…';
+    try {
+      const res = await fetch(`/api/body/${id}`, { signal: controller.signal });
+      if (controller.signal.aborted || bodyController !== controller || !currentDetail(requestGeneration, id, host)) return;
+      if (res.status === 404) {
+        body = { id, value: '' };
+      } else if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      } else {
+        const text = await res.text();
+        if (controller.signal.aborted || bodyController !== controller || !currentDetail(requestGeneration, id, host)) return;
+        body = { id, value: parseJson(text) ?? text };
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError' || controller.signal.aborted || bodyController !== controller) return;
+      if (!currentDetail(requestGeneration, id, host)) return;
+      showLoadError(host, 'No se pudo cargar el cuerpo. Inténtalo de nuevo.', 'retry-body');
+      return;
+    } finally {
+      if (bodyController === controller) bodyController = undefined;
+    }
   }
+  if (!currentDetail(requestGeneration, id, host)) return;
   if (typeof body.value === 'string') {
     copyable.set('body', body.value);
-    host.innerHTML = body.value ? `<pre class="code">${esc(body.value)}</pre>` : '<p class="muted">el cuerpo ya no está en memoria</p>';
+    if (body.value) {
+      const pre = document.createElement('pre');
+      pre.className = 'code';
+      pre.textContent = body.value;
+      host.replaceChildren(pre);
+    } else {
+      host.textContent = 'el cuerpo ya no está en memoria';
+    }
     return;
   }
   mountTree('body', body.value, 1);
@@ -176,24 +229,51 @@ function renderDetail(r) {
   mountTree('headers', r.resp_headers);
   if (outputJson) mountTree('output', outputJson);
   else copyable.set('output', r.output || '');
-  if (detail.querySelector('[data-sec="body"]').open) loadBody(r.id);
-
   detail.hidden = false;
   $('resizer').hidden = false;
   detail.scrollTop = scroll;
+  if (detail.querySelector('[data-sec="body"]').open) loadBody(r.id);
   tick();
 }
 
 export async function showDetail(id, reveal = false) {
-  const requestGeneration = generation;
+  const requestGeneration = ++generation;
+  abortRequests();
   state.selected = id;
   render();
   if (reveal) $('rows').querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' });
-  const res = await fetch(`/api/record/${id}`);
-  if (!res.ok || requestGeneration !== generation || state.selected !== id) return;
-  const record = await res.json();
-  if (requestGeneration !== generation || state.selected !== id) return;
-  renderDetail(record);
+  const controller = new AbortController();
+  recordController = controller;
+  try {
+    const res = await fetch(`/api/record/${id}`, { signal: controller.signal });
+    if (controller.signal.aborted || recordController !== controller || !currentDetail(requestGeneration, id)) return;
+    if (res.status === 404) {
+      closeDetail();
+      showStatus('La petición ya no está en memoria.');
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const record = await res.json();
+    if (controller.signal.aborted || recordController !== controller || !currentDetail(requestGeneration, id)) return;
+    renderDetail(record);
+  } catch (error) {
+    if (error?.name === 'AbortError' || controller.signal.aborted || recordController !== controller) return;
+    if (!currentDetail(requestGeneration, id)) return;
+    detail.replaceChildren();
+    const message = document.createElement('p');
+    message.className = 'muted';
+    message.textContent = 'No se pudo cargar el detalle. Inténtalo de nuevo.';
+    const retry = document.createElement('button');
+    retry.className = 'btn small';
+    retry.type = 'button';
+    retry.dataset.act = 'retry-record';
+    retry.textContent = 'Reintentar';
+    detail.append(message, retry);
+    detail.hidden = false;
+    $('resizer').hidden = false;
+  } finally {
+    if (recordController === controller) recordController = undefined;
+  }
 }
 
 export function closeDetail() {
@@ -207,8 +287,12 @@ export function closeDetail() {
 
 async function copy(button, key) {
   const value = copyable.get(key);
-  await navigator.clipboard.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
-  button.textContent = 'copiado';
+  try {
+    await navigator.clipboard.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+    button.textContent = 'copiado';
+  } catch {
+    button.textContent = 'No se pudo copiar.';
+  }
   setTimeout(() => (button.textContent = 'copiar'), 1200);
 }
 
@@ -219,6 +303,8 @@ detail.addEventListener('click', (e) => {
   const { act, key } = button.dataset;
   if (act === 'close') closeDetail();
   else if (act === 'copy') copy(button, key);
+  else if (act === 'retry-record' && state.selected != null) showDetail(state.selected);
+  else if (act === 'retry-body' && state.selected != null) loadBody(state.selected);
   else trees.get(key)?.setAll(act === 'expand');
 });
 
@@ -230,7 +316,7 @@ detail.addEventListener(
     if (!key) return;
     sectionsOpen[key] = e.target.open;
     store.set('sections', sectionsOpen);
-    if (key === 'body' && e.target.open) loadBody(state.selected);
+    if (key === 'body' && e.target.open && state.selected != null) loadBody(state.selected);
   },
   true,
 );

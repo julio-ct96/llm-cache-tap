@@ -353,6 +353,7 @@ async function main() {
       applyEvent({ type: 'snapshot', ttl: 300, max_records: 2, recs: [sample(43), sample(44)] });
       render();
       await showDetail(44);
+      state.selected = 44;
       const invalid = applyEvent({ type: 'evict', ids: [44] });
       if (invalid) closeDetail();
       syncFilters();
@@ -362,6 +363,210 @@ async function main() {
         rows: [...document.querySelectorAll('#rows tr')].map((row) => row.dataset.id) };
     })()`);
     expect(result, { invalid: true, selected: null, hidden: true, detailChildren: 0, rows: ['43'] }, 'retention UI state');
+  });
+
+  await check('C20', 'older A/B response cannot overwrite the newer selection', async () => {
+    const result = await js(`(async () => {
+      const { state } = await import('/state.js');
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      const pending = [];
+      const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
+      window.fetch = (url, options) => { const request = deferred(); pending.push({ url, options, ...request }); return request.promise; };
+      try {
+        const a = showDetail(43);
+        const b = showDetail(44);
+        const record = (id) => ({ ...state.recs.get(43), id });
+        pending[1].resolve({ ok: true, status: 200, json: async () => record(44) });
+        await b;
+        pending[0].resolve({ ok: true, status: 200, json: async () => record(43) });
+        await a;
+        return { selected: state.selected, displayed: document.getElementById('detail').querySelector('.detail-id')?.textContent,
+          oldAborted: pending[0].options.signal.aborted };
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, { selected: 44, displayed: '#44', oldAborted: true }, 'A/B race');
+  });
+
+  await check('C21', 'older update of the same ID cannot replace its newer generation', async () => {
+    const result = await js(`(async () => {
+      const { state } = await import('/state.js');
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      const pending = [];
+      const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
+      window.fetch = (url, options) => { const request = deferred(); pending.push({ options, ...request }); return request.promise; };
+      try {
+        const first = showDetail(43);
+        const second = showDetail(43);
+        const record = { ...state.recs.get(43), model: 'generación nueva' };
+        pending[1].resolve({ ok: true, status: 200, json: async () => record });
+        await second;
+        pending[0].resolve({ ok: true, status: 200, json: async () => ({ ...record, model: 'generación antigua' }) });
+        await first;
+        return { model: document.getElementById('detail').querySelector('.detail-model')?.textContent,
+          oldAborted: pending[0].options.signal.aborted };
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, { model: 'generación nueva', oldAborted: true }, 'same-ID race');
+  });
+
+  await check('C22', 'clear invalidates a record while res.json is pending', async () => {
+    const result = await js(`(async () => {
+      const { state, applyEvent } = await import('/state.js');
+      const { showDetail, closeDetail, resetDetailCache } = await import('/detail.js');
+      const { render } = await import('/list.js');
+      const original = window.fetch;
+      const retained = [...state.recs];
+      let resolveJson;
+      const json = new Promise((resolve) => { resolveJson = resolve; });
+      let signal;
+      window.fetch = (url, options) => { signal = options.signal; return Promise.resolve({ ok: true, status: 200, json: () => json }); };
+      try {
+        const loading = showDetail(43);
+        resetDetailCache();
+        const invalid = applyEvent({ type: 'clear' });
+        if (invalid) closeDetail();
+        resolveJson({ ...retained[0][1], id: 43 });
+        await loading;
+        return { invalid, aborted: signal.aborted, selected: state.selected, hidden: document.getElementById('detail').hidden };
+      } finally {
+        window.fetch = original;
+        state.recs.clear();
+        retained.forEach(([id, record]) => state.recs.set(id, record));
+        render();
+      }
+    })()`);
+    expect(result, { invalid: true, aborted: true, selected: null, hidden: true }, 'clear during JSON parse');
+  });
+
+  await check('C28', 'AbortError from a body response is silent', async () => {
+    const result = await js(`(async () => {
+      const { showDetail, resetDetailCache, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      let requested;
+      const bodyRequested = new Promise((resolve) => { requested = resolve; });
+      window.fetch = (url, options) => {
+        if (url.startsWith('/api/record/')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ id: 1, time: '12:00', state: 'done', verdict: 'MISS', model: 'test', host: 'test', path: '/', status: 200, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [], n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0 }) });
+        if (url.startsWith('/api/body/')) { requested(); return Promise.reject(new DOMException('aborted', 'AbortError')); }
+        return original(url, options);
+      };
+      try {
+        resetDetailCache();
+        await showDetail(1);
+        const section = document.querySelector('[data-sec="body"]');
+        if (!section.open) section.querySelector('summary').click();
+        await bodyRequested;
+        await new Promise((resolve) => queueMicrotask(resolve));
+        return document.querySelector('[data-tree="body"]').textContent;
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, 'cargando…', 'silent body AbortError');
+  });
+
+  await check('C23', 'body 404 keeps the existing expired-body message', async () => {
+    const result = await js(`(async () => {
+      const { showDetail, resetDetailCache, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      let requested;
+      const bodyRequested = new Promise((resolve) => { requested = resolve; });
+      window.fetch = (url, options) => {
+        if (url.startsWith('/api/record/')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ id: 1, time: '12:00', state: 'done', verdict: 'MISS', model: 'test', host: 'test', path: '/', status: 200, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [], n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0 }) });
+        if (url.startsWith('/api/body/')) { requested(); return Promise.resolve({ ok: false, status: 404 }); }
+        return original(url, options);
+      };
+      try {
+        resetDetailCache();
+        await showDetail(1);
+        const section = document.querySelector('[data-sec="body"]');
+        if (!section.open) section.querySelector('summary').click();
+        await bodyRequested;
+        while (!document.querySelector('[data-tree="body"]').textContent.includes('el cuerpo ya no está en memoria'))
+          await new Promise(requestAnimationFrame);
+        return document.querySelector('[data-tree="body"]').textContent;
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, 'el cuerpo ya no está en memoria', 'body 404');
+  });
+
+  await check('C24', 'body network rejection shows a retry message without rejection leakage', async () => {
+    const result = await js(`(async () => {
+      const { showDetail, resetDetailCache, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      let requested;
+      const bodyRequested = new Promise((resolve) => { requested = resolve; });
+      window.fetch = (url, options) => {
+        if (url.startsWith('/api/record/')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ id: 1, time: '12:00', state: 'done', verdict: 'MISS', model: 'test', host: 'test', path: '/', status: 200, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [], n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0 }) });
+        if (url.startsWith('/api/body/')) { requested(); return Promise.reject(new Error('network')); }
+        return original(url, options);
+      };
+      try {
+        resetDetailCache();
+        await showDetail(1);
+        const section = document.querySelector('[data-sec="body"]');
+        if (!section.open) section.querySelector('summary').click();
+        await bodyRequested;
+        while (!document.querySelector('[data-tree="body"]').textContent.includes('No se pudo cargar el cuerpo. Inténtalo de nuevo.'))
+          await new Promise(requestAnimationFrame);
+        return document.querySelector('[data-tree="body"]').textContent;
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, 'No se pudo cargar el cuerpo. Inténtalo de nuevo.Reintentar', 'body network failure');
+  });
+
+  await check('C25', 'clipboard rejection is handled and explained on the button', async () => {
+    const result = await js(`(async () => {
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+      const originalFetch = window.fetch;
+      window.fetch = (url, options) => url.startsWith('/api/record/')
+        ? Promise.resolve({ ok: true, status: 200, json: async () => ({ id: 43, time: '12:00', state: 'done', verdict: 'MISS', model: 'test', host: 'test', path: '/', status: 200, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [], n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0 }) })
+        : originalFetch(url, options);
+      try {
+        await showDetail(43);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } });
+        const button = document.querySelector('#detail button[data-act="copy"]');
+        button.click();
+        await new Promise((resolve) => queueMicrotask(resolve));
+        return button.textContent;
+      } finally {
+        window.fetch = originalFetch;
+        if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+        else delete navigator.clipboard;
+        closeDetail();
+      }
+    })()`);
+    expect(result, 'No se pudo copiar.', 'clipboard rejection');
+  });
+
+  await check('C26', 'record HTTP failure is visible with a retry action', async () => {
+    const result = await js(`(async () => {
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const original = window.fetch;
+      window.fetch = () => Promise.resolve({ ok: false, status: 503 });
+      try {
+        await showDetail(43);
+        return { message: document.getElementById('detail').textContent,
+          retry: document.querySelector('#detail [data-act="retry-record"]')?.textContent };
+      } finally { window.fetch = original; closeDetail(); }
+    })()`);
+    expect(result, { message: 'No se pudo cargar el detalle. Inténtalo de nuevo.Reintentar', retry: 'Reintentar' }, 'record HTTP failure');
+  });
+
+  await check('C27', 'record 404 closes the detail and reports eviction', async () => {
+    const result = await js(`(async () => {
+      const { showDetail } = await import('/detail.js');
+      const { state } = await import('/state.js');
+      const { clearStatus } = await import('/status.js');
+      const original = window.fetch;
+      window.fetch = () => Promise.resolve({ ok: false, status: 404 });
+      try {
+        await showDetail(43);
+        return { selected: state.selected, hidden: document.getElementById('detail').hidden,
+          message: document.getElementById('action-status').textContent };
+      } finally { window.fetch = original; clearStatus(); }
+    })()`);
+    expect(result, { selected: null, hidden: true, message: 'La petición ya no está en memoria.' }, 'record 404');
   });
 
   console.log(failed ? `\n${failed} check(s) failed` : `\nall checks passed (${FULL ? 'full' : 'short'} list)`);

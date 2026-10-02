@@ -38,7 +38,7 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | 2.07 | Colas SSE y lock | [2.07](fase-2/2.07-suscriptores.md) | 2.06 | terminada con commit | 217 tests, 37 específicos, UI full OK; fixture evita DNS inversa; golden intacto |
 | 2.08 | Log resiliente fuera del lock | [2.08](fase-2/2.08-log-resiliente.md) | 2.07 | terminada con commit | 220 tests, golden intacto; escritura fuera del lock y OSError tolerado |
 | 3.01 | Errores de stream y acciones | [3.01](fase-3/3.01-errores-stream-acciones.md) | 2.05, 2.08 | terminada con commit | 221 tests, JS 9/9 y UI full OK; errores simulados sin requests fallidos |
-| 3.02 | Detalle sin carreras HTTP | [3.02](fase-3/3.02-detalle-asincrono.md) | 3.01 | pendiente | Generación y cancelación |
+| 3.02 | Detalle sin carreras HTTP | [3.02](fase-3/3.02-detalle-asincrono.md) | 3.01 | terminada con commit | Generación y cancelación; 225 tests y UI full OK, carreras y errores cubiertos |
 | 3.03 | Coste de renderizado | [3.03](fase-3/3.03-coste-renderizado.md) | 3.02 | pendiente | Una ordenación y un frame por ráfaga |
 | 4.01 | Contratos y mypy | [4.01](fase-4/4.01-contratos-tipos.md) | 2.08 | terminada con commit | Mypy 1.18.2, 225 tests y 8 tests de record OK; TLS resuelto con instalación directa |
 | 4.02 | Nombres de segmentación | [4.02](fase-4/4.02-nombres-segmentos.md) | 2.08 | terminada con commit | 221 tests OK; huellas y golden intactos |
