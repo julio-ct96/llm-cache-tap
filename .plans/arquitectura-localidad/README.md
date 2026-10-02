@@ -19,11 +19,11 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 1.02 | Constructores de peticiones y respuestas | `fase-1/1.02-constructores.md` | — | terminada con commit | |
 | 1.03 | Ejecutor del escenario | `fase-1/1.03-ejecutor.md` | 1.01, 1.02 | terminada con commit | |
 | 1.04 | Pasos de Anthropic | `fase-1/1.04-pasos-anthropic.md` | 1.03 | terminada con commit | |
-| 1.05 | Pasos de OpenAI | `fase-1/1.05-pasos-openai.md` | 1.03 | en curso | |
-| 1.06 | Pasos varios | `fase-1/1.06-pasos-varios.md` | 1.03 | terminada sin commit | |
+| 1.05 | Pasos de OpenAI | `fase-1/1.05-pasos-openai.md` | 1.03 | terminada sin commit | |
+| 1.06 | Pasos varios | `fase-1/1.06-pasos-varios.md` | 1.03 | terminada con commit | |
 | 1.07 | Golden | `fase-1/1.07-golden.md` | 1.04, 1.05, 1.06 | pendiente | |
 | 1.08 | Test de expulsión | `fase-1/1.08-expulsion.md` | 1.03 | terminada con commit | |
-| 1.09 | Test del panel HTTP | `fase-1/1.09-panel-http.md` | 1.03 | en curso | |
+| 1.09 | Test del panel HTTP | `fase-1/1.09-panel-http.md` | 1.03 | terminada sin commit | |
 | 1.10 | Servidor de prueba | `fase-1/1.10-servidor-de-prueba.md` | 1.07 | pendiente | |
 | 2.01 | Paquete y recarga en caliente | `fase-2/2.01-paquete-y-recarga.md` | 1.07, 1.08, 1.09 | pendiente | |
 | 2.02 | `config.py` | `fase-2/2.02-config.md` | 2.01 | pendiente | |
