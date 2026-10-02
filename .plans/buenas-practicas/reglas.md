@@ -7,7 +7,7 @@ Lee este fichero, la fila de tu tarea en el índice y tu fichero de tarea. Las d
 - RAÍZ = carpeta del repositorio. Todas las rutas parten de RAÍZ; ejecuta los comandos con RAÍZ como directorio de trabajo.
 - TESTS = `venv/bin/python -m unittest discover -s tests -t . -q`.
 - UI = `node tests/ui/check.mjs --full`. Usa Chrome instalado, Node con WebSocket global y los puertos de prueba 8901 y 9334; admite `CHROME_BIN`, `TAP_UI_PORT` y `TAP_DEBUG_PORT`.
-- JS = `node --experimental-default-type=module --test tests/ui/unit/*.test.mjs`, disponible después de 1.01.
+- JS = `node --test tests/ui/unit/*.test.mjs`, disponible después de 1.01. Node 24 detecta los módulos ES; puede emitir MODULE_TYPELESS_PACKAGE_JSON sin fallar. No cambies un package.json ajeno al proyecto para silenciarlo.
 - LINT = `venv/bin/python -m ruff check tap.py cachetap`, disponible después de 5.01.
 - FORMAT = `venv/bin/python -m ruff format --check tap.py cachetap`, disponible después de 5.01.
 - TYPES = `venv/bin/python -m mypy`, disponible después de 4.01.
