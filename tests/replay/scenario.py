@@ -3,21 +3,14 @@ import os
 import queue
 import tempfile
 import time
-from collections import namedtuple
 from pathlib import Path
 from unittest import mock
 
 from tests.replay import adapter, builders, flows
 from tests.replay import steps_anthropic, steps_misc, steps_openai
+from tests.replay.step import Step  # noqa: F401  (re-exported for callers)
 
 BASE_TS = 1790000000.0
-
-Step = namedtuple(
-    "Step",
-    ["key", "t", "host", "path", "body", "status", "chunks", "expect", "method"],
-    defaults=["POST"],
-)
-
 
 def all_steps():
     return steps_anthropic.STEPS + steps_openai.STEPS + steps_misc.STEPS
