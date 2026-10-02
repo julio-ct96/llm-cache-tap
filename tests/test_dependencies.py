@@ -10,6 +10,7 @@ ALLOWED = {
     "config.py": set(),
     "record.py": set(),
     "segments.py": set(),
+    "request_body.py": set(),
     "providers/base.py": set(),
     "providers/anthropic.py": {"providers.base"},
     "providers/openai.py": {"providers.base"},

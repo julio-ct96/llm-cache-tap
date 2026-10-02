@@ -8,7 +8,7 @@ lives). Request bodies are kept in memory only (last MAX requests) so the UI can
 show them; data/requests.jsonl only stores metrics.
 """
 
-import json
+import logging
 import re
 import sys
 import time
@@ -18,7 +18,9 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config, dashboard, linking, providers, record, response_body, segments, store, verdict
+from cachetap import config, dashboard, linking, providers, record, request_body, response_body, segments, store, verdict
+
+logger = logging.getLogger(__name__)
 
 LLM_PATHS = ("/messages", "/responses", "/chat/completions")
 SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
@@ -37,9 +39,12 @@ def request(flow):
     flow.request.headers["accept-encoding"] = "identity"
     text = flow.request.get_text(strict=False) or ""
     try:
-        req = json.loads(text)
-    except ValueError:
-        req = {}
+        req = request_body.parse(text)
+    except ValueError as exc:
+        logger.warning("Petición no inspeccionable: %s", exc)
+        return
+    messages = req.get("messages") or req.get("input") or []
+    n_msgs = int(bool(messages)) if isinstance(messages, str) else len(messages)
     with store.LOCK:
         rid = store.next_id()
         rec = {
@@ -54,7 +59,7 @@ def request(flow):
             "_params": segments.dump({k: req.get(k) for k in ("thinking", "tool_choice")}),
             "req_bytes": len(flow.request.raw_content or b""),
             "n_tools": len(req.get("tools") or []),
-            "n_msgs": len(req.get("messages") or req.get("input") or []),
+            "n_msgs": n_msgs,
             "cc_marks": text.count('"cache_control"'),
             "segs": segments.segments(req),
             "state": "pending",
