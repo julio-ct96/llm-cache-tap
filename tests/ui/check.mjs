@@ -22,12 +22,20 @@ const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Conten
 const URL = `http://127.0.0.1:${UI_PORT}/`;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+// every request has a deadline: a fetch that never connects would otherwise hang the whole run
+const get = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(1500) });
 const children = [];
 let profile;
 
 function cleanup() {
   for (const child of children) child.kill();
-  if (profile) rmSync(profile, { recursive: true, force: true });
+  if (!profile) return;
+  try {
+    // chrome may still be writing its profile for a moment after the kill
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  } catch {
+    /* a leftover temp folder must not turn a passing run into a failure */
+  }
 }
 
 async function until(what, probe, timeout = 8000) {
@@ -47,20 +55,26 @@ async function until(what, probe, timeout = 8000) {
 // ---------- processes ----------
 
 async function startServer() {
-  const busy = await fetch(URL).then(() => true, () => false);
+  const busy = await get(URL).then(() => true, () => false);
   if (busy) throw new Error(`port ${UI_PORT} is already in use: stop the other serve.py first`);
   const env = { ...process.env, TAP_UI_PORT: UI_PORT };
   children.push(spawn(join(ROOT, 'venv/bin/python'), [join(ROOT, 'tests/replay/serve.py')], { env, stdio: 'ignore' }));
-  await until('serve.py', () => fetch(URL).then((res) => res.ok));
+  await until('serve.py', () => get(URL).then((res) => res.ok));
 }
 
 async function startChrome() {
   profile = mkdtempSync(join(tmpdir(), 'tap-ui-'));
   const args = ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`, '--no-first-run', '--window-size=1600,900', 'about:blank'];
   children.push(spawn(CHROME, args, { stdio: 'ignore' }));
-  const base = `http://127.0.0.1:${DEBUG_PORT}`;
-  await until('chrome', () => fetch(`${base}/json/version`).then((res) => res.ok));
-  const target = await fetch(`${base}/json/new?about:blank`, { method: 'PUT' }).then((res) => res.json());
+  // chrome binds its debugging port to IPv4 or to IPv6 depending on the run: take whichever answers
+  const bases = [`http://127.0.0.1:${DEBUG_PORT}`, `http://[::1]:${DEBUG_PORT}`];
+  const base = await until('chrome', async () => {
+    for (const candidate of bases) {
+      if (await get(`${candidate}/json/version`).then((res) => res.ok, () => false)) return candidate;
+    }
+    return null;
+  }, 15000);
+  const target = await get(`${base}/json/new?about:blank`, { method: 'PUT' }).then((res) => res.json());
   return target.webSocketDebuggerUrl;
 }
 
