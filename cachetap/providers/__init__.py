@@ -8,6 +8,18 @@ PROVIDERS = (anthropic, openai)
 
 FIRST_TOKEN = anthropic.FIRST_TOKEN + openai.FIRST_TOKEN
 
+DEFAULT_TTL_HELP = {"models": "Otros proveedores", "ttl": "5 min, supuesto", "anchor": "final de la petición"}
+
+# date on which the providers' prompt caching guides were last reviewed
+REVIEWED = "octubre de 2026"
+
+
+def reference():
+    """Help tables about cache lifetime and minimum cacheable prefix, for the dashboard."""
+    ttl = [row for provider in PROVIDERS for row in provider.TTL_HELP] + [DEFAULT_TTL_HELP]
+    min_cacheable_rows = [row for provider in PROVIDERS for row in provider.MIN_CACHEABLE_HELP]
+    return {"ttl": ttl, "min_cacheable": min_cacheable_rows, "reviewed": REVIEWED}
+
 
 def cache_ttl(req):
     """How long the provider keeps this prefix cached, and how we know.

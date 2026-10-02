@@ -18,7 +18,7 @@ ALLOWED = {
     "linking.py": {"segments"},
     "verdict.py": {"config", "providers"},
     "store.py": {"config", "record"},
-    "dashboard.py": {"config", "record", "store"},
+    "dashboard.py": {"config", "providers", "record", "store"},
 }
 
 

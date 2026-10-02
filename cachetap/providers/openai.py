@@ -11,6 +11,13 @@ def owns(model):
     return bool(base.version(model, "gpt") or re.match(r"o\d", model))
 
 
+TTL_HELP = [
+    {"models": "GPT-5.6 y posteriores", "ttl": "30 min (`prompt_cache_options.ttl`)", "anchor": "última escritura o lectura"},
+    {"models": "GPT-5 a 5.5 y GPT-4.1", "ttl": "`in_memory`: 5–10 min, hasta 1 h · `24h`: unos 30 min, hasta 24 h", "anchor": "última actividad"},
+    {"models": "GPT anteriores y serie o", "ttl": "5–10 min, hasta 1 h", "anchor": "última actividad"},
+]
+
+
 def cache_ttl(req, model):
     gpt = base.version(model, "gpt")
     if gpt and gpt >= (5, 6):
@@ -27,6 +34,11 @@ def cache_ttl(req, model):
             return {"ttl_s": 300, "ttl_max_s": 3600, "ttl_source": "por defecto: este modelo solo admite in_memory", "ttl_anchor": "end"}
         # the default retention depends on the organisation (24h unless it has zero data retention)
         return {"ttl_s": 300, "ttl_max_s": 86400, "ttl_source": "supuesto: la retención por defecto depende de la organización", "ttl_anchor": "end"}
+
+
+MIN_CACHEABLE_HELP = [
+    {"models": "Modelos GPT", "tokens": 1024, "example": "gpt-5.6"},
+]
 
 
 def min_cacheable(model):

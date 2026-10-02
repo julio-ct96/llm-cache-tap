@@ -70,6 +70,13 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(res.status, 200)
         self.assertEqual(body["model"], "claude-opus-5-5")
 
+    def test_reference(self):
+        res = self._request("GET", "/api/reference")
+        data = json.loads(res.read())
+        self.assertEqual(res.status, 200)
+        self.assertEqual(data["reviewed"], "octubre de 2026")
+        self.assertEqual(len(data["ttl"]), 5)
+
     def test_missing_record(self):
         res = self._request("GET", "/api/record/99")
         res.read()

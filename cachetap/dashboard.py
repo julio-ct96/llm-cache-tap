@@ -6,7 +6,7 @@ import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from cachetap import config, record, store
+from cachetap import config, providers, record, store
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -39,7 +39,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/events":
             return self._events()
-        m = re.match(r"^/api/(record|body)/(\d+)$", path)
+        if path == "/api/reference":
+            return self._send(200, json.dumps(providers.reference(), ensure_ascii=False))
+        m =re.match(r"^/api/(record|body)/(\d+)$", path)
         if m:
             rid = int(m.group(2))
             with store.LOCK:

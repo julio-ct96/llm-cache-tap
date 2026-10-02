@@ -43,6 +43,30 @@ class MinCacheableTest(unittest.TestCase):
         self.assertEqual(providers.min_cacheable(None), 1024)
 
 
+class ReferenceTest(unittest.TestCase):
+    def test_shape(self):
+        self.assertEqual(set(providers.reference()), {"ttl", "min_cacheable", "reviewed"})
+
+    def test_ttl_rows(self):
+        rows = providers.reference()["ttl"]
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(rows[0]["models"], "Claude (todos)")
+        self.assertEqual(rows[-1]["models"], "Otros proveedores")
+        for row in rows:
+            self.assertEqual(set(row), {"models", "ttl", "anchor"})
+
+    def test_min_cacheable_rows(self):
+        rows = providers.reference()["min_cacheable"]
+        self.assertEqual(len(rows), 5)
+        for row in rows:
+            self.assertIsInstance(row["tokens"], int)
+
+    def test_help_does_not_lie(self):
+        for row in providers.reference()["min_cacheable"]:
+            with self.subTest(example=row["example"]):
+                self.assertEqual(providers.min_cacheable(row["example"]), row["tokens"])
+
+
 class FirstTokenTest(unittest.TestCase):
     def test_marks(self):
         self.assertEqual(len(providers.FIRST_TOKEN), 4)

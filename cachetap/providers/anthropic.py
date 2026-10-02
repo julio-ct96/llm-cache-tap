@@ -25,6 +25,11 @@ def cache_controls(o):
             yield from cache_controls(x)
 
 
+TTL_HELP = [
+    {"models": "Claude (todos)", "ttl": '5 min, o 1 h si `cache_control` lleva `ttl: "1h"`', "anchor": "inicio de la petición"},
+]
+
+
 def cache_ttl(req, model):
     # 5 minutes unless a breakpoint asks for 1 hour; the shortest one is the first to go
     marks = list(cache_controls(req))
@@ -34,6 +39,14 @@ def cache_ttl(req, model):
     else:
         source = "por defecto de Claude"
     return {"ttl_s": ttl, "ttl_source": source, "ttl_anchor": "start"}
+
+
+MIN_CACHEABLE_HELP = [
+    {"models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x", "tokens": 512, "example": "claude-opus-5-5"},
+    {"models": "Claude Opus 4.8, Sonnet 4.6 y 4.5", "tokens": 1024, "example": "claude-sonnet-4-5"},
+    {"models": "Claude Opus 4.7", "tokens": 2048, "example": "claude-opus-4-7"},
+    {"models": "Claude Opus 4.6 y 4.5, Haiku 4.5", "tokens": 4096, "example": "claude-haiku-4-5"},
+]
 
 
 def min_cacheable(model):
