@@ -29,9 +29,9 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
 | 1.01 | Red de seguridad Python/JS | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | 180 tests Python, 2 JS y UI completa OK; golden idéntico; runner JS corregido en 3346504 |
-| 2.01 | Validación de peticiones | [2.01](fase-2/2.01-validacion-peticiones.md) | 1.01 | bloqueada | El contrato exige `input` string con `n_msgs=1`, pero el replay golden fija `n_msgs=17` para `gpt-5.6`; reglas prohíben cambiar golden |
-| 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | bloqueada | Suite completa falla en replay por cambio concurrente de 2.01 en tap.py (n_msgs 17→1); revalidar al cerrarse 2.01 |
-| 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | terminada sin commit | Filesystem en escritura |
+| 2.01 | Validación de peticiones | [2.01](fase-2/2.01-validacion-peticiones.md) | 1.01 | terminada con commit | 201 tests y 13 específicos OK; golden corregido por orquestador con las cinco diferencias previstas |
+| 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | terminada con commit | Conserva datos válidos; casos malformados y contadores inválidos cubiertos |
+| 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | terminada con commit | Filesystem en escritura |
 | 2.04 | Retención por bytes y expulsión | [2.04](fase-2/2.04-retencion-backend.md) | 2.01, 2.03 | pendiente | Protocolo compatible en casos existentes |
 | 2.05 | Retención del navegador | [2.05](fase-2/2.05-retencion-frontend.md) | 2.04 | pendiente | Elimina crecimiento sin límite |
 | 2.06 | Límites de respuestas | [2.06](fase-2/2.06-limites-respuestas.md) | 2.02, 2.04 | pendiente | Bytes originales siempre pasan |
