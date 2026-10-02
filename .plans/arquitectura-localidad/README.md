@@ -51,7 +51,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 3.08 | CSS: cambiar a los ficheros nuevos | `fase-3/3.08-css-cambio.md` | 3.00, 3.06, 3.07 | terminada con commit | |
 | 4.01 | Referencia de TTL y mínimos en el backend | `fase-4/4.01-referencia-backend.md` | 2.15, 3.08 | terminada con commit | |
 | 4.02 | Ayuda pintada desde la referencia | `fase-4/4.02-ayuda-frontend.md` | 4.01, 3.08 | terminada con commit | |
-| 4.03 | `AGENTS.md` | `fase-4/4.03-agents-md.md` | 4.02 | pendiente | |
+| 4.03 | `AGENTS.md` | `fase-4/4.03-agents-md.md` | 4.02 | terminada con commit | |
 | 4.04 | Verificación con el proxy real (con el usuario) | `fase-4/4.04-verificacion-real.md` | 4.03 | pendiente | |
 
 ## Qué se puede lanzar a la vez
