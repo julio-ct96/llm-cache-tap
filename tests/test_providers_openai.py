@@ -94,3 +94,18 @@ class NormalizeTest(unittest.TestCase):
             openai.normalize(merged),
             {"read": 1400, "write": None, "uncached": 200, "input_total": 1600, "output": 40, "reasoning": None},
         )
+
+
+class DeltasTest(unittest.TestCase):
+    def test_responses_text(self):
+        self.assertEqual(openai.deltas({"type": "response.output_text.delta", "delta": "a"}), (["a"], None))
+
+    def test_other_event_type(self):
+        self.assertEqual(openai.deltas({"type": "otro", "delta": "a"}), ([], None))
+
+    def test_chat_text_and_finish(self):
+        ev = {"choices": [{"delta": {"content": "a"}}, {"delta": {}, "finish_reason": "stop"}]}
+        self.assertEqual(openai.deltas(ev), (["a"], "stop"))
+
+    def test_anthropic_shaped_delta(self):
+        self.assertEqual(openai.deltas({"delta": {"text": "a"}}), ([], None))

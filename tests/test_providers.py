@@ -83,5 +83,14 @@ class WrittenTtlTest(unittest.TestCase):
         self.assertEqual(providers.written_ttl(events), 3600)
 
 
+class DeltasTest(unittest.TestCase):
+    def test_both_providers_in_order_and_openai_stop_wins(self):
+        ev = {
+            "delta": {"text": "a", "stop_reason": "x"},
+            "choices": [{"delta": {"content": "b"}, "finish_reason": "y"}],
+        }
+        self.assertEqual(providers.deltas(ev), (["a", "b"], "y"))
+
+
 if __name__ == "__main__":
     unittest.main()

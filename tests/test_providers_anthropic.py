@@ -117,5 +117,19 @@ class WrittenTtlTest(unittest.TestCase):
         self.assertIsNone(anthropic.written_ttl([]))
 
 
+class DeltasTest(unittest.TestCase):
+    def test_text(self):
+        self.assertEqual(anthropic.deltas({"delta": {"text": "a"}}), (["a"], None))
+
+    def test_stop_reason(self):
+        self.assertEqual(anthropic.deltas({"delta": {"stop_reason": "end_turn"}}), ([], "end_turn"))
+
+    def test_delta_not_a_dict(self):
+        self.assertEqual(anthropic.deltas({"delta": "a"}), ([], None))
+
+    def test_no_delta(self):
+        self.assertEqual(anthropic.deltas({}), ([], None))
+
+
 if __name__ == "__main__":
     unittest.main()

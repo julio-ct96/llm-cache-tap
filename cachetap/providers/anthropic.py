@@ -64,6 +64,15 @@ def normalize(merged):
     return None
 
 
+def deltas(ev):
+    """Texts and stop reason carried by one streamed event."""
+    d = ev.get("delta")
+    if not isinstance(d, dict):
+        return [], None
+    texts = [d["text"]] if isinstance(d.get("text"), str) else []
+    return texts, d.get("stop_reason")
+
+
 def written_ttl(events):
     """TTL of what Claude actually wrote to cache, when the usage breaks it down."""
     for e in events:

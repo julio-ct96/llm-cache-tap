@@ -41,6 +41,20 @@ def effort(req):
     )
 
 
+def deltas(ev):
+    """Texts and stop reason carried by one streamed event."""
+    texts, stop = [], None
+    d = ev.get("delta")
+    if isinstance(d, str) and str(ev.get("type", "")).endswith("output_text.delta"):
+        texts.append(d)
+    for ch in ev.get("choices") or []:
+        c = (ch.get("delta") or {}).get("content")
+        if isinstance(c, str):
+            texts.append(c)
+        stop = ch.get("finish_reason") or stop
+    return texts, stop
+
+
 def normalize(merged):
     inp = merged.get("input_tokens", merged.get("prompt_tokens")) or 0
     det = merged.get("input_tokens_details") or merged.get("prompt_tokens_details") or {}

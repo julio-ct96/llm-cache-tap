@@ -22,7 +22,7 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config, providers, record, segments
+from cachetap import config, providers, record, response_body, segments
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -107,57 +107,6 @@ def link_to_previous(rec, req):
 
 
 # ---------- response analysis ----------
-
-def _usage_events(body):
-    events = []
-
-    def grab(ev):
-        if not isinstance(ev, dict):
-            return
-        for holder in (ev, ev.get("message"), ev.get("response")):
-            if isinstance(holder, dict) and isinstance(holder.get("usage"), dict):
-                events.append({"event": ev.get("type") or ev.get("object") or "json", "usage": holder["usage"]})
-                return
-
-    stripped = body.lstrip()
-    if stripped.startswith("{"):
-        try:
-            grab(json.loads(stripped))
-        except ValueError:
-            pass
-        return events
-    for line in body.splitlines():
-        if line.startswith("data:") and '"usage"' in line:
-            try:
-                grab(json.loads(line[5:]))
-            except ValueError:
-                continue
-    return events
-
-
-def _output_text(body):
-    out, stop = [], None
-    for line in body.splitlines():
-        if not line.startswith("data:") or line.strip() == "data: [DONE]":
-            continue
-        try:
-            ev = json.loads(line[5:])
-        except ValueError:
-            continue
-        d = ev.get("delta")
-        if isinstance(d, dict):
-            if isinstance(d.get("text"), str):
-                out.append(d["text"])
-            stop = d.get("stop_reason") or stop
-        elif isinstance(d, str) and str(ev.get("type", "")).endswith("output_text.delta"):
-            out.append(d)
-        for ch in ev.get("choices") or []:
-            c = (ch.get("delta") or {}).get("content")
-            if isinstance(c, str):
-                out.append(c)
-            stop = ch.get("finish_reason") or stop
-    return "".join(out)[:2000], stop
-
 
 def judge(rec):
     u = rec.get("usage")
@@ -301,8 +250,8 @@ def response(flow):
         return
     now = time.time()
     body = b"".join(st["chunks"]).decode("utf8", "replace")
-    events = _usage_events(body)
-    output, stop = _output_text(body)
+    events = response_body.usage_events(body)
+    output, stop = response_body.output_text(body)
     t0 = flow.request.timestamp_end
     with LOCK:
         rec = RECORDS.get(rid)

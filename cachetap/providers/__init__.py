@@ -44,6 +44,13 @@ def effort_of(req):
     return anthropic.effort(req) or openai.effort(req)
 
 
+def deltas(ev):
+    """Texts and stop reason carried by one streamed event, whichever provider sent it."""
+    a_texts, a_stop = anthropic.deltas(ev)
+    o_texts, o_stop = openai.deltas(ev)
+    return a_texts + o_texts, o_stop or a_stop
+
+
 def normalize(events):
     """Token usage of a response, in one shape for every provider."""
     merged = {}
