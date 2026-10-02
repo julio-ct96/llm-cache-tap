@@ -14,6 +14,14 @@ const treeStates = new Map(); // section key -> Map(path -> open), shared across
 const copyable = new Map(); // section key -> value behind its "copiar" button
 const trees = new Map();
 let body = { id: null, value: undefined };
+let generation = 0;
+
+export function resetDetailCache() {
+  generation++;
+  body = { id: null, value: undefined };
+  trees.clear();
+  copyable.clear();
+}
 
 function section(key, title, content, { open = true, tools = '' } = {}) {
   const isOpen = sectionsOpen[key] ?? open;
@@ -115,13 +123,15 @@ function parseJson(text) {
 }
 
 async function loadBody(id) {
+  const requestGeneration = generation;
   const host = detail.querySelector('[data-tree="body"]');
   if (!host) return;
   if (body.id !== id) {
     host.innerHTML = '<p class="muted">cargando…</p>';
     const res = await fetch(`/api/body/${id}`);
-    if (state.selected !== id) return;
+    if (requestGeneration !== generation || state.selected !== id) return;
     const text = res.ok ? await res.text() : '';
+    if (requestGeneration !== generation || state.selected !== id) return;
     body = { id, value: parseJson(text) ?? text };
   }
   if (typeof body.value === 'string') {
@@ -175,17 +185,22 @@ function renderDetail(r) {
 }
 
 export async function showDetail(id, reveal = false) {
+  const requestGeneration = generation;
   state.selected = id;
   render();
   if (reveal) $('rows').querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' });
   const res = await fetch(`/api/record/${id}`);
-  if (!res.ok || state.selected !== id) return;
-  renderDetail(await res.json());
+  if (!res.ok || requestGeneration !== generation || state.selected !== id) return;
+  const record = await res.json();
+  if (requestGeneration !== generation || state.selected !== id) return;
+  renderDetail(record);
 }
 
 export function closeDetail() {
   state.selected = null;
+  resetDetailCache();
   detail.hidden = true;
+  detail.replaceChildren();
   $('resizer').hidden = true;
   render();
 }

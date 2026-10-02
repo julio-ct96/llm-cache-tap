@@ -289,6 +289,27 @@ async function main() {
     if (page.problems.length) throw new Error(page.problems.slice(0, 5).join(' | '));
   });
 
+  await check('R1', 'retention event evicts selection, releases detail and renders retained records', async () => {
+    const result = await js(`(async () => {
+      const { state, applyEvent } = await import('/state.js');
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const { render, syncFilters } = await import('/list.js');
+      state.selected = null;
+      const sample = (id) => ({ id, time: '12:00', state: 'done', verdict: 'HIT', model: 'gpt-test', conv: 'retention', n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [] });
+      applyEvent({ type: 'snapshot', ttl: 300, max_records: 2, recs: [sample(43), sample(44)] });
+      render();
+      await showDetail(44);
+      const invalid = applyEvent({ type: 'evict', ids: [44] });
+      if (invalid) closeDetail();
+      syncFilters();
+      render();
+      return { invalid, selected: state.selected, hidden: document.getElementById('detail').hidden,
+        detailChildren: document.getElementById('detail').childElementCount,
+        rows: [...document.querySelectorAll('#rows tr')].map((row) => row.dataset.id) };
+    })()`);
+    expect(result, { invalid: true, selected: null, hidden: true, detailChildren: 0, rows: ['43'] }, 'retention UI state');
+  });
+
   console.log(failed ? `\n${failed} check(s) failed` : `\nall checks passed (${FULL ? 'full' : 'short'} list)`);
   return failed ? 1 : 0;
 }
