@@ -1,0 +1,12 @@
+# Proxy CA: contains private keys, generated per machine by mitmproxy
+ca/
+
+# Captured metrics and logs
+data/
+tap.log
+
+# Python
+venv/
+__pycache__/
+
+.DS_Store
