@@ -23,7 +23,7 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config
+from cachetap import config, record
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -37,7 +37,6 @@ FIRST_TOKEN = (b"content_block_delta", b"output_text.delta", b'"delta":{"content
 STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
 SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
 UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
-HEAVY = ("segs", "raw_usage", "output", "effort_fields", "resp_headers", "diff")
 
 LOCK = threading.Lock()
 RECORDS: "OrderedDict[int, dict]" = OrderedDict()
@@ -423,17 +422,13 @@ def judge(rec):
 
 # ---------- publishing ----------
 
-def light(rec):
-    return {k: v for k, v in rec.items() if k not in HEAVY and not k.startswith("_")}
-
-
 def publish(ev):
     for q in list(CLIENTS):
         q.put(ev)
 
 
 def push(rec):
-    publish({"type": "record", "rec": light(rec)})
+    publish({"type": "record", "rec": record.light(rec)})
 
 
 # ---------- mitmproxy hooks ----------
@@ -539,7 +534,7 @@ def response(flow):
         judge(rec)
         push(rec)
         with open(config.LOG, "a") as f:
-            f.write(json.dumps({k: v for k, v in light(rec).items()}, ensure_ascii=False) + "\n")
+            f.write(json.dumps(record.light(rec), ensure_ascii=False) + "\n")
 
 
 def error(flow):
@@ -586,7 +581,7 @@ class Handler(BaseHTTPRequestHandler):
                     body = BODIES.get(rid)
                 else:
                     rec = RECORDS.get(rid)
-                    body = json.dumps({k: v for k, v in rec.items() if not k.startswith("_")}, ensure_ascii=False) if rec else None
+                    body = json.dumps(record.public(rec), ensure_ascii=False) if rec else None
             return self._send(200, body) if body is not None else self._send(404, "{}")
         self._static(path)
 
@@ -613,7 +608,7 @@ class Handler(BaseHTTPRequestHandler):
     def _events(self):
         q = queue.Queue()
         with LOCK:
-            snap = [light(r) for r in RECORDS.values()]
+            snap = [record.light(r) for r in RECORDS.values()]
             CLIENTS.append(q)
         try:
             self.send_response(200)
