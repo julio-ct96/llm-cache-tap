@@ -22,8 +22,7 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config, record, segments
-from cachetap.providers import anthropic, base, openai
+from cachetap import config, providers, record, segments
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -54,32 +53,6 @@ def effort_of(req):
         or (r.get("effort") if isinstance(r, dict) else None)
         or req.get("reasoning_effort")
     )
-
-
-def cache_ttl(req):
-    """How long the provider keeps this prefix cached, and how we know.
-
-    ttl_s is the lifetime that can be relied on; ttl_max_s, when present, is how
-    long the entry may survive beyond that. ttl_anchor says whether the provider
-    counts from the start or the end of the request. Sources: the prompt caching
-    guides of Anthropic and OpenAI, as of October 2026.
-    """
-    if config.TTL_FORCED:
-        return {"ttl_s": config.TTL_FORCED, "ttl_source": "forzado con TAP_TTL_S", "ttl_anchor": "end"}
-    model = str(req.get("model") or "").lower()
-    if anthropic.owns(model):
-        return anthropic.cache_ttl(req, model)
-    if openai.owns(model):
-        return openai.cache_ttl(req, model)
-    return {"ttl_s": config.TTL_S, "ttl_source": "supuesto: proveedor sin TTL conocido", "ttl_anchor": "end"}
-
-
-def min_cacheable(model):
-    """Shortest prefix the provider will cache, in tokens."""
-    model = str(model or "").lower()
-    if not anthropic.owns(model):
-        return 1024
-    return anthropic.min_cacheable(model)
 
 
 def _common(a, b):
@@ -226,7 +199,7 @@ def judge(rec):
     prev = RECORDS.get(rec.get("prev_id"))
     read, total = u["read"], u["input_total"]
     base = (prev.get("usage") or {}).get("input_total") if prev else None
-    minimum = min_cacheable(rec.get("model"))
+    minimum = providers.min_cacheable(rec.get("model"))
     if read == 0 and total < minimum:
         verdict = "N/A"
     elif read == 0:
@@ -316,7 +289,7 @@ def request(flow):
             "cc_marks": text.count('"cache_control"'),
             "segs": segments.segments(req),
             "state": "pending",
-            **cache_ttl(req),
+            **providers.cache_ttl(req),
         }
         link_to_previous(rec, req)
         RECORDS[rid] = rec
@@ -377,7 +350,7 @@ def response(flow):
             "output": output if flow.response.status_code < 400 else body[:2000],
             "stop_reason": stop,
         })
-        written = anthropic.written_ttl(events)
+        written = providers.written_ttl(events)
         if written and not config.TTL_FORCED:
             minutes = written // 60
             rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
