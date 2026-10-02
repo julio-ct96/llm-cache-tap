@@ -1,0 +1,510 @@
+import { jsonTree } from './json-tree.js';
+
+const BAD_VERDICTS = ['MISS', 'PARTIAL', 'ERR'];
+const SELECT_FILTERS = [
+  ['f-model', 'model', 'todos los modelos'],
+  ['f-conv', 'conv', 'todas las conversaciones'],
+];
+const TOGGLE_FILTERS = ['f-bad', 'f-eff'];
+
+const recs = new Map();
+let visible = []; // records that pass the filters, in display order
+let successors = new Map(); // record id -> the next request of its conversation
+let selected = null;
+let ttl = 300;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const num = (n) => (n == null ? '–' : Number(n).toLocaleString('es-ES'));
+const secs = (n) => (n == null ? '–' : n.toFixed(2) + ' s');
+const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const pressed = (id) => $(id).getAttribute('aria-pressed') === 'true';
+
+const store = {
+  get(key, fallback) {
+    try {
+      return JSON.parse(localStorage.getItem('tap.' + key)) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem('tap.' + key, JSON.stringify(value));
+    } catch {
+      /* storage unavailable: the preference just does not persist */
+    }
+  },
+};
+
+// ---------- list ----------
+
+function passes(r) {
+  if ($('f-model').value && r.model !== $('f-model').value) return false;
+  if ($('f-conv').value && r.conv !== $('f-conv').value) return false;
+  if (pressed('f-bad') && !BAD_VERDICTS.includes(r.verdict)) return false;
+  if (pressed('f-eff') && !r.effort_changed) return false;
+  const query = $('f-text').value.trim().toLowerCase();
+  if (!query) return true;
+  const haystack = [`#${r.id}`, r.model, r.conv, r.verdict, r.effort, ...(r.notes || [])].join(' ').toLowerCase();
+  return haystack.includes(query);
+}
+
+function badge(r) {
+  if (r.state !== 'done' && r.state !== 'error') {
+    return `<span class="badge v-pending">${r.state === 'streaming' ? 'stream' : 'espera'}</span>`;
+  }
+  const cls = 'v-' + String(r.verdict ?? 'na').toLowerCase().replace(/[^a-z]/g, '');
+  return `<span class="badge ${cls}">${esc(r.verdict)}</span>`;
+}
+
+function shareBar(u, wide = false) {
+  const total = u.input_total;
+  if (!total) return '';
+  const pct = (v) => (100 * (v || 0)) / total;
+  const title = `leído ${pct(u.read).toFixed(1)} % · escrito ${pct(u.write).toFixed(1)} % · sin caché ${pct(u.uncached).toFixed(1)} %`;
+  return `<div class="bar${wide ? ' wide' : ''}" role="img" aria-label="${title}" title="${title}">
+    <i class="read" style="width:${pct(u.read)}%"></i>
+    <i class="write" style="width:${pct(u.write)}%"></i>
+    <i class="uncached" style="width:${pct(u.uncached)}%"></i>
+  </div>`;
+}
+
+const ttlOf = (r) => r.ttl_s ?? ttl;
+const duration = (s) => (s < 3600 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`);
+
+/** "TTL 5 min (puede durar hasta 1 h) · por defecto de Claude" */
+function ttlLabel(r) {
+  const upTo = r.ttl_max_s ? ` (puede durar hasta ${duration(r.ttl_max_s)})` : '';
+  return `TTL ${duration(ttlOf(r))}${upTo} · ${r.ttl_source ?? 'supuesto'}`;
+}
+
+/**
+ * Cache lifetime of a request. It counts down from the start or the end of the
+ * request, whichever its provider uses, and stops when the next request of its
+ * conversation arrives. Between ttl_s and ttl_max_s the entry may or may not
+ * still be there, so the timer says "dudosa" instead of "caducada".
+ */
+function timerHtml(r) {
+  if (r.state !== 'done' || r.ts_end == null || r.verdict === 'N/A') return '–';
+  const total = ttlOf(r);
+  const bar = (width) => `<span class="ttl-bar"><i style="width:${width}%"></i></span>`;
+  const next = successors.get(r.id);
+  if (!next) {
+    const from = r.ttl_anchor === 'start' ? r.ts : r.ts_end;
+    return `<span class="ttl" data-from="${from}" data-ttl="${total}" data-max="${r.ttl_max_s ?? 0}" title="${esc(ttlLabel(r))}">
+      ${bar(0)}<span class="ttl-text"></span>
+    </span>`;
+  }
+  const age = next.age_s ?? next.gap_s;
+  const left = total - age;
+  const title = esc(`parado por #${next.id} a los ${age} s · ${ttlLabel(r)}`);
+  if (left > 0) return `<span class="ttl stopped" title="${title}">${bar((100 * left) / total)}<span class="ttl-text">${clock(left)}</span></span>`;
+  const state = age < (r.ttl_max_s ?? 0) ? 'dudosa' : 'caducada';
+  const cls = state === 'dudosa' ? 'doubtful' : 'over-ttl';
+  return `<span class="ttl stopped ${cls}" title="${title}">${bar(0)}<span class="ttl-text">${state}</span></span>`;
+}
+
+function tick() {
+  const now = Date.now() / 1000;
+  for (const timer of document.querySelectorAll('.ttl[data-from]')) {
+    const { from, ttl: total, max } = timer.dataset;
+    const age = now - Number(from);
+    const left = Number(total) - age;
+    const doubtful = left <= 0 && age < Number(max);
+    timer.classList.toggle('stopped', left <= 0);
+    timer.classList.toggle('doubtful', doubtful);
+    timer.querySelector('i').style.width = Math.max(0, (100 * left) / Number(total)) + '%';
+    timer.querySelector('.ttl-text').textContent = left > 0 ? clock(left) : doubtful ? 'dudosa' : 'caducada';
+  }
+}
+
+function rowHtml(r) {
+  const u = r.usage || {};
+  const effort = r.effort_changed
+    ? `<span class="chip changed">${esc(r.prev_effort ?? '∅')} → ${esc(r.effort ?? '∅')}</span>`
+    : `<span class="chip">${esc(r.effort ?? '–')}</span>`;
+  const prevRec = recs.get(r.prev_id);
+  const late = prevRec && (r.age_s ?? r.gap_s) > ttlOf(prevRec);
+  const gap = r.gap_s == null ? '–' : `<span class="${late ? 'over-ttl' : ''}">${r.gap_s.toFixed(0)} s</span>`;
+  const prev = r.prev_id ? ` <span class="muted">← #${r.prev_id}</span>` : '';
+  const classes = [r.id === selected ? 'selected' : '', r.server_side ? 'server' : ''].join(' ');
+  return `<tr data-id="${r.id}" class="${classes}">
+    <td class="num">${r.id}</td>
+    <td class="mono">${esc(r.time)}</td>
+    <td>${badge(r)}</td>
+    <td>${timerHtml(r)}</td>
+    <td class="mono">${esc(r.model ?? '?')}</td>
+    <td>${effort}</td>
+    <td class="num">${num(u.input_total)}</td>
+    <td class="num">${num(u.read)}</td>
+    <td class="num">${num(u.write)}</td>
+    <td>${shareBar(u)}</td>
+    <td class="num">${secs(r.ttft_s)}</td>
+    <td class="num">${secs(r.total_s)}</td>
+    <td class="num">${gap}</td>
+    <td class="mono">${esc(r.conv)}${prev}</td>
+    <td class="diagnosis">${(r.notes || []).map(esc).join(' · ')}</td>
+  </tr>`;
+}
+
+function render() {
+  successors = new Map();
+  for (const r of [...recs.values()].sort((a, b) => a.id - b.id)) {
+    if (r.prev_id != null && !successors.has(r.prev_id)) successors.set(r.prev_id, r);
+  }
+  visible = [...recs.values()].filter(passes).sort((a, b) => b.id - a.id);
+  $('rows').innerHTML = visible.map(rowHtml).join('');
+  tick();
+  $('empty').hidden = recs.size > 0;
+  $('no-match').hidden = recs.size === 0 || visible.length > 0;
+
+  const done = visible.filter((r) => r.state === 'done');
+  const effort = done.filter((r) => r.effort_changed && r.prev_id);
+  const read = done.reduce((sum, r) => sum + (r.usage?.read || 0), 0);
+  const total = done.reduce((sum, r) => sum + (r.usage?.input_total || 0), 0);
+  $('s-n').textContent = visible.length;
+  $('s-hit').textContent = done.filter((r) => r.verdict === 'HIT').length;
+  $('s-miss').textContent = done.filter((r) => ['MISS', 'PARTIAL'].includes(r.verdict)).length;
+  $('s-srv').textContent = done.filter((r) => r.server_side).length;
+  $('s-eff').textContent = `${effort.filter((r) => r.verdict === 'HIT').length} / ${effort.length}`;
+  $('s-rate').textContent = total ? ((100 * read) / total).toFixed(1) + ' %' : '–';
+}
+
+function syncFilters() {
+  for (const [id, key, all] of SELECT_FILTERS) {
+    const select = $(id);
+    const current = select.value;
+    const values = [...new Set([...recs.values()].map((r) => r[key]).filter(Boolean))].sort();
+    select.innerHTML = `<option value="">${all}</option>` + values.map((v) => `<option>${esc(v)}</option>`).join('');
+    select.value = values.includes(current) ? current : '';
+  }
+}
+
+function resetFilters() {
+  $('f-text').value = '';
+  for (const [id] of SELECT_FILTERS) $(id).value = '';
+  for (const id of TOGGLE_FILTERS) $(id).setAttribute('aria-pressed', 'false');
+  render();
+}
+
+// ---------- detail ----------
+
+const detail = $('detail');
+const sectionsOpen = store.get('sections', {});
+const treeStates = new Map(); // section key -> Map(path -> open), shared across requests
+const copyable = new Map(); // section key -> value behind its "copiar" button
+const trees = new Map();
+let body = { id: null, value: undefined };
+
+function section(key, title, content, { open = true, tools = '' } = {}) {
+  const isOpen = sectionsOpen[key] ?? open;
+  return `<details class="sec" data-sec="${key}"${isOpen ? ' open' : ''}>
+    <summary><h2>${title}</h2><span class="sec-tools">${tools}</span></summary>
+    <div class="sec-body">${content}</div>
+  </details>`;
+}
+
+const tool = (act, key, text) => `<button class="btn small" type="button" data-act="${act}" data-key="${key}">${text}</button>`;
+const copyTool = (key) => tool('copy', key, 'copiar');
+const treeTools = (key) => tool('expand', key, 'expandir') + tool('collapse', key, 'contraer') + copyTool(key);
+const treeHost = (key) => `<div data-tree="${key}"></div>`;
+
+function mountTree(key, value, depth = 2) {
+  const host = detail.querySelector(`[data-tree="${key}"]`);
+  if (!host) return;
+  copyable.set(key, value);
+  if (value == null || (typeof value === 'object' && !Object.keys(value).length)) {
+    host.innerHTML = '<p class="muted">sin datos</p>';
+    return;
+  }
+  if (!treeStates.has(key)) treeStates.set(key, new Map());
+  const tree = jsonTree(value, { state: treeStates.get(key), depth });
+  trees.set(key, tree);
+  host.replaceChildren(tree.el);
+}
+
+function summaryHtml(r) {
+  const u = r.usage || {};
+  const prevEffort = r.prev_id ? ` <span class="muted">(anterior #${r.prev_id}: ${esc(r.prev_effort ?? '–')})</span>` : '';
+  const prefix = r.prev_id == null ? 'sin petición anterior' : r.prefix_intact ? 'intacto' : 'modificado en ' + esc(r.diverge_at);
+  const gap = r.gap_s != null ? ` · ${r.gap_s} s tras la anterior` : '';
+  const next = successors.get(r.id);
+  const stopped = next ? `parado por #${next.id} a los ${next.age_s ?? next.gap_s} s · ` : '';
+  const cacheNote = stopped + esc(ttlLabel(r));
+  const reasoning = u.reasoning != null ? ` (razonamiento ${num(u.reasoning)})` : '';
+  const tokens = r.usage
+    ? `${shareBar(u, true)}
+      <div class="legend">
+        <span><i class="swatch kiwi"></i>leído ${num(u.read)}</span>
+        <span><i class="swatch teal"></i>escrito ${num(u.write)}</span>
+        <span><i class="swatch neutral"></i>sin caché ${num(u.uncached)}</span>
+      </div>
+      entrada ${num(u.input_total)} · salida ${num(u.output)}${reasoning}`
+    : '–';
+  return `<dl class="kv">
+    <dt>Destino</dt><dd>${esc(r.host)}${esc(r.path)} → ${esc(r.status ?? '…')}</dd>
+    <dt>Esfuerzo</dt><dd>${esc(r.effort ?? '–')}${prevEffort}</dd>
+    <dt>Tamaño</dt><dd>${num(r.req_bytes)} bytes · ${r.n_tools} tools · ${r.n_msgs} mensajes · ${r.cc_marks} marcas cache_control</dd>
+    <dt>Prefijo</dt><dd>${prefix}</dd>
+    <dt>Tiempos</dt><dd>cabeceras ${secs(r.hdr_s)} · 1.er token ${secs(r.ttft_s)} · total ${secs(r.total_s)}${gap}</dd>
+    <dt>Caché</dt><dd>${timerHtml(r)} <span class="muted">${cacheNote}</span></dd>
+    <dt>Tokens</dt><dd>${tokens}</dd>
+  </dl>`;
+}
+
+function diffHtml(diff, prevId) {
+  const limit = Math.min(diff.before.length, diff.after.length);
+  let same = 0;
+  while (same < limit && diff.before[same] === diff.after[same]) same++;
+  const side = (label, text, cls) => `<p class="diff-label">${label}</p>
+    <pre class="code"><span class="diff-same">${esc(text.slice(0, same))}</span><mark class="${cls}">${esc(text.slice(same))}</mark></pre>`;
+  return side(`Anterior #${prevId}`, diff.before, 'diff-old') + side('Esta petición', diff.after, 'diff-new');
+}
+
+function segmentsHtml(r) {
+  const linked = r.prev_id != null;
+  const rows = (r.segs || []).map((s) => {
+    const diverged = linked && !s.same && r.diverge_at === s.name;
+    const cls = !linked || s.same ? '' : diverged ? 'diverged' : 'added';
+    const mark = !linked ? '' : s.same ? '=' : diverged ? '≠' : '+';
+    return `<tr class="${cls}">
+      <td class="mono">${mark}</td>
+      <td class="mono">${esc(s.name)}</td>
+      <td class="num">${num(s.bytes)}</td>
+      <td class="mono">${s.hash}</td>
+      <td class="mono">${s.cc ? 'sí' : ''}</td>
+      <td>${esc(s.preview)}</td>
+    </tr>`;
+  });
+  return `<table class="segments">
+    <thead><tr>
+      <th title="= igual que la anterior, ≠ primer cambio, + nuevo">Δ</th><th>Segmento</th><th class="num">Bytes</th>
+      <th>Hash</th><th title="lleva cache_control">Marca</th><th>Vista previa</th>
+    </tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+/** The response is free text, unless the server answered with JSON (typically an error). */
+function parseJson(text) {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadBody(id) {
+  const host = detail.querySelector('[data-tree="body"]');
+  if (!host) return;
+  if (body.id !== id) {
+    host.innerHTML = '<p class="muted">cargando…</p>';
+    const res = await fetch(`/api/body/${id}`);
+    if (selected !== id) return;
+    const text = res.ok ? await res.text() : '';
+    body = { id, value: parseJson(text) ?? text };
+  }
+  if (typeof body.value === 'string') {
+    copyable.set('body', body.value);
+    host.innerHTML = body.value ? `<pre class="code">${esc(body.value)}</pre>` : '<p class="muted">el cuerpo ya no está en memoria</p>';
+    return;
+  }
+  mountTree('body', body.value, 1);
+}
+
+function renderDetail(r) {
+  const scroll = detail.hidden ? 0 : detail.scrollTop;
+  const outputJson = r.output ? parseJson(r.output) : null;
+  const notes = (r.notes || ['en curso…']).map((n) => `<li>${esc(n)}</li>`).join('');
+  const notesHtml = notes ? `<ul class="notes">${notes}</ul>` : '';
+  const diff = r.diff
+    ? section('diff', `Primer cambio del prefijo <small>${esc(r.diff.segment)} @ ${num(r.diff.offset)}</small>`, diffHtml(r.diff, r.prev_id))
+    : '';
+  const stop = r.stop_reason ? ` <small>${esc(r.stop_reason)}</small>` : '';
+  const output = outputJson ? treeHost('output') : `<pre class="code">${esc(r.output || '(vacía)')}</pre>`;
+  const raw = `<a class="btn small" href="/api/body/${r.id}" target="_blank" rel="noopener">abrir en crudo</a>`;
+
+  trees.clear();
+  copyable.clear();
+  detail.innerHTML = `
+    <header class="detail-head">
+      <span class="detail-id">#${r.id}</span>${badge(r)}<span class="detail-model">${esc(r.model ?? '?')}</span>
+      <button class="btn small" type="button" data-act="close">Cerrar</button>
+    </header>
+    ${notesHtml}
+    ${section('summary', 'Resumen', summaryHtml(r))}
+    ${diff}
+    ${section('params', 'Parámetros enviados', treeHost('params'), { tools: treeTools('params') })}
+    ${section('usage', 'Usage tal como lo devuelve el servidor', treeHost('usage'), { tools: treeTools('usage') })}
+    ${section('headers', 'Cabeceras de respuesta (filtradas)', treeHost('headers'), { tools: treeTools('headers') })}
+    ${section('output', `Respuesta${stop}`, output, { tools: outputJson ? treeTools('output') : copyTool('output') })}
+    ${section('segments', 'Prefijo por segmentos', segmentsHtml(r))}
+    ${section('body', 'Cuerpo de la petición', treeHost('body'), { open: false, tools: raw + treeTools('body') })}`;
+
+  mountTree('params', r.effort_fields);
+  mountTree('usage', r.raw_usage, 3);
+  mountTree('headers', r.resp_headers);
+  if (outputJson) mountTree('output', outputJson);
+  else copyable.set('output', r.output || '');
+  if (detail.querySelector('[data-sec="body"]').open) loadBody(r.id);
+
+  detail.hidden = false;
+  $('resizer').hidden = false;
+  detail.scrollTop = scroll;
+  tick();
+}
+
+async function showDetail(id, reveal = false) {
+  selected = id;
+  render();
+  if (reveal) $('rows').querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' });
+  const res = await fetch(`/api/record/${id}`);
+  if (!res.ok || selected !== id) return;
+  renderDetail(await res.json());
+}
+
+function closeDetail() {
+  selected = null;
+  detail.hidden = true;
+  $('resizer').hidden = true;
+  render();
+}
+
+async function copy(button, key) {
+  const value = copyable.get(key);
+  await navigator.clipboard.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+  button.textContent = 'copiado';
+  setTimeout(() => (button.textContent = 'copiar'), 1200);
+}
+
+detail.addEventListener('click', (e) => {
+  const button = e.target.closest('[data-act]');
+  if (!button) return;
+  e.preventDefault(); // buttons live inside <summary>: do not toggle the section
+  const { act, key } = button.dataset;
+  if (act === 'close') closeDetail();
+  else if (act === 'copy') copy(button, key);
+  else trees.get(key)?.setAll(act === 'expand');
+});
+
+// `toggle` does not bubble, so listen in the capture phase.
+detail.addEventListener(
+  'toggle',
+  (e) => {
+    const key = e.target.dataset?.sec;
+    if (!key) return;
+    sectionsOpen[key] = e.target.open;
+    store.set('sections', sectionsOpen);
+    if (key === 'body' && e.target.open) loadBody(selected);
+  },
+  true,
+);
+
+// ---------- panel width ----------
+
+const resizer = $('resizer');
+const savedWidth = store.get('detailWidth', null);
+if (savedWidth) detail.style.setProperty('--detail-w', savedWidth + 'px');
+
+resizer.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  resizer.setPointerCapture(e.pointerId);
+  resizer.classList.add('dragging');
+  const move = (ev) => detail.style.setProperty('--detail-w', window.innerWidth - ev.clientX + 'px');
+  const stop = () => {
+    resizer.classList.remove('dragging');
+    resizer.removeEventListener('pointermove', move);
+    store.set('detailWidth', Math.round(detail.getBoundingClientRect().width));
+  };
+  resizer.addEventListener('pointermove', move);
+  resizer.addEventListener('pointerup', stop, { once: true });
+});
+
+// ---------- events ----------
+
+$('rows').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr');
+  if (tr) showDetail(Number(tr.dataset.id));
+});
+
+for (const [id] of SELECT_FILTERS) $(id).addEventListener('change', render);
+$('f-text').addEventListener('input', render);
+$('reset').addEventListener('click', resetFilters);
+for (const id of TOGGLE_FILTERS) {
+  $(id).addEventListener('click', () => {
+    $(id).setAttribute('aria-pressed', String(!pressed(id)));
+    render();
+  });
+}
+
+// Clearing drops every captured request, so it takes a second click to confirm.
+const clear = $('clear');
+let disarmTimer;
+const disarm = () => {
+  clearTimeout(disarmTimer);
+  clear.classList.remove('armed');
+  clear.textContent = 'Limpiar';
+};
+clear.addEventListener('click', () => {
+  if (!clear.classList.contains('armed')) {
+    clear.classList.add('armed');
+    clear.textContent = '¿Borrar todo?';
+    disarmTimer = setTimeout(disarm, 3000);
+    return;
+  }
+  disarm();
+  fetch('/api/clear', { method: 'POST' });
+});
+
+document.addEventListener('keydown', (e) => {
+  const typing = e.target instanceof Element && e.target.matches('input, select, textarea');
+  if (e.key === 'Escape') {
+    if (typing) e.target.blur();
+    else if (selected != null) closeDetail();
+    return;
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === '/') {
+    e.preventDefault();
+    $('f-text').focus();
+    return;
+  }
+  const step = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[e.key];
+  if (!step || !visible.length) return;
+  e.preventDefault();
+  const index = visible.findIndex((r) => r.id === selected);
+  const next = index === -1 ? 0 : Math.min(visible.length - 1, Math.max(0, index + step));
+  showDetail(visible[next].id, true);
+});
+
+function setConnected(on) {
+  $('conn').className = 'conn ' + (on ? 'on' : 'off');
+  $('conn-text').textContent = on ? 'en vivo' : 'sin conexión, reintentando';
+}
+
+setInterval(tick, 1000);
+
+$('help-open').addEventListener('click', () => $('help').showModal());
+
+const source = new EventSource('/events');
+source.onopen = () => setConnected(true);
+source.onerror = () => setConnected(false);
+source.onmessage = (message) => {
+  const ev = JSON.parse(message.data);
+  if (ev.type === 'snapshot') {
+    recs.clear();
+    ttl = ev.ttl;
+    ev.recs.forEach((r) => recs.set(r.id, r));
+  } else if (ev.type === 'clear') {
+    recs.clear();
+    closeDetail();
+  } else if (ev.type === 'record') {
+    recs.set(ev.rec.id, ev.rec);
+    // a new request also stops the timer of the one it follows
+    if (ev.rec.id === selected || ev.rec.prev_id === selected) showDetail(selected);
+  }
+  syncFilters();
+  render();
+};

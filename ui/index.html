@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLM cache tap</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%238fce3f'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <h1>LLM cache tap</h1>
+        <p class="conn" id="conn"><span class="led"></span><span id="conn-text">conectando</span></p>
+      </div>
+      <dl class="stats">
+        <div class="stat">
+          <dt>peticiones</dt>
+          <dd id="s-n">0</dd>
+        </div>
+        <div class="stat">
+          <dt><i class="swatch kiwi"></i>hit</dt>
+          <dd id="s-hit">0</dd>
+        </div>
+        <div class="stat">
+          <dt><i class="swatch berry"></i>miss / parcial</dt>
+          <dd id="s-miss">0</dd>
+        </div>
+        <div class="stat">
+          <dt>miss sin causa en cliente</dt>
+          <dd id="s-srv">0</dd>
+        </div>
+        <div class="stat">
+          <dt><i class="swatch grape"></i>hit tras cambiar esfuerzo</dt>
+          <dd id="s-eff">0 / 0</dd>
+        </div>
+        <div class="stat">
+          <dt>tokens leídos de caché</dt>
+          <dd id="s-rate">–</dd>
+        </div>
+      </dl>
+    </header>
+
+    <div class="toolbar">
+      <input id="f-text" type="search" placeholder="Filtrar por modelo, conversación o diagnóstico" aria-label="Filtrar peticiones" />
+      <select id="f-model" aria-label="Modelo"><option value="">todos los modelos</option></select>
+      <select id="f-conv" aria-label="Conversación"><option value="">todas las conversaciones</option></select>
+      <button class="btn toggle" id="f-bad" type="button" aria-pressed="false">solo miss / parcial</button>
+      <button class="btn toggle" id="f-eff" type="button" aria-pressed="false">solo cambios de esfuerzo</button>
+      <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>/</kbd> filtrar <kbd>Esc</kbd> cerrar</p>
+      <button class="btn" id="help-open" type="button">Ayuda</button>
+      <button class="btn" id="clear" type="button">Limpiar</button>
+    </div>
+
+    <main>
+      <section id="list" aria-label="Peticiones">
+        <table class="requests">
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th>Hora</th>
+              <th>Veredicto</th>
+              <th title="Cuenta atrás del TTL supuesto de la caché; se para cuando llega la siguiente petición de la conversación">TTL caché</th>
+              <th>Modelo</th>
+              <th>Esfuerzo</th>
+              <th class="num">Entrada</th>
+              <th class="num">Leído</th>
+              <th class="num">Escrito</th>
+              <th>Reparto</th>
+              <th class="num">1.er token</th>
+              <th class="num">Total</th>
+              <th class="num">Δ anterior</th>
+              <th>Conv</th>
+              <th>Diagnóstico</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty">
+          <p>Todavía no ha pasado ninguna petición por el proxy.</p>
+          <p>Lanza tu cliente a través de él:</p>
+          <pre class="code">./via.sh opencode</pre>
+        </div>
+        <div class="empty" id="no-match" hidden>
+          <p>Ninguna petición coincide con los filtros.</p>
+          <button class="btn" id="reset" type="button">Quitar filtros</button>
+        </div>
+      </section>
+      <div id="resizer" role="separator" aria-orientation="vertical" hidden></div>
+      <aside id="detail" aria-label="Detalle de la petición" hidden></aside>
+    </main>
+
+    <dialog id="help" aria-labelledby="help-title">
+      <form class="help-head" method="dialog">
+        <h2 id="help-title">Cómo se lee este panel</h2>
+        <button class="btn small">Cerrar</button>
+      </form>
+      <div class="help-body">
+        <h3>Veredicto</h3>
+        <p>Sale de los tokens que el servidor declara haber leído de caché en el <code>usage</code> de la respuesta.</p>
+        <table>
+          <tbody>
+            <tr><td><span class="badge v-hit">HIT</span></td><td>Leídos ≥ 90 % de la entrada de la petición anterior de la conversación.</td></tr>
+            <tr><td><span class="badge v-partial">PARTIAL</span></td><td>Se leyó algo, pero menos de ese 90 %.</td></tr>
+            <tr><td><span class="badge v-miss">MISS</span></td><td>Nada leído habiendo una petición anterior.</td></tr>
+            <tr><td><span class="badge v-cold">COLD</span></td><td>Nada leído y es la primera de su conversación.</td></tr>
+            <tr><td><span class="badge v-na">N/A</span></td><td>Entrada por debajo del mínimo cacheable del modelo, o respuesta sin <code>usage</code>.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>TTL de la caché</h3>
+        <p>
+          El servidor no informa del TTL: se toma de la petición cuando lo declara y, si no, del valor documentado para la
+          familia del modelo. La cuenta atrás se para al llegar la siguiente petición de la conversación. «Dudosa» significa
+          que pasó el tiempo garantizado pero la entrada puede seguir viva.
+        </p>
+        <table>
+          <thead><tr><th>Modelos</th><th>TTL</th><th>Cuenta desde</th></tr></thead>
+          <tbody>
+            <tr><td>Claude (todos)</td><td>5 min, o 1 h si <code>cache_control</code> lleva <code>ttl: "1h"</code></td><td>inicio de la petición</td></tr>
+            <tr><td>GPT-5.6 y posteriores</td><td>30 min (<code>prompt_cache_options.ttl</code>)</td><td>última escritura o lectura</td></tr>
+            <tr><td>GPT-5 a 5.5 y GPT-4.1</td><td><code>in_memory</code>: 5–10 min, hasta 1 h · <code>24h</code>: unos 30 min, hasta 24 h</td><td>última actividad</td></tr>
+            <tr><td>GPT anteriores y serie o</td><td>5–10 min, hasta 1 h</td><td>última actividad</td></tr>
+            <tr><td>Otros proveedores</td><td>5 min, supuesto</td><td>final de la petición</td></tr>
+          </tbody>
+        </table>
+        <p>Toda lectura de caché renueva el plazo. <code>TAP_TTL_S</code> fuerza un único TTL para todas las peticiones.</p>
+
+        <h3>Mínimo cacheable</h3>
+        <table>
+          <thead><tr><th>Modelos</th><th class="num">Tokens</th></tr></thead>
+          <tbody>
+            <tr><td>Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x</td><td class="num">512</td></tr>
+            <tr><td>Claude Opus 4.8, Sonnet 4.6 y 4.5 · modelos GPT</td><td class="num">1.024</td></tr>
+            <tr><td>Claude Opus 4.7</td><td class="num">2.048</td></tr>
+            <tr><td>Claude Opus 4.6 y 4.5, Haiku 4.5</td><td class="num">4.096</td></tr>
+          </tbody>
+        </table>
+        <p>Valores de las guías de caché de Anthropic y OpenAI, revisados en octubre de 2026.</p>
+      </div>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
