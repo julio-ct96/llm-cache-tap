@@ -44,7 +44,7 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | 4.02 | Nombres de segmentación | [4.02](fase-4/4.02-nombres-segmentos.md) | 2.08 | terminada con commit | 221 tests OK; huellas y golden intactos |
 | 4.03 | Búsqueda pura del anterior | [4.03](fase-4/4.03-emparejado-puro.md) | 4.02, 3.03 | terminada con commit | 226 tests; específicos 29 OK; búsqueda pura y golden intacto |
 | 4.04a | Tipos de proveedores | [4.04a](fase-4/4.04a-tipos-proveedores.md) | 4.01, 4.03 | terminada con commit | Mypy y 226 tests OK; golden idéntico; modelo opcional reflejado en dispatcher |
-| 4.04 | Tipos del núcleo | [4.04](fase-4/4.04-tipos-nucleo.md) | 4.04a | pendiente | Dependencias de tipos declaradas |
+| 4.04 | Tipos del núcleo | [4.04](fase-4/4.04-tipos-nucleo.md) | 4.04a | terminada con commit | Mypy y 226 tests OK; replay/golden intacto; Any limitado al decode JSON; narrowing simplificado en revisión |
 | 4.05 | Tipos de integración | [4.05](fase-4/4.05-tipos-integracion.md) | 4.04 | pendiente | Incluye todos los módulos de producción |
 | 5.01 | Ruff y formato | [5.01](fase-5/5.01-lint-formato.md) | 4.05 | pendiente | Diff mecánico aislado |
 | 5.02 | Comando unificado y CI | [5.02](fase-5/5.02-comprobacion-unificada.md) | 5.01, 3.03 | pendiente | No necesita tráfico real |

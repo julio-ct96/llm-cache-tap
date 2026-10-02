@@ -3,9 +3,12 @@
 import hashlib
 import json
 import re
+from typing import Any
+
+from cachetap import record
 
 
-def strip_cache_control(value):
+def strip_cache_control(value: record.JsonValue) -> record.JsonValue:
     """Drop cache_control markers: moving a breakpoint does not change the cached content."""
     if isinstance(value, dict):
         return {key: strip_cache_control(item) for key, item in value.items() if key != "cache_control"}
@@ -14,15 +17,15 @@ def strip_cache_control(value):
     return value
 
 
-def dump(o):
+def dump(o: record.JsonValue) -> str:
     return json.dumps(o, sort_keys=True, ensure_ascii=False)
 
 
-def digest(o):
+def digest(o: record.JsonValue) -> str:
     return hashlib.sha1(dump(strip_cache_control(o)).encode()).hexdigest()[:10]
 
 
-def preview(value, limit=140):
+def preview(value: record.JsonValue, limit: int = 140) -> str:
     if isinstance(value, str):
         text = value
     elif isinstance(value, list):
@@ -47,7 +50,7 @@ def preview(value, limit=140):
     return re.sub(r"\s+", " ", text)[:limit]
 
 
-def build_segment(name, obj, preview_text=None):
+def build_segment(name: str, obj: record.JsonValue, preview_text: str | None = None) -> record.Segment:
     raw = dump(obj)
     return {
         "name": name,
@@ -58,39 +61,54 @@ def build_segment(name, obj, preview_text=None):
     }
 
 
-def _tool_name(tool):
-    return tool.get("name") or (tool.get("function") or {}).get("name") or tool.get("type", "?")
+def _tool_name(tool: record.JsonObject) -> record.JsonValue:
+    name = tool.get("name")
+    if name:
+        return name
+    function = tool.get("function")
+    if isinstance(function, dict):
+        function_name = function.get("name")
+        if function_name:
+            return function_name
+    return tool.get("type", "?")
 
 
-def segment_objects(request):
+def segment_objects(request: record.JsonObject) -> list[tuple[str, record.JsonValue, str | None]]:
     """(name, object, preview) for every cacheable block of the request, in prefix order."""
-    segments = []
+    result: list[tuple[str, record.JsonValue, str | None]] = []
     tools = request.get("tools")
-    if tools:
+    if isinstance(tools, list) and tools:
         names = [_tool_name(tool) for tool in tools if isinstance(tool, dict)]
-        segments.append(("tools", tools, f"{len(tools)} tools: " + ", ".join(map(str, names))[:200]))
+        result.append(("tools", tools, f"{len(tools)} tools: " + ", ".join(map(str, names))[:200]))
     system = request.get("system", request.get("instructions"))
     if system:
-        segments.append(("system", system, None))
+        result.append(("system", system, None))
     messages = request.get("messages") or request.get("input") or []
     if isinstance(messages, str):
         messages = [messages]
-    for index, message in enumerate(messages):
-        role = (message.get("role") or message.get("type") or "?") if isinstance(message, dict) else "text"
-        segments.append((f"msg{index}:{role}", message, None))
-    return segments
+    if isinstance(messages, list):
+        for index, message in enumerate(messages):
+            role = (message.get("role") or message.get("type") or "?") if isinstance(message, dict) else "text"
+            result.append((f"msg{index}:{role}", message, None))
+    return result
 
 
-def segments(request):
+def segments(request: record.JsonObject) -> list[record.Segment]:
     return [build_segment(name, obj, preview_text) for name, obj, preview_text in segment_objects(request)]
 
 
-def first_diff(prev_body, name, req):
+def first_diff(
+    prev_body: str | None,
+    name: str,
+    req: record.JsonObject,
+) -> record.Diff | None:
     """Text around the first differing character of segment `name` between two requests."""
     if prev_body is None:
         return None
     try:
-        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(json.loads(prev_body)))[name]
+        # The previous request body is an external JSON decoder boundary.
+        old_body: Any = json.loads(prev_body)
+        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(old_body))[name]
         new = dict((segment_name, value) for segment_name, value, _ in segment_objects(req))[name]
     except (KeyError, ValueError):
         return None

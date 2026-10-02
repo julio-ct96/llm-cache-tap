@@ -6,6 +6,11 @@ files = [
     "cachetap/providers/anthropic.py",
     "cachetap/providers/openai.py",
     "cachetap/providers/__init__.py",
+    "cachetap/request_body.py",
+    "cachetap/segments.py",
+    "cachetap/linking.py",
+    "cachetap/verdict.py",
+    "cachetap/response_body.py",
 ]
 check_untyped_defs = true
 disallow_untyped_defs = true

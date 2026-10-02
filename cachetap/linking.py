@@ -1,13 +1,14 @@
 """Pair a request with the earlier request of its conversation."""
 
 import re
+from collections.abc import Iterable, Sequence
 
-from cachetap import segments
+from cachetap import record, segments
 
 STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
 
 
-def common_prefix_length(a, b):
+def common_prefix_length(a: Sequence[object], b: Sequence[object]) -> int:
     n = 0
     for x, y in zip(a, b):
         if x != y:
@@ -16,14 +17,17 @@ def common_prefix_length(a, b):
     return n
 
 
-def prepare_fingerprints(rec):
-    """Add the static and message fingerprints to rec, mutating it in place."""
+def prepare_fingerprints(rec: record.Record) -> None:
+    """Mutate rec by setting its _static and _msgs fields to segment fingerprints."""
     static = {s["name"]: s["hash"] for s in rec["segs"] if STATIC_SEG.search(s["name"])}
     msgs = [s["hash"] for s in rec["segs"] if not STATIC_SEG.search(s["name"])]
     rec["_static"], rec["_msgs"] = static, msgs
 
 
-def find_previous(rec, records):
+def find_previous(
+    rec: record.Record,
+    records: Iterable[record.Record],
+) -> tuple[record.Record | None, int]:
     """Find the earlier request of the same conversation in O(R × M) time.
 
     Conversations are matched on their messages only, so a client that rewrites
@@ -41,8 +45,14 @@ def find_previous(rec, records):
     return previous, matched_message_count
 
 
-def link(rec, req, previous, matched_message_count, prev_body):
-    """Set on rec its conversation, its gap and age from previous, and where its prefix diverges from previous."""
+def link(
+    rec: record.Record,
+    req: record.JsonObject,
+    previous: record.Record,
+    matched_message_count: int,
+    prev_body: str | None,
+) -> None:
+    """Mutate rec with conversation, timing, change, prefix and diff fields from previous."""
     rec["conv"] = previous["conv"]
     rec["prev_id"] = previous["id"]
     rec["gap_s"] = round(rec["ts"] - (previous.get("ts_end") or previous["ts"]), 1)

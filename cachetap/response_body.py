@@ -1,18 +1,20 @@
 """Reads usage and generated text out of a response body, JSON or SSE."""
 
 import json
+from typing import Any
 
-from cachetap import providers
+from cachetap import providers, record
 
 
-def usage_events(body):
-    events = []
+def usage_events(body: str) -> list[record.UsageEvent]:
+    events: list[record.UsageEvent] = []
 
-    def grab(ev):
+    def grab(ev: Any) -> None:
         if not isinstance(ev, dict):
             return
         for holder in (ev, ev.get("message"), ev.get("response")):
             if isinstance(holder, dict) and isinstance(holder.get("usage"), dict):
+                # Any is confined to the json.loads boundary; event and usage retain wire values.
                 events.append({"event": ev.get("type") or ev.get("object") or "json", "usage": holder["usage"]})
                 return
 
@@ -32,7 +34,7 @@ def usage_events(body):
     return events
 
 
-def output_text(body):
+def output_text(body: str) -> tuple[str, str | None]:
     out, stop = [], None
     for line in body.splitlines():
         if not line.startswith("data:") or line.strip() == "data: [DONE]":

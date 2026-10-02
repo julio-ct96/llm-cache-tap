@@ -2,21 +2,28 @@
 
 import json
 
+from cachetap import record
+
 
 MAX_CONTAINER_DEPTH = 100
 
 
-def _require(condition, reason):
+def _require(condition: bool, reason: str) -> None:
     if not condition:
         raise ValueError(reason)
 
 
-def _optional_type(req, key, expected, reason):
+def _optional_type(
+    req: record.JsonObject,
+    key: str,
+    expected: type | tuple[type, ...],
+    reason: str,
+) -> None:
     value = req.get(key)
     _require(value is None or isinstance(value, expected), reason)
 
 
-def _validate_effort_container(req, key):
+def _validate_effort_container(req: record.JsonObject, key: str) -> None:
     value = req.get(key)
     _require(value is None or isinstance(value, dict), f"{key} debe ser un objeto o null")
     if isinstance(value, dict):
@@ -24,8 +31,8 @@ def _validate_effort_container(req, key):
         _require(effort is None or isinstance(effort, str), f"{key}.effort debe ser texto o null")
 
 
-def _validate_tree(root):
-    stack = [(root, 1)]
+def _validate_tree(root: record.JsonValue) -> None:
+    stack: list[tuple[record.JsonValue, int]] = [(root, 1)]
     while stack:
         value, depth = stack.pop()
         if isinstance(value, dict):
@@ -40,16 +47,18 @@ def _validate_tree(root):
             stack.extend((child, depth + 1) for child in value)
 
 
-def parse(text):
+def parse(text: str) -> record.JsonObject:
     """Return an inspectable request object or raise ValueError with a fixed reason."""
     try:
+        # json.loads is the external decoder boundary allowed to produce Any.
         req = json.loads(text)
     except json.JSONDecodeError:
         return {}
     except RecursionError as exc:
         raise ValueError("JSON demasiado profundo para inspeccionar") from exc
 
-    _require(isinstance(req, dict), "la raíz JSON debe ser un objeto")
+    if not isinstance(req, dict):
+        raise ValueError("la raíz JSON debe ser un objeto")
     _optional_type(req, "model", str, "model debe ser texto o null")
 
     tools = req.get("tools")
