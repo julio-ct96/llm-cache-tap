@@ -45,7 +45,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 3.02 | JS: `state.js` | `fase-3/3.02-js-state.md` | 3.01 | terminada con commit | |
 | 3.03 | JS: `parts.js` y `cache-timer.js` | `fase-3/3.03-js-parts-timer.md` | 3.02 | terminada con commit | |
 | 3.04 | JS: `list.js` | `fase-3/3.04-js-list.md` | 3.03 | terminada con commit | |
-| 3.05 | JS: `detail.js` | `fase-3/3.05-js-detail.md` | 3.04 | pendiente | |
+| 3.05 | JS: `detail.js` | `fase-3/3.05-js-detail.md` | 3.04 | terminada con commit | |
 | 3.06 | JS: `stream.js` y cierre de `app.js` | `fase-3/3.06-js-stream.md` | 3.05 | pendiente | |
 | 3.07 | CSS: copiar por secciones | `fase-3/3.07-css-particion.md` | — | terminada con commit | |
 | 3.08 | CSS: cambiar a los ficheros nuevos | `fase-3/3.08-css-cambio.md` | 3.00, 3.06, 3.07 | pendiente | |
