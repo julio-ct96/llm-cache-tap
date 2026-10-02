@@ -1,7 +1,7 @@
 import queue
 
 import tap
-from cachetap import config
+from cachetap import config, store
 
 
 def hooks():
@@ -9,25 +9,25 @@ def hooks():
 
 
 def reset(log_path):
-    tap.RECORDS.clear()
-    tap.BODIES.clear()
-    tap.CLIENTS.clear()
-    tap.STATE["next_id"] = 1
-    tap.STATE["next_conv"] = 1
+    store.RECORDS.clear()
+    store.BODIES.clear()
+    store.CLIENTS.clear()
+    store.STATE["next_id"] = 1
+    store.STATE["next_conv"] = 1
     config.LOG = log_path
 
 
 def records():
-    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in tap.RECORDS.values()]
+    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in store.RECORDS.values()]
 
 
 def body_ids():
-    return sorted(tap.BODIES)
+    return sorted(store.BODIES)
 
 
 def subscribe():
     q = queue.Queue()
-    tap.CLIENTS.append(q)
+    store.CLIENTS.append(q)
     return q
 
 

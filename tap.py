@@ -14,7 +14,6 @@ import re
 import sys
 import threading
 import time
-from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 if __name__.startswith("__mitmproxy_script__"):
@@ -22,7 +21,7 @@ if __name__.startswith("__mitmproxy_script__"):
     for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
         del sys.modules[_name]
 
-from cachetap import config, linking, providers, record, response_body, segments, verdict
+from cachetap import config, linking, providers, record, response_body, segments, store, verdict
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -34,27 +33,11 @@ LLM_PATHS = ("/messages", "/responses", "/chat/completions")
 SAFE_HEADER = re.compile(r"request-id|region|geo|served|backend|azure|ratelimit|quota|processing|x-cache|via$", re.I)
 UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
 
-LOCK = threading.Lock()
-RECORDS: "OrderedDict[int, dict]" = OrderedDict()
-BODIES: dict = {}
-CLIENTS: list = []
-STATE = {"next_id": 1, "next_conv": 1, "server": None}
-
-
 # ---------- request analysis ----------
 
 # ---------- response analysis ----------
 
 # ---------- publishing ----------
-
-def publish(ev):
-    for q in list(CLIENTS):
-        q.put(ev)
-
-
-def push(rec):
-    publish({"type": "record", "rec": record.light(rec)})
-
 
 # ---------- mitmproxy hooks ----------
 
@@ -72,9 +55,8 @@ def request(flow):
         req = json.loads(text)
     except ValueError:
         req = {}
-    with LOCK:
-        rid = STATE["next_id"]
-        STATE["next_id"] += 1
+    with store.LOCK:
+        rid = store.next_id()
         rec = {
             "id": rid,
             "ts": flow.request.timestamp_start,
@@ -93,19 +75,14 @@ def request(flow):
             "state": "pending",
             **providers.cache_ttl(req),
         }
-        best, best_n = linking.find_previous(rec, RECORDS.values())
+        best, best_n = linking.find_previous(rec, store.RECORDS.values())
         if best is None:
-            rec["conv"] = f"c{STATE['next_conv']}"
-            STATE["next_conv"] += 1
+            rec["conv"] = store.new_conv()
             rec["prev_id"] = None
         else:
-            linking.link(rec, req, best, best_n, BODIES.get(best["id"]))
-        RECORDS[rid] = rec
-        BODIES[rid] = text
-        while len(RECORDS) > config.MAX:
-            old, _ = RECORDS.popitem(last=False)
-            BODIES.pop(old, None)
-        push(rec)
+            linking.link(rec, req, best, best_n, store.BODIES.get(best["id"]))
+        store.add(rec, text)
+        store.push(rec)
     flow.metadata["tap_id"] = rid
 
 
@@ -124,14 +101,14 @@ def responseheaders(flow):
         return data
 
     flow.response.stream = stream
-    with LOCK:
-        rec = RECORDS.get(rid)
+    with store.LOCK:
+        rec = store.RECORDS.get(rid)
         if rec:
             rec["state"] = "streaming"
             rec["status"] = flow.response.status_code
             rec["hdr_s"] = round(flow.response.timestamp_start - flow.request.timestamp_end, 3)
             rec["resp_headers"] = {k: v for k, v in flow.response.headers.items() if SAFE_HEADER.search(k) and not UNSAFE_HEADER.search(k)}
-            push(rec)
+            store.push(rec)
 
 
 def response(flow):
@@ -144,8 +121,8 @@ def response(flow):
     events = response_body.usage_events(body)
     output, stop = response_body.output_text(body)
     t0 = flow.request.timestamp_end
-    with LOCK:
-        rec = RECORDS.get(rid)
+    with store.LOCK:
+        rec = store.RECORDS.get(rid)
         if not rec:
             return
         rec.update({
@@ -162,21 +139,20 @@ def response(flow):
         if written and not config.TTL_FORCED:
             minutes = written // 60
             rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
-        verdict.judge(rec, RECORDS.get(rec.get("prev_id")))
-        push(rec)
-        with open(config.LOG, "a") as f:
-            f.write(json.dumps(record.light(rec), ensure_ascii=False) + "\n")
+        verdict.judge(rec, store.RECORDS.get(rec.get("prev_id")))
+        store.push(rec)
+        store.append_log(rec)
 
 
 def error(flow):
     rid = flow.metadata.get("tap_id")
     if rid is None:
         return
-    with LOCK:
-        rec = RECORDS.get(rid)
+    with store.LOCK:
+        rec = store.RECORDS.get(rid)
         if rec:
             rec.update({"state": "error", "ts_end": time.time(), "verdict": "ERR", "notes": [str(flow.error)]})
-            push(rec)
+            store.push(rec)
 
 
 # ---------- dashboard server ----------
@@ -207,11 +183,11 @@ class Handler(BaseHTTPRequestHandler):
         m = re.match(r"^/api/(record|body)/(\d+)$", path)
         if m:
             rid = int(m.group(2))
-            with LOCK:
+            with store.LOCK:
                 if m.group(1) == "body":
-                    body = BODIES.get(rid)
+                    body = store.BODIES.get(rid)
                 else:
-                    rec = RECORDS.get(rid)
+                    rec = store.RECORDS.get(rid)
                     body = json.dumps(record.public(rec), ensure_ascii=False) if rec else None
             return self._send(200, body) if body is not None else self._send(404, "{}")
         self._static(path)
@@ -229,18 +205,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self._local():
             return self._send(403, "{}")
         if self.path == "/api/clear":
-            with LOCK:
-                RECORDS.clear()
-                BODIES.clear()
-                publish({"type": "clear"})
+            with store.LOCK:
+                store.clear()
             return self._send(200, "{}")
         self._send(404, "{}")
 
     def _events(self):
         q = queue.Queue()
-        with LOCK:
-            snap = [record.light(r) for r in RECORDS.values()]
-            CLIENTS.append(q)
+        with store.LOCK:
+            snap = [record.light(r) for r in store.RECORDS.values()]
+            store.CLIENTS.append(q)
         try:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
@@ -258,20 +232,20 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
-            if q in CLIENTS:
-                CLIENTS.remove(q)
+            if q in store.CLIENTS:
+                store.CLIENTS.remove(q)
 
 
 def load(loader):
     ThreadingHTTPServer.allow_reuse_address = True
     srv = ThreadingHTTPServer(("127.0.0.1", config.UI_PORT), Handler)
     srv.daemon_threads = True
-    STATE["server"] = srv
+    store.STATE["server"] = srv
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     print(f"[tap] dashboard: http://127.0.0.1:{config.UI_PORT}", flush=True)
 
 
 def done():
-    if STATE["server"]:
-        STATE["server"].shutdown()
-        STATE["server"].server_close()
+    if store.STATE["server"]:
+        store.STATE["server"].shutdown()
+        store.STATE["server"].server_close()
