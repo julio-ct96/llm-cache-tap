@@ -33,8 +33,8 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 | 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | terminada con commit | Conserva datos válidos; casos malformados y contadores inválidos cubiertos |
 | 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | terminada con commit | Filesystem en escritura |
 | 2.04 | Retención por bytes y expulsión | [2.04](fase-2/2.04-retencion-backend.md) | 2.01, 2.03 | terminada con commit | 205 tests y UI OK; golden corregido intacto; falsa alarma de búsqueda global resuelta |
-| 2.05 | Retención del navegador | [2.05](fase-2/2.05-retencion-frontend.md) | 2.04 | pendiente | Elimina crecimiento sin límite |
-| 2.06 | Límites de respuestas | [2.06](fase-2/2.06-limites-respuestas.md) | 2.02, 2.04 | pendiente | Bytes originales siempre pasan |
+| 2.05 | Retención del navegador | [2.05](fase-2/2.05-retencion-frontend.md) | 2.04 | terminada con commit | JS 7/7, 212 tests, UI full OK; golden ID 30 intacto |
+| 2.06 | Límites de respuestas | [2.06](fase-2/2.06-limites-respuestas.md) | 2.02, 2.04 | terminada con commit | 212 tests, golden y UI aislada OK |
 | 2.07 | Colas SSE y lock | [2.07](fase-2/2.07-suscriptores.md) | 2.06 | pendiente | Cliente lento reconecta |
 | 2.08 | Log resiliente fuera del lock | [2.08](fase-2/2.08-log-resiliente.md) | 2.07 | pendiente | Fallo local no rompe captura |
 | 3.01 | Errores de stream y acciones | [3.01](fase-3/3.01-errores-stream-acciones.md) | 2.05, 2.08 | pendiente | Diagnósticos visibles |
