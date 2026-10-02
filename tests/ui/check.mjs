@@ -277,6 +277,60 @@ async function main() {
       const loaded = await js(`[...document.fonts].filter((font) => font.status === 'loaded').length`);
       if (!loaded) throw new Error('no font face reached status "loaded"');
     });
+    await check('C17', 'clear failure is visible and preserves local records', async () => {
+      const result = await js(`(async () => {
+        const original = window.fetch;
+        window.fetch = async (url) => url === '/api/clear' ? new Response('', { status: 503 }) : original(url);
+        try {
+          document.getElementById('clear').click();
+          document.getElementById('clear').click();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          return { status: document.getElementById('action-status').textContent,
+            hidden: document.getElementById('action-status').hidden,
+            disabled: document.getElementById('clear').disabled,
+            rows: document.querySelectorAll('#rows tr').length };
+        } finally { window.fetch = original; }
+      })()`);
+      expect(result, { status: 'No se pudieron limpiar las peticiones. Inténtalo de nuevo.', hidden: false, disabled: false, rows: 44 }, 'clear failure');
+    });
+    await check('C18', 'invalid SSE event reports error and reconnects once', async () => {
+      const result = await js(`(async () => {
+        const original = window.EventSource;
+        const sources = [];
+        window.EventSource = class {
+          constructor(url) { this.url = url; this.closed = false; sources.push(this); }
+          close() { this.closed = true; }
+        };
+        let stop;
+        try {
+          const { connect } = await import('/stream.js');
+          stop = connect();
+          sources[0].onmessage({ data: '{"type":"unknown"}' });
+          const firstClosed = sources[0].closed;
+          const status = document.getElementById('action-status').textContent;
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+          const reconnects = sources.length;
+          sources[1].onmessage({ data: '{"type":"unknown"}' });
+          stop();
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+          return { firstClosed, status, reconnects, afterClose: sources.length };
+        } finally { stop?.(); window.EventSource = original; }
+      })()`);
+      expect(result, { firstClosed: true, status: 'Se recibió un evento inválido; reconectando.', reconnects: 2, afterClose: 2 }, 'invalid SSE recovery');
+    });
+    await check('C19', 'help failure is visible without a failed network request', async () => {
+      const result = await js(`(async () => {
+        const original = window.fetch;
+        window.fetch = async (url) => url === '/api/reference' ? new Response('', { status: 503 }) : original(url);
+        try {
+          const { loadHelp } = await import('/help.js');
+          await loadHelp();
+          const status = document.getElementById('action-status');
+          return { message: status.textContent, hidden: status.hidden };
+        } finally { window.fetch = original; }
+      })()`);
+      expect(result, { message: 'No se pudo cargar la referencia de ayuda.', hidden: false }, 'help failure');
+    });
     await check('C14', 'clear takes two clicks', async () => {
       await click('#clear');
       await click('#clear');

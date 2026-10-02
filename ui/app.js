@@ -5,6 +5,7 @@ import { showDetail, closeDetail } from './detail.js';
 import { SELECT_FILTERS, TOGGLE_FILTERS, pressed, render, resetFilters } from './list.js';
 import { connect } from './stream.js';
 import { loadHelp } from './help.js';
+import { clearStatus, showStatus } from './status.js';
 
 // ---------- events ----------
 
@@ -31,7 +32,7 @@ const disarm = () => {
   clear.classList.remove('armed');
   clear.textContent = 'Limpiar';
 };
-clear.addEventListener('click', () => {
+clear.addEventListener('click', async () => {
   if (!clear.classList.contains('armed')) {
     clear.classList.add('armed');
     clear.textContent = '¿Borrar todo?';
@@ -39,7 +40,16 @@ clear.addEventListener('click', () => {
     return;
   }
   disarm();
-  fetch('/api/clear', { method: 'POST' });
+  clear.disabled = true;
+  try {
+    const response = await fetch('/api/clear', { method: 'POST' });
+    if (!response.ok) throw new Error('Clear request failed');
+    clearStatus('No se pudieron limpiar las peticiones. Inténtalo de nuevo.');
+  } catch {
+    showStatus('No se pudieron limpiar las peticiones. Inténtalo de nuevo.');
+  } finally {
+    clear.disabled = false;
+  }
 });
 
 document.addEventListener('keydown', (e) => {
