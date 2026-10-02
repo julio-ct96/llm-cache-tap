@@ -5,9 +5,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cachetap import config
+from cachetap import config, store
 from tests.replay import adapter
-from tests.replay.flows import FakeFlow, FakeRequest
+from tests.replay.flows import FakeFlow, FakeRequest, FakeResponse
 
 
 class FlowsTest(unittest.TestCase):
@@ -15,6 +15,18 @@ class FlowsTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         adapter.reset(Path(tmp.name) / "requests.jsonl")
+
+    def _start_response(self, chunks=()):
+        flow = FakeFlow(FakeRequest(
+            "POST", "api.anthropic.com", "/v1/messages",
+            '{"model":"claude-opus-5-5","messages":[{"role":"user","content":"hola"}]}',
+            1790000000.0,
+        ))
+        adapter.hooks().request(flow)
+        flow.response = FakeResponse(200, {}, 1790000000.3)
+        adapter.hooks().responseheaders(flow)
+        returned = [flow.response.stream(chunk) for chunk in chunks]
+        return flow, returned
 
     def test_request_hook_records_pending_flow(self):
         body = {"model": "claude-opus-5-5", "messages": [{"role": "user", "content": "hola"}]}
@@ -94,6 +106,82 @@ class FlowsTest(unittest.TestCase):
         rec = adapter.records()[0]
         self.assertEqual(rec["n_msgs"], 2)
         self.assertEqual([segment["name"] for segment in rec["segs"]], ["msg0:text", "msg1:text"])
+
+    def test_response_size_limit_counts_utf8_bytes_and_preserves_stream_data(self):
+        chunk = "ññ".encode("utf-8")
+        with mock.patch.object(config, "MAX_RESPONSE_BYTES", len(chunk)):
+            flow, returned = self._start_response([chunk])
+            adapter.hooks().response(flow)
+        self.assertIs(returned[0], chunk)
+        rec = adapter.records()[0]
+        self.assertNotIn("capture_limited", rec)
+        self.assertEqual(rec["state"], "done")
+        self.assertEqual(flow.metadata.get("tap_stream"), None)
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        adapter.reset(Path(tmp.name) / "requests.jsonl")
+        with mock.patch.object(config, "MAX_RESPONSE_BYTES", len(chunk) - 1):
+            flow, returned = self._start_response([chunk])
+            adapter.hooks().response(flow)
+        self.assertIs(returned[0], chunk)
+        rec = adapter.records()[0]
+        self.assertEqual(rec["capture_limited"], "response_size")
+        self.assertIsNone(rec["usage"])
+        self.assertEqual(rec["verdict"], "N/A")
+        self.assertEqual(rec["notes"], ["captura incompleta: límite de tamaño de respuesta"])
+        self.assertEqual(flow.metadata.get("tap_stream"), None)
+
+    def test_response_over_limit_discards_partial_usage_without_parsing(self):
+        usage_chunk = b'data: {"type":"message_start","message":{"usage":{"input_tokens":100}}}\n\n'
+        overflow_chunk = b"x"
+        with mock.patch.object(config, "MAX_RESPONSE_BYTES", len(usage_chunk)):
+            flow, returned = self._start_response([usage_chunk, overflow_chunk])
+            with mock.patch("tap.response_body.usage_events") as usage_events, mock.patch(
+                "tap.response_body.output_text"
+            ) as output_text:
+                adapter.hooks().response(flow)
+        usage_events.assert_not_called()
+        output_text.assert_not_called()
+        self.assertEqual(returned, [usage_chunk, overflow_chunk])
+        rec = adapter.records()[0]
+        self.assertEqual(rec["capture_limited"], "response_size")
+        self.assertIsNone(rec["usage"])
+        self.assertEqual(rec["raw_usage"], [])
+        self.assertEqual(rec["output"], "")
+        self.assertEqual(rec["verdict"], "N/A")
+
+    def test_active_capture_limit_is_released_on_response_and_error(self):
+        with mock.patch.object(config, "MAX_ACTIVE_CAPTURES", 16):
+            flows = [self._start_response()[0] for _ in range(17)]
+            self.assertEqual(len(store.ACTIVE_CAPTURES), 16)
+            adapter.hooks().response(flows[16])
+            self.assertEqual(adapter.records()[16]["capture_limited"], "active_captures")
+
+            adapter.hooks().response(flows[0])
+            self.assertEqual(len(store.ACTIVE_CAPTURES), 15)
+            after_response, _ = self._start_response()
+            self.assertEqual(len(store.ACTIVE_CAPTURES), 16)
+
+            adapter.hooks().error(flows[1])
+            self.assertEqual(len(store.ACTIVE_CAPTURES), 15)
+            after_error, _ = self._start_response()
+            self.assertEqual(len(store.ACTIVE_CAPTURES), 16)
+            self.assertTrue(after_response.metadata["tap_stream"]["reserved"])
+            self.assertTrue(after_error.metadata["tap_stream"]["reserved"])
+
+    def test_capture_slot_is_released_if_record_was_evicted(self):
+        flow, _ = self._start_response()
+        with store.LOCK:
+            store.RECORDS.pop(flow.metadata["tap_id"])
+        adapter.hooks().response(flow)
+        self.assertEqual(store.ACTIVE_CAPTURES, set())
+
+    def test_done_clears_active_capture_reservations(self):
+        flow, _ = self._start_response()
+        self.assertIn(flow.metadata["tap_id"], store.ACTIVE_CAPTURES)
+        adapter.hooks().done()
+        self.assertEqual(store.ACTIVE_CAPTURES, set())
 
 
 if __name__ == "__main__":

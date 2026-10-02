@@ -10,6 +10,7 @@ LOCK = threading.Lock()
 RECORDS: "OrderedDict[int, dict]" = OrderedDict()
 BODIES: dict = {}
 CLIENTS: list = []
+ACTIVE_CAPTURES: set[int] = set()
 STATE = {"next_id": 1, "next_conv": 1, "body_bytes": 0}
 
 
@@ -41,6 +42,17 @@ def new_conv():
     conv = f"c{STATE['next_conv']}"
     STATE["next_conv"] += 1
     return conv
+
+
+def begin_capture(rid):
+    if rid in ACTIVE_CAPTURES or len(ACTIVE_CAPTURES) >= config.MAX_ACTIVE_CAPTURES:
+        return False
+    ACTIVE_CAPTURES.add(rid)
+    return True
+
+
+def end_capture(rid):
+    ACTIVE_CAPTURES.discard(rid)
 
 
 def add(rec, body):

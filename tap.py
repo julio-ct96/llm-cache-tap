@@ -83,18 +83,31 @@ def responseheaders(flow):
     rid = flow.metadata.get("tap_id")
     if rid is None:
         return
-    st = {"chunks": [], "first": None}
-    flow.metadata["tap_stream"] = st
-
-    def stream(data: bytes):
-        if data:
-            st["chunks"].append(data)
-            if st["first"] is None and any(k in data for k in providers.FIRST_TOKEN):
-                st["first"] = time.time()
-        return data
-
-    flow.response.stream = stream
     with store.LOCK:
+        reserved = store.begin_capture(rid)
+        st = {"chunks": [], "first": None, "bytes": 0, "limited": None, "reserved": reserved}
+        if not reserved:
+            st["limited"] = "active_captures"
+        flow.metadata["tap_stream"] = st
+
+        def stream(data: bytes):
+            if data:
+                if st["first"] is None and any(k in data for k in providers.FIRST_TOKEN):
+                    st["first"] = time.time()
+                if st["limited"] is None:
+                    st["bytes"] += len(data)
+                    if st["bytes"] > config.MAX_RESPONSE_BYTES:
+                        st["chunks"].clear()
+                        st["limited"] = "response_size"
+                        if st["reserved"]:
+                            with store.LOCK:
+                                store.end_capture(rid)
+                            st["reserved"] = False
+                    else:
+                        st["chunks"].append(data)
+            return data
+
+        flow.response.stream = stream
         rec = store.RECORDS.get(rid)
         if rec:
             rec["state"] = "streaming"
@@ -109,32 +122,45 @@ def response(flow):
     st = flow.metadata.get("tap_stream")
     if rid is None or st is None:
         return
-    now = time.time()
-    body = b"".join(st["chunks"]).decode("utf8", "replace")
-    events = response_body.usage_events(body)
-    output, stop = response_body.output_text(body)
-    t0 = flow.request.timestamp_end
-    with store.LOCK:
-        rec = store.RECORDS.get(rid)
-        if not rec:
-            return
-        rec.update({
-            "state": "done",
-            "ts_end": now,
-            "ttft_s": round(st["first"] - t0, 3) if st["first"] else None,
-            "total_s": round(now - t0, 3),
-            "raw_usage": events,
-            "usage": providers.normalize(events),
-            "output": output if flow.response.status_code < 400 else body[:2000],
-            "stop_reason": stop,
-        })
-        written = providers.written_ttl(events)
-        if written and not config.TTL_FORCED:
-            minutes = written // 60
-            rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
-        verdict.judge(rec, store.RECORDS.get(rec.get("prev_id")))
-        store.push(rec)
-        store.append_log(rec)
+    try:
+        now = time.time()
+        limited = st["limited"]
+        body = b"".join(st["chunks"]).decode("utf8", "replace") if limited is None else ""
+        events = response_body.usage_events(body) if limited is None else []
+        output, stop = response_body.output_text(body) if limited is None else ("", None)
+        t0 = flow.request.timestamp_end
+        with store.LOCK:
+            rec = store.RECORDS.get(rid)
+            if not rec:
+                return
+            rec.update({
+                "state": "done",
+                "ts_end": now,
+                "ttft_s": round(st["first"] - t0, 3) if st["first"] else None,
+                "total_s": round(now - t0, 3),
+                "raw_usage": events,
+                "usage": providers.normalize(events) if limited is None else None,
+                "output": output if flow.response.status_code < 400 else body[:2000],
+                "stop_reason": stop,
+            })
+            if limited:
+                note = "captura incompleta: límite de tamaño de respuesta" if limited == "response_size" else "captura incompleta: límite de respuestas simultáneas"
+                rec.update({"capture_limited": limited, "verdict": "N/A", "notes": [note]})
+            else:
+                written = providers.written_ttl(events)
+                if written and not config.TTL_FORCED:
+                    minutes = written // 60
+                    rec.update({"ttl_s": written, "ttl_source": f"confirmado por usage: escritura a {minutes} min"})
+                verdict.judge(rec, store.RECORDS.get(rec.get("prev_id")))
+            store.push(rec)
+            store.append_log(rec)
+    finally:
+        with store.LOCK:
+            if st["reserved"]:
+                store.end_capture(rid)
+                st["reserved"] = False
+            st["chunks"].clear()
+            flow.metadata.pop("tap_stream", None)
 
 
 def error(flow):
@@ -142,6 +168,12 @@ def error(flow):
     if rid is None:
         return
     with store.LOCK:
+        st = flow.metadata.pop("tap_stream", None)
+        if st:
+            if st["reserved"]:
+                store.end_capture(rid)
+                st["reserved"] = False
+            st["chunks"].clear()
         rec = store.RECORDS.get(rid)
         if rec:
             rec.update({"state": "error", "ts_end": time.time(), "verdict": "ERR", "notes": [str(flow.error)]})
@@ -155,3 +187,5 @@ def load(loader):
 
 def done():
     dashboard.stop()
+    with store.LOCK:
+        store.ACTIVE_CAPTURES.clear()

@@ -23,6 +23,21 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(store.new_conv(), "c1")
         self.assertEqual(store.new_conv(), "c2")
 
+    def test_active_capture_slots_are_bounded_and_reusable(self):
+        with mock.patch.object(config, "MAX_ACTIVE_CAPTURES", 1):
+            with store.LOCK:
+                self.assertTrue(store.begin_capture(1))
+                self.assertFalse(store.begin_capture(2))
+                store.end_capture(1)
+                self.assertTrue(store.begin_capture(2))
+                store.end_capture(2)
+        self.assertEqual(store.ACTIVE_CAPTURES, set())
+
+    def test_end_capture_is_idempotent(self):
+        with store.LOCK:
+            store.end_capture(999)
+        self.assertNotIn(999, store.ACTIVE_CAPTURES)
+
     def test_add(self):
         rec = {"id": 1}
         store.add(rec, "a")

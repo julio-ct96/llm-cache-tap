@@ -12,6 +12,7 @@ def reset(log_path):
     store.RECORDS.clear()
     store.BODIES.clear()
     store.CLIENTS.clear()
+    store.ACTIVE_CAPTURES.clear()
     store.STATE["next_id"] = 1
     store.STATE["next_conv"] = 1
     store.STATE["body_bytes"] = 0

@@ -75,6 +75,7 @@ class Record(TypedDict, total=False):
     verdict: str  # HIT, PARTIAL, MISS, COLD, N/A or ERR
     notes: list[str]  # explanation of the verdict
     server_side: bool  # failure with no cause attributable to the client
+    capture_limited: str  # response_size or active_captures when capture was incomplete
 
 
 # Fields that only travel in /api/record/<id>, not in the list nor in the jsonl.
