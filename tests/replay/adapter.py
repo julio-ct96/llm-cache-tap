@@ -1,5 +1,3 @@
-import queue
-
 import tap
 from cachetap import config, dashboard, store
 
@@ -9,14 +7,16 @@ def hooks():
 
 
 def reset(log_path):
-    store.RECORDS.clear()
-    store.BODIES.clear()
-    store.CLIENTS.clear()
-    store.ACTIVE_CAPTURES.clear()
-    store.STATE["next_id"] = 1
-    store.STATE["next_conv"] = 1
-    store.STATE["body_bytes"] = 0
-    config.LOG = log_path
+    with store.LOCK:
+        store.RECORDS.clear()
+        store.BODIES.clear()
+        for q in list(store.CLIENTS):
+            store.unsubscribe(q)
+        store.ACTIVE_CAPTURES.clear()
+        store.STATE["next_id"] = 1
+        store.STATE["next_conv"] = 1
+        store.STATE["body_bytes"] = 0
+        config.LOG = log_path
 
 
 def records():
@@ -28,9 +28,8 @@ def body_ids():
 
 
 def subscribe():
-    q = queue.Queue()
-    store.CLIENTS.append(q)
-    return q
+    with store.LOCK:
+        return store.subscribe()
 
 
 def set_max(n):

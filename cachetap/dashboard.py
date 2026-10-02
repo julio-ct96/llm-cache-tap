@@ -72,10 +72,9 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, "{}")
 
     def _events(self):
-        q = queue.Queue()
         with store.LOCK:
             snap = [record.light(r) for r in store.RECORDS.values()]
-            store.CLIENTS.append(q)
+            q = store.subscribe()
         try:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
@@ -86,6 +85,8 @@ class Handler(BaseHTTPRequestHandler):
             while True:
                 try:
                     ev = q.get(timeout=15)
+                    if ev.get("type") == "disconnect":
+                        return
                     self.wfile.write(f"data: {json.dumps(ev, ensure_ascii=False)}\n\n".encode())
                 except queue.Empty:
                     self.wfile.write(b": ping\n\n")
@@ -93,8 +94,8 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
-            if q in store.CLIENTS:
-                store.CLIENTS.remove(q)
+            with store.LOCK:
+                store.unsubscribe(q)
 
 
 _server = None

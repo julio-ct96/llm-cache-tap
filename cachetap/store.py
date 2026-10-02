@@ -1,6 +1,7 @@
 """In-memory records, panel subscribers and the jsonl log."""
 
 import json
+import queue
 import threading
 from collections import OrderedDict
 
@@ -14,12 +15,30 @@ ACTIVE_CAPTURES: set[int] = set()
 STATE = {"next_id": 1, "next_conv": 1, "body_bytes": 0}
 
 
-# Every function below except `publish` must be called with LOCK held by the caller.
-# None of them takes LOCK itself.
+# State functions require LOCK held by the caller. None of them takes LOCK itself.
+
+def subscribe():
+    q = queue.Queue(maxsize=config.MAX_CLIENT_EVENTS)
+    CLIENTS.append(q)
+    return q
+
+
+def unsubscribe(q):
+    if q in CLIENTS:
+        CLIENTS.remove(q)
 
 def publish(ev):
     for q in list(CLIENTS):
-        q.put(ev)
+        try:
+            q.put_nowait(ev)
+        except queue.Full:
+            while True:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    break
+            q.put_nowait({"type": "disconnect"})
+            unsubscribe(q)
 
 
 def push(rec, evicted_ids=()):

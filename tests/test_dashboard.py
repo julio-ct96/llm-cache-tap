@@ -1,12 +1,13 @@
 import http.client
 import json
+import socket
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
 from unittest import mock
 
-from cachetap import config, dashboard
-from tests.replay import adapter, builders, scenario
+from cachetap import config, dashboard, store
+from tests.replay import adapter, builders, scenario, serve
 from tests.replay.scenario import Step
 
 
@@ -128,6 +129,26 @@ class DashboardTest(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_slow_events_client_reconnects_without_disconnect_event(self):
+        with store.LOCK:
+            existing_clients = list(store.CLIENTS)
+        with mock.patch.object(config, "MAX_CLIENT_EVENTS", 1):
+            conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+            conn.request("GET", "/events")
+            res = conn.getresponse()
+            try:
+                self.assertEqual(res.status, 200)
+                while res.readline() != b"\n":
+                    pass
+                with store.LOCK:
+                    store.publish({"type": "test", "id": 1})
+                    store.publish({"type": "test", "id": 2})
+                self.assertEqual(res.readline(), b"")
+                with store.LOCK:
+                    self.assertEqual(store.CLIENTS, existing_clients)
+            finally:
+                conn.close()
+
     def test_clear(self):
         q = adapter.subscribe()
         res = self._request("POST", "/api/clear")
@@ -151,6 +172,16 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(res.status, 200)
         dashboard.stop()
         dashboard.stop()
+
+    def test_replay_server_binding_does_not_resolve_reverse_dns(self):
+        with mock.patch.object(socket, "getfqdn", side_effect=AssertionError("reverse DNS called")):
+            server = serve.ReplayHTTPServer(("127.0.0.1", 0), adapter.handler())
+        try:
+            self.assertEqual(server.server_address[0], "127.0.0.1")
+            self.assertEqual(server.server_name, "localhost")
+            self.assertEqual(server.server_port, server.server_address[1])
+        finally:
+            server.server_close()
 
 
 if __name__ == "__main__":
