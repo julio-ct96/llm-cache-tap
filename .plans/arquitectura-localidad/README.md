@@ -15,7 +15,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
 | 0.01 | Commit de partida (solo por orden del usuario) | — | — | terminada con commit | 12 commits, de `80cba76` a `6d78e21` |
-| 1.01 | Flujos falsos y adaptador | `fase-1/1.01-flujos-y-adaptador.md` | — | pendiente | |
+| 1.01 | Flujos falsos y adaptador | `fase-1/1.01-flujos-y-adaptador.md` | — | terminada sin commit | |
 | 1.02 | Constructores de peticiones y respuestas | `fase-1/1.02-constructores.md` | — | pendiente | |
 | 1.03 | Ejecutor del escenario | `fase-1/1.03-ejecutor.md` | 1.01, 1.02 | pendiente | |
 | 1.04 | Pasos de Anthropic | `fase-1/1.04-pasos-anthropic.md` | 1.03 | pendiente | |
@@ -40,14 +40,14 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 2.13 | `store.py` | `fase-2/2.13-store.md` | 2.12 | pendiente | |
 | 2.14 | `dashboard.py` | `fase-2/2.14-dashboard.md` | 2.13 | pendiente | |
 | 2.15 | Cierre del backend | `fase-2/2.15-cierre-backend.md` | 2.14 | pendiente | |
-| 3.00 | Test de recursos de la interfaz | `fase-3/3.00-test-recursos-ui.md` | — | pendiente | |
+| 3.00 | Test de recursos de la interfaz | `fase-3/3.00-test-recursos-ui.md` | — | terminada sin commit | |
 | 3.01 | JS: `format.js` y `prefs.js` | `fase-3/3.01-js-format-prefs.md` | 3.00, 1.10, 2.15 | pendiente | |
 | 3.02 | JS: `state.js` | `fase-3/3.02-js-state.md` | 3.01 | pendiente | |
 | 3.03 | JS: `parts.js` y `cache-timer.js` | `fase-3/3.03-js-parts-timer.md` | 3.02 | pendiente | |
 | 3.04 | JS: `list.js` | `fase-3/3.04-js-list.md` | 3.03 | pendiente | |
 | 3.05 | JS: `detail.js` | `fase-3/3.05-js-detail.md` | 3.04 | pendiente | |
 | 3.06 | JS: `stream.js` y cierre de `app.js` | `fase-3/3.06-js-stream.md` | 3.05 | pendiente | |
-| 3.07 | CSS: copiar por secciones | `fase-3/3.07-css-particion.md` | — | pendiente | |
+| 3.07 | CSS: copiar por secciones | `fase-3/3.07-css-particion.md` | — | terminada con commit | |
 | 3.08 | CSS: cambiar a los ficheros nuevos | `fase-3/3.08-css-cambio.md` | 3.00, 3.06, 3.07 | pendiente | |
 | 4.01 | Referencia de TTL y mínimos en el backend | `fase-4/4.01-referencia-backend.md` | 2.15, 3.08 | pendiente | |
 | 4.02 | Ayuda pintada desde la referencia | `fase-4/4.02-ayuda-frontend.md` | 4.01, 3.08 | pendiente | |

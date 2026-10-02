@@ -1,0 +1,75 @@
+/* ---------- tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  padding: 6px var(--s2);
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  font-size: var(--text-s);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+td {
+  padding: 6px var(--s2);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+th.num,
+td.num {
+  text-align: right;
+}
+
+td.num,
+td.mono {
+  font: var(--text-code) / 1.45 var(--font-mono);
+  white-space: nowrap;
+}
+
+.requests th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+
+.requests th:first-child,
+.requests td:first-child {
+  padding-left: var(--s4);
+}
+
+.requests td {
+  white-space: nowrap;
+}
+
+.requests tbody tr {
+  cursor: pointer;
+}
+
+.requests tbody tr:hover {
+  background: var(--hover);
+}
+
+.requests tbody tr.selected {
+  background: var(--selected);
+}
+
+.requests td.diagnosis {
+  color: var(--dim);
+}
+
+.requests tr.server td.diagnosis,
+.over-ttl {
+  color: var(--berry-text);
+}
+
+.muted {
+  color: var(--dim);
+}
+

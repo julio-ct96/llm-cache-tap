@@ -1,0 +1,37 @@
+/* ---------- layout ---------- */
+
+main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+#list {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+#resizer {
+  flex: none;
+  width: 5px;
+  margin: 0 -2px;
+  z-index: 2;
+  cursor: col-resize;
+}
+
+#resizer:hover,
+#resizer.dragging {
+  background: var(--neutral);
+}
+
+#detail {
+  flex: none;
+  width: var(--detail-w, 46%);
+  min-width: 360px;
+  max-width: 75%;
+  overflow: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+}
+

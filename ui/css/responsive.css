@@ -1,0 +1,30 @@
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 1000px) {
+  main {
+    flex-direction: column;
+  }
+
+  #resizer,
+  .keys {
+    display: none;
+  }
+
+  #detail {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: 60%;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .stat:first-child {
+    border-left: 0;
+  }
+
+  .brand {
+    width: 100%;
+    border-bottom: 1px solid var(--line);
+  }
+}
