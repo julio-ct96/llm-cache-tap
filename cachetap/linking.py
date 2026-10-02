@@ -17,11 +17,13 @@ def common(a, b):
 
 
 def find_previous(rec, records):
-    """Find the earlier request of the same conversation and describe what changed since.
+    """Find the earlier request of the same conversation in O(R × M) time.
 
     Conversations are matched on their messages only, so a client that rewrites
     tools or system between turns still links to its previous turn and the
-    rewrite shows up as the divergence.
+    rewrite shows up as the divergence. R is the number of candidate records and
+    M is the message-prefix length compared for each candidate; comparisons stop
+    at the first differing message.
     """
     static = {s["name"]: s["hash"] for s in rec["segs"] if STATIC_SEG.search(s["name"])}
     msgs = [s["hash"] for s in rec["segs"] if not STATIC_SEG.search(s["name"])]

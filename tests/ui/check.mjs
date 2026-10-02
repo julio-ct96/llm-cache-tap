@@ -464,6 +464,73 @@ async function main() {
     expect(result, 'cargando…', 'silent body AbortError');
   });
 
+  await check('R2', 'SSE burst batches paint and keeps selection refresh unless cleared', async () => {
+    const result = await js(`(async () => {
+      const { state, applyEvent } = await import('/state.js');
+      const { render, syncFilters } = await import('/list.js');
+      const { showDetail, closeDetail } = await import('/detail.js');
+      const originalFetch = window.fetch;
+      const OriginalEventSource = window.EventSource;
+      const originalRaf = window.requestAnimationFrame;
+      const originalCancelRaf = window.cancelAnimationFrame;
+      const sources = [];
+      const frames = new Map();
+      let frameId = 0;
+      let detailLoads = 0;
+      const record = (id, prev_id = null) => ({ id, prev_id, time: '12:00', state: 'done', verdict: 'HIT', model: 'gpt-test', conv: 'burst', n_tools: 0, n_msgs: 1, cc_marks: 0, req_bytes: 0, notes: [], usage: {}, effort_fields: {}, raw_usage: [], resp_headers: {}, output: '', segs: [] });
+      const runFrame = () => {
+        const pending = [...frames.values()];
+        frames.clear();
+        pending.forEach((callback) => callback(0));
+      };
+      try {
+        window.EventSource = class { constructor() { sources.push(this); } close() {} };
+        window.requestAnimationFrame = (callback) => { const id = ++frameId; frames.set(id, callback); return id; };
+        window.cancelAnimationFrame = (id) => frames.delete(id);
+        window.fetch = (url, options) => {
+          if (url === '/api/record/44') { detailLoads++; return Promise.resolve({ ok: true, status: 200, json: async () => record(44) }); }
+          return originalFetch(url, options);
+        };
+        state.selected = null;
+        applyEvent({ type: 'snapshot', ttl: 300, max_records: 10, recs: [record(43), record(44)] });
+        syncFilters(); render();
+        await showDetail(44);
+        const { connect } = await import('/stream.js');
+        const stop = connect();
+        const send = (ev) => sources[0].onmessage({ data: JSON.stringify(ev) });
+        send({ type: 'record', rec: record(45, 44) });
+        send({ type: 'record', rec: record(46, 44) });
+        const immediateState = state.recs.has(45) && state.recs.has(46);
+        const oneQueuedPaint = frames.size === 1;
+        const beforePaintRows = [...document.querySelectorAll('#rows tr')].map((row) => row.dataset.id);
+        const beforeLoads = detailLoads;
+        runFrame();
+        await new Promise((resolve) => queueMicrotask(resolve));
+        await new Promise((resolve) => queueMicrotask(resolve));
+        const refreshedSelection = state.selected === 44 && detailLoads === beforeLoads + 1;
+        send({ type: 'record', rec: record(47, 44) });
+        send({ type: 'clear' });
+        const clearQueuedOnePaint = frames.size === 1;
+        runFrame();
+        await new Promise((resolve) => queueMicrotask(resolve));
+        stop();
+        return { immediateState, oneQueuedPaint, beforePaintContainsNewest: beforePaintRows.includes('46'), refreshedSelection,
+          clearQueuedOnePaint, selectedAfterClear: state.selected, detailHidden: document.getElementById('detail').hidden,
+          noPendingFrame: frames.size === 0 };
+      } finally {
+        window.fetch = originalFetch;
+        window.EventSource = OriginalEventSource;
+        window.requestAnimationFrame = originalRaf;
+        window.cancelAnimationFrame = originalCancelRaf;
+        frames.clear();
+        state.selected = null;
+        closeDetail();
+      }
+    })()`);
+    expect(result, { immediateState: true, oneQueuedPaint: true, beforePaintContainsNewest: false, refreshedSelection: true,
+      clearQueuedOnePaint: true, selectedAfterClear: null, detailHidden: true, noPendingFrame: true }, 'SSE paint batching');
+  });
+
   await check('C23', 'body 404 keeps the existing expired-body message', async () => {
     const result = await js(`(async () => {
       const { showDetail, resetDetailCache, closeDetail } = await import('/detail.js');

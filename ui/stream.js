@@ -14,6 +14,24 @@ export function connect() {
   let source;
   let retryTimer;
   let closed = false;
+  let paintFrame;
+  let refreshId;
+  const invalidSelections = new Set();
+
+  const schedulePaint = () => {
+    if (paintFrame !== undefined) return;
+    paintFrame = requestAnimationFrame(() => {
+      paintFrame = undefined;
+      const invalid = [...invalidSelections];
+      invalidSelections.clear();
+      const refresh = refreshId;
+      refreshId = undefined;
+      syncFilters();
+      if (invalid.includes(state.selected)) closeDetail();
+      else if (refresh != null && state.selected === refresh) showDetail(refresh);
+      else render();
+    });
+  };
 
   const open = () => {
     source = new EventSource('/events');
@@ -45,15 +63,17 @@ export function connect() {
       if (ev.type === 'snapshot' || ev.type === 'clear') resetDetailCache();
       const selectionInvalid = applyEvent(ev);
       if (selectionInvalid) {
-        closeDetail();
+        invalidSelections.add(state.selected);
+        if (refreshId === state.selected) refreshId = undefined;
       } else if (ev.type === 'snapshot' && state.selected != null) {
-        showDetail(state.selected);
+        if (!invalidSelections.has(state.selected)) refreshId = state.selected;
       } else if (ev.type === 'record') {
         // a new request also stops the timer of the one it follows
-        if (ev.rec.id === state.selected || ev.rec.prev_id === state.selected) showDetail(state.selected);
+        if ((ev.rec.id === state.selected || ev.rec.prev_id === state.selected) && !invalidSelections.has(state.selected)) {
+          refreshId = state.selected;
+        }
       }
-      syncFilters();
-      render();
+      schedulePaint();
     };
   };
 
@@ -62,6 +82,10 @@ export function connect() {
     closed = true;
     clearTimeout(retryTimer);
     retryTimer = undefined;
+    if (paintFrame !== undefined) cancelAnimationFrame(paintFrame);
+    paintFrame = undefined;
+    refreshId = undefined;
+    invalidSelections.clear();
     source?.close();
   };
 }
