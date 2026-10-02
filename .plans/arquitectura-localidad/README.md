@@ -16,7 +16,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | --- | --- | --- | --- | --- | --- |
 | 0.01 | Commit de partida (solo por orden del usuario) | — | — | terminada con commit | 12 commits, de `80cba76` a `6d78e21` |
 | 1.01 | Flujos falsos y adaptador | `fase-1/1.01-flujos-y-adaptador.md` | — | terminada con commit | |
-| 1.02 | Constructores de peticiones y respuestas | `fase-1/1.02-constructores.md` | — | terminada sin commit | |
+| 1.02 | Constructores de peticiones y respuestas | `fase-1/1.02-constructores.md` | — | terminada con commit | |
 | 1.03 | Ejecutor del escenario | `fase-1/1.03-ejecutor.md` | 1.01, 1.02 | pendiente | |
 | 1.04 | Pasos de Anthropic | `fase-1/1.04-pasos-anthropic.md` | 1.03 | pendiente | |
 | 1.05 | Pasos de OpenAI | `fase-1/1.05-pasos-openai.md` | 1.03 | pendiente | |
