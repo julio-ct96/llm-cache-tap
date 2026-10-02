@@ -2,7 +2,8 @@ import { $ } from './format.js';
 import { state } from './state.js';
 import { tick } from './cache-timer.js';
 import { showDetail, closeDetail } from './detail.js';
-import { SELECT_FILTERS, TOGGLE_FILTERS, pressed, render, syncFilters, resetFilters } from './list.js';
+import { SELECT_FILTERS, TOGGLE_FILTERS, pressed, render, resetFilters } from './list.js';
+import { connect } from './stream.js';
 
 // ---------- events ----------
 
@@ -61,32 +62,8 @@ document.addEventListener('keydown', (e) => {
   showDetail(state.visible[next].id, true);
 });
 
-function setConnected(on) {
-  $('conn').className = 'conn ' + (on ? 'on' : 'off');
-  $('conn-text').textContent = on ? 'en vivo' : 'sin conexión, reintentando';
-}
-
 setInterval(tick, 1000);
 
 $('help-open').addEventListener('click', () => $('help').showModal());
 
-const source = new EventSource('/events');
-source.onopen = () => setConnected(true);
-source.onerror = () => setConnected(false);
-source.onmessage = (message) => {
-  const ev = JSON.parse(message.data);
-  if (ev.type === 'snapshot') {
-    state.recs.clear();
-    state.ttl = ev.ttl;
-    ev.recs.forEach((r) => state.recs.set(r.id, r));
-  } else if (ev.type === 'clear') {
-    state.recs.clear();
-    closeDetail();
-  } else if (ev.type === 'record') {
-    state.recs.set(ev.rec.id, ev.rec);
-    // a new request also stops the timer of the one it follows
-    if (ev.rec.id === state.selected || ev.rec.prev_id === state.selected) showDetail(state.selected);
-  }
-  syncFilters();
-  render();
-};
+connect();
