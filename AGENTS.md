@@ -7,7 +7,10 @@ Addon de mitmproxy que captura las llamadas a LLM que pasan por el proxy y muest
 
 | Fichero | Qué contiene |
 | --- | --- |
-| `tap.py` | Todo el backend: análisis de la petición, TTL y mínimos por proveedor, veredicto, hooks de mitmproxy y servidor HTTP del panel |
+| `tap.py` | Entrada del addon: solo los hooks de mitmproxy y el cableado |
+| `cachetap/` | Backend por módulos: `config`, `record` (contrato del registro), `segments`, `linking`, `verdict`, `response_body`, `store`, `dashboard` |
+| `cachetap/providers/` | Lo que cambia por proveedor: `anthropic.py`, `openai.py`, y el despacho en `__init__.py` |
+| `tests/` | Un `test_*.py` por módulo; `tests/replay/` tiene el escenario sintético y `golden.json` |
 | `ui/index.html` | Estructura del panel y diálogo de ayuda |
 | `ui/app.js` | Lista, filtros, detalle y conexión en vivo (SSE) |
 | `ui/json-tree.js` | Visor de JSON plegable |
@@ -21,10 +24,12 @@ No se versionan: `ca/` (claves del proxy), `data/` (métricas capturadas), `venv
 
 - Arrancar: `./start.sh`
 - Lanzar un cliente por el proxy: `./via.sh <comando>`
+- Tests: `venv/bin/python -m unittest discover -s tests -t . -q`
+- Panel de prueba sin proxy (puerto 8901): `venv/bin/python tests/replay/serve.py`
 
 ## Refactorización en curso
 
-El proyecto se está partiendo en módulos pequeños. El plan vive en `.plans/arquitectura-localidad/`:
+El backend ya está partido en módulos; falta el frontend (`ui/app.js` y `ui/app.css`). El plan vive en `.plans/arquitectura-localidad/`:
 
 - `README.md`: índice de tareas con sus dependencias y su estado.
 - `reglas.md`: reglas comunes para ejecutar cualquier tarea.
