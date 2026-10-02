@@ -25,7 +25,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 1.08 | Test de expulsión | `fase-1/1.08-expulsion.md` | 1.03 | terminada con commit | |
 | 1.09 | Test del panel HTTP | `fase-1/1.09-panel-http.md` | 1.03 | terminada con commit | |
 | 1.10 | Servidor de prueba | `fase-1/1.10-servidor-de-prueba.md` | 1.07 | terminada con commit | |
-| 2.01 | Paquete y recarga en caliente | `fase-2/2.01-paquete-y-recarga.md` | 1.07, 1.08, 1.09 | pendiente | |
+| 2.01 | Paquete y recarga en caliente | `fase-2/2.01-paquete-y-recarga.md` | 1.07, 1.08, 1.09 | terminada con commit | |
 | 2.02 | `config.py` | `fase-2/2.02-config.md` | 2.01 | pendiente | |
 | 2.03 | `record.py` | `fase-2/2.03-record.md` | 2.02 | pendiente | |
 | 2.04 | `segments.py` | `fase-2/2.04-segments.md` | 2.03 | pendiente | |

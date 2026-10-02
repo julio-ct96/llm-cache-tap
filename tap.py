@@ -13,13 +13,19 @@ import json
 import os
 import queue
 import re
+import sys
 import threading
 import time
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+if __name__.startswith("__mitmproxy_script__"):
+    # mitmproxy re-executes this file on save; dropping cachetap modules reloads submodules too.
+    for _name in [m for m in sys.modules if m == "cachetap" or m.startswith("cachetap.")]:
+        del sys.modules[_name]
+
+HERE =Path(__file__).resolve().parent
 DATA = HERE / "data"
 DATA.mkdir(exist_ok=True)
 LOG = DATA / "requests.jsonl"
