@@ -14,7 +14,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
-| 0.01 | Commit de partida (solo por orden del usuario) | — | — | pendiente | |
+| 0.01 | Commit de partida (solo por orden del usuario) | — | — | terminada con commit | 12 commits, de `6dd983e` a `1278683` |
 | 1.01 | Flujos falsos y adaptador | `fase-1/1.01-flujos-y-adaptador.md` | — | pendiente | |
 | 1.02 | Constructores de peticiones y respuestas | `fase-1/1.02-constructores.md` | — | pendiente | |
 | 1.03 | Ejecutor del escenario | `fase-1/1.03-ejecutor.md` | 1.01, 1.02 | pendiente | |
