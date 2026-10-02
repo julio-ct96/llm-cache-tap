@@ -1,4 +1,6 @@
 import { jsonTree } from './json-tree.js';
+import { $, esc, num, secs, clock, duration } from './format.js';
+import { store } from './prefs.js';
 
 const BAD_VERDICTS = ['MISS', 'PARTIAL', 'ERR'];
 const SELECT_FILTERS = [
@@ -13,29 +15,7 @@ let successors = new Map(); // record id -> the next request of its conversation
 let selected = null;
 let ttl = 300;
 
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const num = (n) => (n == null ? '–' : Number(n).toLocaleString('es-ES'));
-const secs = (n) => (n == null ? '–' : n.toFixed(2) + ' s');
-const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const pressed = (id) => $(id).getAttribute('aria-pressed') === 'true';
-
-const store = {
-  get(key, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem('tap.' + key)) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  },
-  set(key, value) {
-    try {
-      localStorage.setItem('tap.' + key, JSON.stringify(value));
-    } catch {
-      /* storage unavailable: the preference just does not persist */
-    }
-  },
-};
 
 // ---------- list ----------
 
@@ -71,7 +51,6 @@ function shareBar(u, wide = false) {
 }
 
 const ttlOf = (r) => r.ttl_s ?? ttl;
-const duration = (s) => (s < 3600 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`);
 
 /** "TTL 5 min (puede durar hasta 1 h) · por defecto de Claude" */
 function ttlLabel(r) {
