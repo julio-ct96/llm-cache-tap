@@ -52,7 +52,7 @@ Objetivo: que un agente resuelva cada cambio leyendo pocos ficheros pequeños. S
 | 4.01 | Referencia de TTL y mínimos en el backend | `fase-4/4.01-referencia-backend.md` | 2.15, 3.08 | terminada con commit | |
 | 4.02 | Ayuda pintada desde la referencia | `fase-4/4.02-ayuda-frontend.md` | 4.01, 3.08 | terminada con commit | |
 | 4.03 | `AGENTS.md` | `fase-4/4.03-agents-md.md` | 4.02 | terminada con commit | |
-| 4.04 | Verificación con el proxy real (con el usuario) | `fase-4/4.04-verificacion-real.md` | 4.03 | pendiente | |
+| 4.04 | Verificación con el proxy real (con el usuario) | `fase-4/4.04-verificacion-real.md` | 4.03 | terminada con commit | proxy real con opencode: COLD y dos HIT enlazados, sin cabeceras sensibles, recarga en caliente correcta |
 
 ## Qué se puede lanzar a la vez
 
