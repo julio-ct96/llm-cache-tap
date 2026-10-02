@@ -20,14 +20,14 @@ def usage_events(body):
     if stripped.startswith("{"):
         try:
             grab(json.loads(stripped))
-        except ValueError:
+        except (json.JSONDecodeError, RecursionError):
             pass
         return events
     for line in body.splitlines():
         if line.startswith("data:") and '"usage"' in line:
             try:
                 grab(json.loads(line[5:]))
-            except ValueError:
+            except (json.JSONDecodeError, RecursionError):
                 continue
     return events
 
@@ -39,7 +39,9 @@ def output_text(body):
             continue
         try:
             ev = json.loads(line[5:])
-        except ValueError:
+        except (json.JSONDecodeError, RecursionError):
+            continue
+        if not isinstance(ev, dict):
             continue
         texts, reason = providers.deltas(ev)
         out.extend(texts)

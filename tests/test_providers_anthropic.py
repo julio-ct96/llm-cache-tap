@@ -96,6 +96,19 @@ class NormalizeTest(unittest.TestCase):
             {"read": 0, "write": 3000, "uncached": 20, "input_total": 3020, "output": 50, "reasoning": None},
         )
 
+    def test_invalid_token_counters_are_ignored(self):
+        self.assertEqual(
+            anthropic.normalize(
+                {
+                    "input_tokens": "20",
+                    "cache_creation_input_tokens": True,
+                    "cache_read_input_tokens": -1,
+                    "output_tokens": "5",
+                }
+            ),
+            {"read": 0, "write": 0, "uncached": 0, "input_total": 0, "output": 0, "reasoning": None},
+        )
+
     def test_other_shape(self):
         self.assertIsNone(anthropic.normalize({"prompt_tokens": 5}))
 
@@ -123,6 +136,9 @@ class DeltasTest(unittest.TestCase):
 
     def test_stop_reason(self):
         self.assertEqual(anthropic.deltas({"delta": {"stop_reason": "end_turn"}}), ([], "end_turn"))
+
+    def test_non_string_stop_reason_is_ignored(self):
+        self.assertEqual(anthropic.deltas({"delta": {"stop_reason": 12}}), ([], None))
 
     def test_delta_not_a_dict(self):
         self.assertEqual(anthropic.deltas({"delta": "a"}), ([], None))

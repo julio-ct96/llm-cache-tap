@@ -55,23 +55,42 @@ def effort(req):
 
 def deltas(ev):
     """Texts and stop reason carried by one streamed event."""
+    if not isinstance(ev, dict):
+        return [], None
     texts, stop = [], None
     d = ev.get("delta")
     if isinstance(d, str) and str(ev.get("type", "")).endswith("output_text.delta"):
         texts.append(d)
-    for ch in ev.get("choices") or []:
-        c = (ch.get("delta") or {}).get("content")
+    choices = ev.get("choices")
+    if not isinstance(choices, list):
+        return texts, stop
+    for ch in choices:
+        if not isinstance(ch, dict):
+            continue
+        delta = ch.get("delta")
+        c = delta.get("content") if isinstance(delta, dict) else None
         if isinstance(c, str):
             texts.append(c)
-        stop = ch.get("finish_reason") or stop
+        reason = ch.get("finish_reason")
+        if isinstance(reason, str):
+            stop = reason or stop
     return texts, stop
 
 
 def normalize(merged):
-    inp = merged.get("input_tokens", merged.get("prompt_tokens")) or 0
+    inp = merged.get("input_tokens", merged.get("prompt_tokens", 0))
+    inp = inp if isinstance(inp, int) and not isinstance(inp, bool) and inp >= 0 else 0
     det = merged.get("input_tokens_details") or merged.get("prompt_tokens_details") or {}
+    det = det if isinstance(det, dict) else {}
     odet = merged.get("output_tokens_details") or merged.get("completion_tokens_details") or {}
-    read = det.get("cached_tokens") or 0
+    odet = odet if isinstance(odet, dict) else {}
+    read = det.get("cached_tokens", 0)
+    read = read if isinstance(read, int) and not isinstance(read, bool) and read >= 0 else 0
+    read = min(read, inp)
+    output = merged.get("output_tokens", merged.get("completion_tokens", 0))
+    output = output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
+    reasoning = odet.get("reasoning_tokens")
+    if not isinstance(reasoning, int) or isinstance(reasoning, bool) or reasoning < 0:
+        reasoning = None
     return {"read": read, "write": None, "uncached": inp - read, "input_total": inp,
-            "output": merged.get("output_tokens", merged.get("completion_tokens")) or 0,
-            "reasoning": odet.get("reasoning_tokens")}
+            "output": output, "reasoning": reasoning}

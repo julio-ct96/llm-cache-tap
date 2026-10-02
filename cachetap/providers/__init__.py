@@ -58,6 +58,8 @@ def effort_of(req):
 
 def deltas(ev):
     """Texts and stop reason carried by one streamed event, whichever provider sent it."""
+    if not isinstance(ev, dict):
+        return [], None
     a_texts, a_stop = anthropic.deltas(ev)
     o_texts, o_stop = openai.deltas(ev)
     return a_texts + o_texts, o_stop or a_stop
@@ -66,8 +68,33 @@ def deltas(ev):
 def normalize(events):
     """Token usage of a response, in one shape for every provider."""
     merged = {}
+    counters = {
+        "input_tokens", "prompt_tokens", "output_tokens", "completion_tokens",
+        "cache_read_input_tokens", "cache_creation_input_tokens", "cached_tokens",
+        "reasoning_tokens",
+    }
     for e in events:
-        merged.update({k: v for k, v in e["usage"].items() if v is not None})
+        if not isinstance(e, dict) or not isinstance(e.get("usage"), dict):
+            continue
+        usage = e["usage"]
+        for key, value in usage.items():
+            if key in counters and (not isinstance(value, int) or isinstance(value, bool) or value < 0):
+                continue
+            if key in ("input_tokens_details", "prompt_tokens_details", "output_tokens_details", "completion_tokens_details"):
+                if not isinstance(value, dict):
+                    continue
+                value = {
+                    detail_key: detail_value
+                    for detail_key, detail_value in value.items()
+                    if detail_key not in {"cached_tokens", "reasoning_tokens"}
+                    or (
+                        isinstance(detail_value, int)
+                        and not isinstance(detail_value, bool)
+                        and detail_value >= 0
+                    )
+                }
+            if value is not None:
+                merged[key] = value
     if not merged:
         return None
     for provider in PROVIDERS:

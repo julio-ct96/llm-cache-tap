@@ -100,6 +100,21 @@ class NormalizeTest(unittest.TestCase):
         self.assertIsNone(usage["write"])
         self.assertEqual(usage["input_total"], 10)
 
+    def test_malformed_usage_and_invalid_counters_are_ignored(self):
+        usage = providers.normalize(
+            [
+                {"usage": []},
+                {"usage": {"input_tokens": 10, "output_tokens": 2}},
+                {"usage": {"input_tokens": "12", "output_tokens": True}},
+                {"usage": {"input_tokens": -1, "output_tokens": -3}},
+            ]
+        )
+        self.assertEqual(usage["input_total"], 10)
+        self.assertEqual(usage["output"], 2)
+
+    def test_non_dict_event_delta_is_ignored(self):
+        self.assertEqual(providers.deltas([]), ([], None))
+
 
 class WrittenTtlTest(unittest.TestCase):
     def test_confirmed_write(self):

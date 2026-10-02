@@ -69,11 +69,16 @@ def effort(req):
 
 def normalize(merged):
     if "cache_read_input_tokens" in merged or "cache_creation_input_tokens" in merged:
-        read = merged.get("cache_read_input_tokens") or 0
-        write = merged.get("cache_creation_input_tokens") or 0
-        unc = merged.get("input_tokens") or 0
+        read = merged.get("cache_read_input_tokens", 0)
+        write = merged.get("cache_creation_input_tokens", 0)
+        unc = merged.get("input_tokens", 0)
+        read = read if isinstance(read, int) and not isinstance(read, bool) and read >= 0 else 0
+        write = write if isinstance(write, int) and not isinstance(write, bool) and write >= 0 else 0
+        unc = unc if isinstance(unc, int) and not isinstance(unc, bool) and unc >= 0 else 0
+        output = merged.get("output_tokens", 0)
+        output = output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
         return {"read": read, "write": write, "uncached": unc, "input_total": read + write + unc,
-                "output": merged.get("output_tokens") or 0, "reasoning": None}
+                "output": output, "reasoning": None}
     return None
 
 
@@ -83,7 +88,8 @@ def deltas(ev):
     if not isinstance(d, dict):
         return [], None
     texts = [d["text"]] if isinstance(d.get("text"), str) else []
-    return texts, d.get("stop_reason")
+    reason = d.get("stop_reason")
+    return texts, reason if isinstance(reason, str) else None
 
 
 def written_ttl(events):

@@ -95,6 +95,24 @@ class NormalizeTest(unittest.TestCase):
             {"read": 1400, "write": None, "uncached": 200, "input_total": 1600, "output": 40, "reasoning": None},
         )
 
+    def test_invalid_details_and_cached_tokens_are_ignored(self):
+        self.assertEqual(
+            openai.normalize(
+                {
+                    "input_tokens": 12,
+                    "input_tokens_details": {"cached_tokens": True},
+                    "output_tokens_details": [],
+                }
+            ),
+            {"read": 0, "write": None, "uncached": 12, "input_total": 12, "output": 0, "reasoning": None},
+        )
+
+    def test_cached_tokens_are_capped_at_input_total(self):
+        self.assertEqual(
+            openai.normalize({"input_tokens": 8, "input_tokens_details": {"cached_tokens": 20}}),
+            {"read": 8, "write": None, "uncached": 0, "input_total": 8, "output": 0, "reasoning": None},
+        )
+
 
 class DeltasTest(unittest.TestCase):
     def test_responses_text(self):
@@ -106,6 +124,13 @@ class DeltasTest(unittest.TestCase):
     def test_chat_text_and_finish(self):
         ev = {"choices": [{"delta": {"content": "a"}}, {"delta": {}, "finish_reason": "stop"}]}
         self.assertEqual(openai.deltas(ev), (["a"], "stop"))
+
+    def test_malformed_choices_and_reasons_are_ignored(self):
+        self.assertEqual(openai.deltas({"choices": {}, "delta": "x"}), ([], None))
+        self.assertEqual(
+            openai.deltas({"choices": [None, {"delta": [], "finish_reason": 4}, {"delta": {"content": "a"}}]}),
+            (["a"], None),
+        )
 
     def test_anthropic_shaped_delta(self):
         self.assertEqual(openai.deltas({"delta": {"text": "a"}}), ([], None))

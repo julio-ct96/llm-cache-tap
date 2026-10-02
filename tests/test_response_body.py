@@ -31,6 +31,22 @@ class UsageEventsTest(unittest.TestCase):
     def test_broken_line(self):
         self.assertEqual(response_body.usage_events('data: {"usage" roto'), [])
 
+    def test_unusable_sse_events_are_skipped(self):
+        body = "".join(
+            [
+                'data: []\n\n',
+                'data: null\n\n',
+                'data: 42\n\n',
+                'data: {"type":"response.output_text.delta","delta":"válido"}\n\n',
+            ]
+        )
+        self.assertEqual(response_body.output_text(body), ("válido", None))
+
+    def test_deeply_nested_sse_event_does_not_hide_later_delta(self):
+        body = f'data: {"[" * 1100}null{ "]" * 1100}\n\n'
+        body += 'data: {"type":"response.output_text.delta","delta":"válido"}\n\n'
+        self.assertEqual(response_body.output_text(body), ("válido", None))
+
 
 class OutputTextTest(unittest.TestCase):
     def test_anthropic_text(self):
