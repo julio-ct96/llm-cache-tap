@@ -3,17 +3,19 @@
 //
 //   node tests/ui/check.mjs          short list (C1-C6, C15)
 //   node tests/ui/check.mjs --full   every check
+//   node tests/ui/check.mjs --styles out.json   also dump the computed styles of every element, to compare two versions of the CSS
 //
 // CHROME_BIN, TAP_UI_PORT (default 8901) and TAP_DEBUG_PORT (default 9334) override the defaults.
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const FULL = process.argv.includes('--full');
+const STYLES = process.argv.includes('--styles') ? process.argv[process.argv.indexOf('--styles') + 1] : null;
 const UI_PORT = process.env.TAP_UI_PORT || '8901';
 const DEBUG_PORT = process.env.TAP_DEBUG_PORT || '9334';
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -167,6 +169,16 @@ async function main() {
     await click('#rows tr[data-id="6"]');
     await detailHas('#6', 'MISS', 'Primer cambio del prefijo', 'system @ 40');
   });
+  if (STYLES) {
+    // layout-independent properties only: widths and timer texts change from one run to the next
+    const props = ['display', 'position', 'color', 'background-color', 'font-family', 'font-size', 'font-weight', 'line-height', 'padding', 'margin', 'border', 'border-radius', 'text-align', 'white-space', 'overflow', 'gap', 'flex', 'opacity', 'cursor'];
+    const styles = await js(`[...document.querySelectorAll('body, body *')].map((el) => {
+      const computed = getComputedStyle(el);
+      return el.tagName + '.' + el.className + '|' + ${JSON.stringify(props)}.map((p) => computed.getPropertyValue(p)).join(';');
+    })`);
+    writeFileSync(STYLES, JSON.stringify(styles, null, 1));
+    console.log(`     styles of ${styles.length} elements written to ${STYLES}`);
+  }
   await check('C5', 'Escape closes, ArrowDown opens the first row', async () => {
     await press('Escape');
     expect(await hidden('#detail'), true, 'detail hidden after Escape');
