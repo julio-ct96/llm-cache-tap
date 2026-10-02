@@ -1,0 +1,36 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Create virtual environment and install CI dependencies
+        run: |
+          python -m venv venv
+          venv/bin/python -m pip install -r requirements-ci.txt
+      - name: Locate Chrome
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          import sys
+
+          chrome = next((shutil.which(name) for name in ("google-chrome", "chrome", "chromium", "chromium-browser") if shutil.which(name)), None)
+          if chrome is None:
+              sys.exit("Chrome/Chromium is required for the full UI checks but was not found")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf8") as env_file:
+              env_file.write(f"CHROME_BIN={chrome}\n")
+          PY
+      - name: Run all checks
+        run: venv/bin/python scripts/check.py --full
