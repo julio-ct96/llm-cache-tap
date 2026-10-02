@@ -1,5 +1,6 @@
 import json
 import unittest
+from copy import deepcopy
 
 from cachetap import linking, segments
 
@@ -18,41 +19,54 @@ def make(req, **fields):
 
 def previous(req, **fields):
     rec = make(req, **fields)
-    linking.find_previous(rec, [])
+    linking.prepare_fingerprints(rec)
     return rec
 
 
 class CommonTest(unittest.TestCase):
-    def test_common(self):
-        self.assertEqual(linking.common([1, 2, 3], [1, 2, 4]), 2)
-        self.assertEqual(linking.common([], [1]), 0)
+    def test_common_prefix_length(self):
+        self.assertEqual(linking.common_prefix_length([1, 2, 3], [1, 2, 4]), 2)
+        self.assertEqual(linking.common_prefix_length([], [1]), 0)
 
 
 class FindPreviousTest(unittest.TestCase):
     def test_no_previous(self):
         rec = make(P1)
+        linking.prepare_fingerprints(rec)
         self.assertEqual(linking.find_previous(rec, []), (None, 0))
         self.assertEqual(sorted(rec["_static"]), ["system", "tools"])
         self.assertEqual(len(rec["_msgs"]), 1)
 
+    def test_find_previous_does_not_mutate_prepared_inputs(self):
+        rec = previous(P2)
+        records = [previous(P1, id=1, conv="c1")]
+        before = deepcopy((rec, records))
+        linking.find_previous(rec, records)
+        self.assertEqual((rec, records), before)
+
     def test_other_conversation(self):
         other = {"tools": [{"name": "t"}], "system": "s", "messages": [{"role": "user", "content": "unrelated"}]}
         prev = previous(other, id=1, conv="c1")
-        self.assertEqual(linking.find_previous(make(P1), [prev]), (None, 0))
+        rec = make(P1)
+        linking.prepare_fingerprints(rec)
+        self.assertEqual(linking.find_previous(rec, [prev]), (None, 0))
 
     def test_tie_picks_latest(self):
         a1 = previous(P1, id=1, conv="c1")
         a2 = previous(P1, id=2, conv="c2")
-        best, best_n = linking.find_previous(make(P2), [a1, a2])
-        self.assertEqual(best["id"], 2)
-        self.assertEqual(best_n, 1)
+        rec = make(P2)
+        linking.prepare_fingerprints(rec)
+        selected_previous, matched_message_count = linking.find_previous(rec, [a1, a2])
+        self.assertEqual(selected_previous["id"], 2)
+        self.assertEqual(matched_message_count, 1)
 
 
 class LinkTest(unittest.TestCase):
     def run_link(self, prev, req, prev_body=None, **fields):
         rec = make(req, **fields)
-        best, best_n = linking.find_previous(rec, [prev])
-        linking.link(rec, req, best, best_n, prev_body)
+        linking.prepare_fingerprints(rec)
+        previous, matched_message_count = linking.find_previous(rec, [prev])
+        linking.link(rec, req, previous, matched_message_count, prev_body)
         return rec
 
     def test_intact_prefix(self):

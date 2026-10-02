@@ -69,12 +69,13 @@ def request(flow):
             "state": "pending",
             **providers.cache_ttl(req),
         }
-        best, best_n = linking.find_previous(rec, store.RECORDS.values())
-        if best is None:
+        linking.prepare_fingerprints(rec)
+        previous, matched_message_count = linking.find_previous(rec, store.RECORDS.values())
+        if previous is None:
             rec["conv"] = store.new_conv()
             rec["prev_id"] = None
         else:
-            linking.link(rec, req, best, best_n, store.BODIES.get(best["id"]))
+            linking.link(rec, req, previous, matched_message_count, store.BODIES.get(previous["id"]))
         evicted_ids = store.add(rec, text)
         store.push(rec, evicted_ids)
     flow.metadata["tap_id"] = rid

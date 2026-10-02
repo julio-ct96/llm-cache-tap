@@ -7,13 +7,20 @@ from cachetap import segments
 STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
 
 
-def common(a, b):
+def common_prefix_length(a, b):
     n = 0
     for x, y in zip(a, b):
         if x != y:
             break
         n += 1
     return n
+
+
+def prepare_fingerprints(rec):
+    """Add the static and message fingerprints to rec, mutating it in place."""
+    static = {s["name"]: s["hash"] for s in rec["segs"] if STATIC_SEG.search(s["name"])}
+    msgs = [s["hash"] for s in rec["segs"] if not STATIC_SEG.search(s["name"])]
+    rec["_static"], rec["_msgs"] = static, msgs
 
 
 def find_previous(rec, records):
@@ -25,46 +32,44 @@ def find_previous(rec, records):
     M is the message-prefix length compared for each candidate; comparisons stop
     at the first differing message.
     """
-    static = {s["name"]: s["hash"] for s in rec["segs"] if STATIC_SEG.search(s["name"])}
-    msgs = [s["hash"] for s in rec["segs"] if not STATIC_SEG.search(s["name"])]
-    rec["_static"], rec["_msgs"] = static, msgs
-    best, best_n = None, 0
-    for prev in records:
-        n = common(msgs, prev["_msgs"])
-        if n >= 1 and n >= best_n:
-            best, best_n = prev, n
-    return best, best_n
+    matched_message_count = 0
+    previous = None
+    for candidate in records:
+        prefix_length = common_prefix_length(rec["_msgs"], candidate["_msgs"])
+        if prefix_length >= 1 and prefix_length >= matched_message_count:
+            previous, matched_message_count = candidate, prefix_length
+    return previous, matched_message_count
 
 
-def link(rec, req, best, best_n, prev_body):
-    """Set on rec its conversation, its gap and age from best, and where its prefix diverges from best."""
-    rec["conv"] = best["conv"]
-    rec["prev_id"] = best["id"]
-    rec["gap_s"] = round(rec["ts"] - (best.get("ts_end") or best["ts"]), 1)
+def link(rec, req, previous, matched_message_count, prev_body):
+    """Set on rec its conversation, its gap and age from previous, and where its prefix diverges from previous."""
+    rec["conv"] = previous["conv"]
+    rec["prev_id"] = previous["id"]
+    rec["gap_s"] = round(rec["ts"] - (previous.get("ts_end") or previous["ts"]), 1)
     # age of the previous cache entry, counted the way its provider counts it
-    anchor = best["ts"] if best.get("ttl_anchor") == "start" else best.get("ts_end") or best["ts"]
+    anchor = previous["ts"] if previous.get("ttl_anchor") == "start" else previous.get("ts_end") or previous["ts"]
     rec["age_s"] = round(rec["ts"] - anchor, 1)
-    rec["prev_effort"] = best.get("effort")
-    rec["prev_model"] = best.get("model")
-    rec["effort_changed"] = best.get("effort") != rec.get("effort")
-    rec["model_changed"] = best.get("model") != rec.get("model")
-    rec["params_changed"] = best.get("_params") != rec.get("_params")
-    diverge, mi = None, 0
+    rec["prev_effort"] = previous.get("effort")
+    rec["prev_model"] = previous.get("model")
+    rec["effort_changed"] = previous.get("effort") != rec.get("effort")
+    rec["model_changed"] = previous.get("model") != rec.get("model")
+    rec["params_changed"] = previous.get("_params") != rec.get("_params")
+    diverge, message_index = None, 0
     for s in rec["segs"]:
         if STATIC_SEG.search(s["name"]):
-            same = best["_static"].get(s["name"]) == s["hash"]
+            same = previous["_static"].get(s["name"]) == s["hash"]
         else:
-            same = mi < best_n
-            in_prev = mi < len(best["_msgs"])
-            mi += 1
+            same = message_index < matched_message_count
+            in_prev = message_index < len(previous["_msgs"])
+            message_index += 1
             if not same and not in_prev:
                 s["same"] = False
                 continue
         s["same"] = same and diverge is None
         if not same and diverge is None:
             diverge = s["name"]
-    if diverge is None and set(best["_static"]) - set(rec["_static"]):
-        diverge = sorted(set(best["_static"]) - set(rec["_static"]))[0] + " (eliminado)"
+    if diverge is None and set(previous["_static"]) - set(rec["_static"]):
+        diverge = sorted(set(previous["_static"]) - set(rec["_static"]))[0] + " (eliminado)"
     rec["prefix_intact"] = diverge is None
     rec["diverge_at"] = diverge
     if diverge:
