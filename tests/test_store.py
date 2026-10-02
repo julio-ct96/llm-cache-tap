@@ -53,10 +53,20 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(rec, original)
 
     def test_append_log(self):
-        store.append_log({"id": 1, "segs": [], "model": "ñ"})
-        text = Path(config.LOG).read_text()
+        log_path = Path(config.LOG).parent / "nested" / "requests.jsonl"
+        with mock.patch.object(config, "LOG", log_path):
+            store.append_log({"id": 1, "segs": [], "model": "ñ"})
+        text = log_path.read_text(encoding="utf-8")
         self.assertEqual(json.loads(text), {"id": 1, "model": "ñ"})
         self.assertIn("ñ", text)
+
+    def test_append_log_preserves_existing_lines(self):
+        log_path = Path(config.LOG).parent / "requests.jsonl"
+        with mock.patch.object(config, "LOG", log_path):
+            store.append_log({"id": 1, "segs": []})
+            store.append_log({"id": 2, "segs": []})
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual([json.loads(line)["id"] for line in lines], [1, 2])
 
     def test_clear(self):
         store.add({"id": 1}, "a")

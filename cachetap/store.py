@@ -52,5 +52,6 @@ def clear():
 
 
 def append_log(rec):
-    with open(config.LOG, "a") as f:
+    config.LOG.parent.mkdir(parents=True, exist_ok=True)
+    with open(config.LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(record.light(rec), ensure_ascii=False) + "\n")

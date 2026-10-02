@@ -5,7 +5,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-DATA.mkdir(exist_ok=True)
 LOG = DATA / "requests.jsonl"
 UI = ROOT / "ui"
 UI_PORT = int(os.environ.get("TAP_UI_PORT", "8900"))
