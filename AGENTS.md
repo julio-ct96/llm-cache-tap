@@ -37,6 +37,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | `ui/json-tree.js` | Visor de JSON plegable |
 | `ui/css/` | `tokens`, `base`, `header`, `layout`, `tables`, `parts`, `detail`, `json-tree`, `help`, `responsive` (el orden de los `<link>` es la cascada) |
 | `start.sh`, `via.sh` | Arrancan proxy y panel; lanzan un comando a través del proxy |
+| `.agents/skills/plan-small-tasks/` | Skill para escribir y ejecutar planes por tareas pequeñas, como el de `.plans/` |
 | `tests/replay/` | Escenario sintético (`scenario`, `steps_*`, `builders`, `flows`, `adapter`), `golden.json` y `serve.py` |
 | `tests/test_*.py` | Un test por módulo, más `test_replay`, `test_dependencies` y `test_ui_assets` |
 
