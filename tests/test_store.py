@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from unittest import mock
 
@@ -44,6 +45,12 @@ class StoreTest(unittest.TestCase):
         q = adapter.subscribe()
         store.push({"id": 1, "segs": [], "_msgs": []})
         self.assertEqual(q.get_nowait(), {"type": "record", "rec": {"id": 1}})
+
+    def test_push_does_not_modify_record(self):
+        rec = {"id": 1, "segs": [{"text": "light"}], "_msgs": [{"content": "public"}]}
+        original = deepcopy(rec)
+        store.push(rec)
+        self.assertEqual(rec, original)
 
     def test_append_log(self):
         store.append_log({"id": 1, "segs": [], "model": "ñ"})

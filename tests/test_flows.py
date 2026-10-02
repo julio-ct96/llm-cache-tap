@@ -26,6 +26,21 @@ class FlowsTest(unittest.TestCase):
         self.assertEqual(flow.metadata["tap_id"], 1)
         self.assertEqual(adapter.body_ids(), [1])
 
+    def test_ignored_routes_are_not_recorded(self):
+        for method, path in (("GET", "/v1/messages"), ("POST", "/v1/models")):
+            with self.subTest(method=method, path=path):
+                flow = FakeFlow(FakeRequest(method, "api.anthropic.com", path, "{}", 1790000000.0))
+                adapter.hooks().request(flow)
+                self.assertEqual(adapter.records(), [])
+                self.assertNotIn("tap_id", flow.metadata)
+
+    def test_broken_json_is_recorded_without_model(self):
+        flow = FakeFlow(FakeRequest("POST", "api.anthropic.com", "/v1/messages", "esto no es JSON", 1790000000.0))
+        adapter.hooks().request(flow)
+        recs = adapter.records()
+        self.assertEqual(len(recs), 1)
+        self.assertIsNone(recs[0]["model"])
+
 
 if __name__ == "__main__":
     unittest.main()

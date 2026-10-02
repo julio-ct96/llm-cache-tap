@@ -28,7 +28,7 @@ Revisión del 2 de octubre de 2026, árbol limpio antes de crear este plan.
 
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
-| 1.01 | Red de seguridad Python/JS | [1.01](fase-1/1.01-red-seguridad.md) | — | pendiente | Primero |
+| 1.01 | Red de seguridad Python/JS | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | 180 tests Python, 2 JS y UI completa OK; golden idéntico; runner JS corregido en 3346504 |
 | 2.01 | Validación de peticiones | [2.01](fase-2/2.01-validacion-peticiones.md) | 1.01 | pendiente | Contratos de entrada |
 | 2.02 | Eventos mal formados | [2.02](fase-2/2.02-eventos-malformados.md) | 1.01 | pendiente | Conserva datos válidos |
 | 2.03 | Inicialización sin efectos al importar | [2.03](fase-2/2.03-inicializacion.md) | 1.01 | pendiente | Filesystem en escritura |
