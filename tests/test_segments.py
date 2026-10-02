@@ -6,7 +6,7 @@ from cachetap import segments
 class StripTest(unittest.TestCase):
     def test_strip(self):
         self.assertEqual(
-            segments.strip({"a": [{"cache_control": 1, "b": 2}], "cache_control": 3}),
+            segments.strip_cache_control({"a": [{"cache_control": 1, "b": 2}], "cache_control": 3}),
             {"a": [{"b": 2}]},
         )
 
@@ -46,12 +46,25 @@ class SegObjsTest(unittest.TestCase):
             "system": "s",
             "messages": [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}],
         }
-        names = [n for n, _, _ in segments.seg_objs(req)]
+        names = [n for n, _, _ in segments.segment_objects(req)]
         self.assertEqual(names, ["tools", "system", "msg0:user", "msg1:assistant"])
 
     def test_formats(self):
-        names = [n for n, _, _ in segments.seg_objs({"instructions": "x", "input": "hola"})]
+        names = [n for n, _, _ in segments.segment_objects({"instructions": "x", "input": "hola"})]
         self.assertEqual(names, ["system", "msg0:text"])
+
+    def test_tool_names(self):
+        tools = [
+            {"name": "named"},
+            {"function": {"name": "function-named"}},
+            {"type": "computer"},
+            {},
+            "ignored",
+        ]
+        self.assertEqual(
+            segments.segment_objects({"tools": tools})[0][2],
+            "5 tools: named, function-named, computer, ?",
+        )
 
 
 class SegmentsTest(unittest.TestCase):

@@ -5,13 +5,13 @@ import json
 import re
 
 
-def strip(o):
+def strip_cache_control(value):
     """Drop cache_control markers: moving a breakpoint does not change the cached content."""
-    if isinstance(o, dict):
-        return {k: strip(v) for k, v in o.items() if k != "cache_control"}
-    if isinstance(o, list):
-        return [strip(x) for x in o]
-    return o
+    if isinstance(value, dict):
+        return {key: strip_cache_control(item) for key, item in value.items() if key != "cache_control"}
+    if isinstance(value, list):
+        return [strip_cache_control(item) for item in value]
+    return value
 
 
 def dump(o):
@@ -19,66 +19,70 @@ def dump(o):
 
 
 def digest(o):
-    return hashlib.sha1(dump(strip(o)).encode()).hexdigest()[:10]
+    return hashlib.sha1(dump(strip_cache_control(o)).encode()).hexdigest()[:10]
 
 
-def preview(o, n=140):
-    if isinstance(o, str):
-        t = o
-    elif isinstance(o, list):
-        t = " ".join(preview(x, 80) for x in o[:4])
-    elif isinstance(o, dict):
-        c = o.get("content", o.get("text", o.get("output", o.get("arguments"))))
-        ty = o.get("type", "")
-        if ty == "tool_use":
-            t = f"[tool_use {o.get('name')}]"
-        elif ty == "tool_result":
-            t = "[tool_result] " + preview(c, 80)
-        elif ty in ("thinking", "redacted_thinking", "reasoning"):
-            t = f"[{ty}]"
-        elif isinstance(c, (list, str)):
-            t = preview(c, n)
-        elif o.get("name"):
-            t = f"[{ty} {o['name']}]"
+def preview(value, limit=140):
+    if isinstance(value, str):
+        text = value
+    elif isinstance(value, list):
+        text = " ".join(preview(item, 80) for item in value[:4])
+    elif isinstance(value, dict):
+        content = value.get("content", value.get("text", value.get("output", value.get("arguments"))))
+        block_type = value.get("type", "")
+        if block_type == "tool_use":
+            text = f"[tool_use {value.get('name')}]"
+        elif block_type == "tool_result":
+            text = "[tool_result] " + preview(content, 80)
+        elif block_type in ("thinking", "redacted_thinking", "reasoning"):
+            text = f"[{block_type}]"
+        elif isinstance(content, (list, str)):
+            text = preview(content, limit)
+        elif value.get("name"):
+            text = f"[{block_type} {value['name']}]"
         else:
-            t = dump(o)
+            text = dump(value)
     else:
-        t = str(o)
-    return re.sub(r"\s+", " ", t)[:n]
+        text = str(value)
+    return re.sub(r"\s+", " ", text)[:limit]
 
 
-def seg(name, obj, prev=None):
+def build_segment(name, obj, preview_text=None):
     raw = dump(obj)
     return {
         "name": name,
         "hash": digest(obj),
         "bytes": len(raw.encode()),
         "cc": '"cache_control"' in raw,
-        "preview": prev if prev is not None else preview(obj),
+        "preview": preview_text if preview_text is not None else preview(obj),
     }
 
 
-def seg_objs(req):
+def _tool_name(tool):
+    return tool.get("name") or (tool.get("function") or {}).get("name") or tool.get("type", "?")
+
+
+def segment_objects(request):
     """(name, object, preview) for every cacheable block of the request, in prefix order."""
-    out = []
-    tools = req.get("tools")
+    segments = []
+    tools = request.get("tools")
     if tools:
-        names = [t.get("name") or (t.get("function") or {}).get("name") or t.get("type", "?") for t in tools if isinstance(t, dict)]
-        out.append(("tools", tools, f"{len(tools)} tools: " + ", ".join(map(str, names))[:200]))
-    system = req.get("system", req.get("instructions"))
+        names = [_tool_name(tool) for tool in tools if isinstance(tool, dict)]
+        segments.append(("tools", tools, f"{len(tools)} tools: " + ", ".join(map(str, names))[:200]))
+    system = request.get("system", request.get("instructions"))
     if system:
-        out.append(("system", system, None))
-    msgs = req.get("messages") or req.get("input") or []
-    if isinstance(msgs, str):
-        msgs = [msgs]
-    for i, m in enumerate(msgs):
-        role = (m.get("role") or m.get("type") or "?") if isinstance(m, dict) else "text"
-        out.append((f"msg{i}:{role}", m, None))
-    return out
+        segments.append(("system", system, None))
+    messages = request.get("messages") or request.get("input") or []
+    if isinstance(messages, str):
+        messages = [messages]
+    for index, message in enumerate(messages):
+        role = (message.get("role") or message.get("type") or "?") if isinstance(message, dict) else "text"
+        segments.append((f"msg{index}:{role}", message, None))
+    return segments
 
 
-def segments(req):
-    return [seg(name, obj, prev) for name, obj, prev in seg_objs(req)]
+def segments(request):
+    return [build_segment(name, obj, preview_text) for name, obj, preview_text in segment_objects(request)]
 
 
 def first_diff(prev_body, name, req):
@@ -86,11 +90,16 @@ def first_diff(prev_body, name, req):
     if prev_body is None:
         return None
     try:
-        old = dict((n, o) for n, o, _ in seg_objs(json.loads(prev_body)))[name]
-        new = dict((n, o) for n, o, _ in seg_objs(req))[name]
+        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(json.loads(prev_body)))[name]
+        new = dict((segment_name, value) for segment_name, value, _ in segment_objects(req))[name]
     except (KeyError, ValueError):
         return None
-    a, b = dump(strip(old)), dump(strip(new))
-    i = next((k for k, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
-    lo = max(0, i - 200)
-    return {"segment": name, "offset": i, "before": a[lo:i + 300], "after": b[lo:i + 300]}
+    before, after = dump(strip_cache_control(old)), dump(strip_cache_control(new))
+    offset = next((index for index, (before_char, after_char) in enumerate(zip(before, after)) if before_char != after_char), min(len(before), len(after)))
+    context_start = max(0, offset - 200)
+    return {
+        "segment": name,
+        "offset": offset,
+        "before": before[context_start:offset + 300],
+        "after": after[context_start:offset + 300],
+    }
