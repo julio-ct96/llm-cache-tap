@@ -24,3 +24,11 @@ test('summarizeRecords preserves visible counts and usage percentages input', ()
     count: 0, hit: 0, miss: 0, server: 0, effortHit: 0, effort: 0, read: 0, total: 0,
   });
 });
+
+test('filterRecords keeps only requests at or above the minimum cost', () => {
+  const filters = { model: '', conv: '', bad: false, effort: false, text: '' };
+  const priced = [{ id: 3, cost: { usd: 2 } }, { id: 2, cost: { usd: 0.5 } }, { id: 1, cost_missing: 'sin precio' }, { id: 0 }];
+  assert.deepEqual(filterRecords(priced, { ...filters, minCost: 2 }).map((r) => r.id), [3]);
+  assert.deepEqual(filterRecords(priced, { ...filters, minCost: 0.5 }).map((r) => r.id), [3, 2]);
+  assert.equal(filterRecords(priced, { ...filters, minCost: 0 }).length, 4);
+});

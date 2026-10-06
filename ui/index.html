@@ -47,6 +47,18 @@
           <dt>tokens leídos de caché</dt>
           <dd id="s-rate">–</dd>
         </div>
+        <div class="stat">
+          <dt id="s-cost-label">coste</dt>
+          <dd id="s-cost">–</dd>
+        </div>
+        <div class="stat">
+          <dt><i class="swatch kiwi"></i>ahorrado por la caché</dt>
+          <dd id="s-saved">–</dd>
+        </div>
+        <div class="stat">
+          <dt><i class="swatch berry"></i>perdido por fallos de caché</dt>
+          <dd id="s-lost">–</dd>
+        </div>
       </dl>
     </header>
 
@@ -56,7 +68,15 @@
       <select id="f-conv" aria-label="Conversación"><option value="">todas las conversaciones</option></select>
       <button class="btn toggle" id="f-bad" type="button" aria-pressed="false">solo miss / parcial</button>
       <button class="btn toggle" id="f-eff" type="button" aria-pressed="false">solo cambios de esfuerzo</button>
+      <input id="f-min-cost" type="number" min="0" step="any" inputmode="decimal" placeholder="coste ≥ $" aria-label="Coste mínimo en dólares" />
+      <select id="f-sort" aria-label="Orden">
+        <option value="">más recientes primero</option>
+        <option value="cost">más caras primero</option>
+        <option value="lost">más perdido primero</option>
+        <option value="saved">más ahorro primero</option>
+      </select>
       <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>/</kbd> filtrar <kbd>Esc</kbd> cerrar</p>
+      <button class="btn" id="costs-open" type="button">Costes</button>
       <button class="btn" id="help-open" type="button">Ayuda</button>
       <button class="btn" id="clear" type="button">Limpiar</button>
       <p id="action-status" role="status" aria-live="polite" hidden></p>
@@ -77,6 +97,9 @@
               <th class="num">Leído</th>
               <th class="num">Escrito</th>
               <th>Reparto</th>
+              <th class="num" title="Lo que costó la petición según la tarifa de su destino">Coste</th>
+              <th class="num" title="Lo que habría costado sin caché menos lo que costó; negativo si escribir en caché costó más de lo que se leyó">Ahorro</th>
+              <th class="num" title="En un MISS o PARTIAL, lo pagado de más por no leer de caché el prefijo de la petición anterior">Perdido</th>
               <th class="num">1.er token</th>
               <th class="num">Total</th>
               <th class="num">Δ anterior</th>
@@ -136,6 +159,67 @@
           <tbody id="help-min"></tbody>
         </table>
         <p>Valores de las guías de caché de Anthropic y OpenAI, revisados en <span id="help-reviewed"></span>.</p>
+
+        <h3>Coste, ahorro y perdido</h3>
+        <table>
+          <tbody>
+            <tr><td>Coste</td><td>Tokens del <code>usage</code> por el precio de cada tipo: entrada sin caché, leído de caché, escrito en caché y salida (el razonamiento va dentro de la salida).</td></tr>
+            <tr><td>Ahorro</td><td>Lo que habría costado la misma petición con toda la entrada a precio normal, menos lo que costó. Es negativo cuando se escribió en caché más de lo que se leyó.</td></tr>
+            <tr><td>Perdido</td><td>Solo en MISS y PARTIAL: los tokens del prefijo de la petición anterior que no se leyeron de caché, por la diferencia entre lo que se pagó por ellos y el precio de lectura.</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Lo que va a <code>githubcopilot.com</code> se cuenta con la tarifa de Copilot (1 crédito de IA = 0,01 $); el resto,
+          con el precio de lista del proveedor del modelo. Un modelo sin precio en la tabla no se estima: queda sin coste y
+          se cuenta aparte. Al pasar del umbral de contexto largo, toda la petición paga la tarifa larga. No se ven desde
+          aquí el descuento del 10 % de la selección automática de Copilot, ni los niveles batch, flex o fast.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tarifa</th><th>Modelo</th><th class="num">Entrada</th><th class="num">Leído</th><th class="num">Escrito</th>
+              <th class="num">Salida</th><th>Contexto largo</th>
+            </tr>
+          </thead>
+          <tbody id="help-prices"></tbody>
+        </table>
+        <p>Dólares por millón de tokens, de las páginas de precios de GitHub, Anthropic y OpenAI, revisados en <span id="help-prices-reviewed"></span>.</p>
+      </div>
+    </dialog>
+
+    <dialog id="costs" aria-labelledby="costs-title">
+      <form class="help-head" method="dialog">
+        <h2 id="costs-title">Costes de las peticiones visibles</h2>
+        <button class="btn small">Cerrar</button>
+      </form>
+      <div class="help-body">
+        <p id="costs-total"></p>
+
+        <h3>Por modelo</h3>
+        <table>
+          <thead>
+            <tr><th>Modelo y tarifa</th><th class="num">Peticiones</th><th class="num">Coste</th><th class="num">Ahorro</th><th class="num">%</th><th class="num">Perdido</th></tr>
+          </thead>
+          <tbody id="costs-models"></tbody>
+        </table>
+
+        <h3>Perdido por causa del fallo</h3>
+        <table>
+          <thead>
+            <tr><th>Causa</th><th class="num">Fallos</th><th class="num">Perdido</th><th class="num">%</th></tr>
+          </thead>
+          <tbody id="costs-causes"></tbody>
+        </table>
+        <p>Cada fallo se carga a su primera causa.</p>
+
+        <h3>Por conversación</h3>
+        <table>
+          <thead>
+            <tr><th>Conv</th><th class="num">Peticiones</th><th class="num">Coste</th><th class="num">Ahorro</th><th class="num">%</th><th class="num">Perdido</th></tr>
+          </thead>
+          <tbody id="costs-convs"></tbody>
+        </table>
+        <p>Acumulado de toda la conversación, incluidas las peticiones que ya salieron de la lista.</p>
       </div>
     </dialog>
 

@@ -1,7 +1,8 @@
 import { state } from './state.js';
-import { $, esc, num, secs } from './format.js';
+import { $, esc, num, pct, secs, usd } from './format.js';
 import { badge, shareBar } from './parts.js';
 import { ttlOf, timerHtml, tick } from './cache-timer.js';
+import { renderCosts, sortRecords, summarizeCosts } from './costs.js';
 
 const BAD_VERDICTS = ['MISS', 'PARTIAL', 'ERR'];
 export const SELECT_FILTERS = [
@@ -21,6 +22,7 @@ export function filterRecords(records, filters) {
     if (filters.conv && r.conv !== filters.conv) return false;
     if (filters.bad && !BAD_VERDICTS.includes(r.verdict)) return false;
     if (filters.effort && !r.effort_changed) return false;
+    if (filters.minCost > 0 && !(r.cost?.usd >= filters.minCost)) return false;
     if (!query) return true;
     const haystack = [`#${r.id}`, r.model, r.conv, r.verdict, r.effort, ...(r.notes || [])].join(' ').toLowerCase();
     return haystack.includes(query);
@@ -50,8 +52,23 @@ function readFilters() {
     conv: $('f-conv').value,
     bad: pressed('f-bad'),
     effort: pressed('f-eff'),
+    minCost: Number($('f-min-cost').value) || 0,
     text: $('f-text').value,
   };
+}
+
+function costCells(r) {
+  const c = r.cost;
+  if (!c) {
+    const why = r.cost_missing ? ` title="${esc(r.cost_missing)}"` : '';
+    return `<td class="num"${why}>–</td><td class="num">–</td><td class="num">–</td>`;
+  }
+  const sign = c.saved_usd > 0 ? 'saved' : c.saved_usd < 0 ? 'lost' : '';
+  const share = c.saved_usd ? ` <span class="muted">${pct(c.saved_usd, c.no_cache_usd)}</span>` : '';
+  const lost = c.lost_usd ? `<span class="lost">${usd(c.lost_usd)}</span>` : '–';
+  return `<td class="num" title="tarifa de ${esc(c.tariff)}">${usd(c.usd)}</td>
+    <td class="num" title="sin caché habría costado ${usd(c.no_cache_usd)}"><span class="${sign}">${usd(c.saved_usd)}</span>${share}</td>
+    <td class="num">${lost}</td>`;
 }
 
 function rowHtml(r) {
@@ -75,6 +92,7 @@ function rowHtml(r) {
     <td class="num">${num(u.read)}</td>
     <td class="num">${num(u.write)}</td>
     <td>${shareBar(u)}</td>
+    ${costCells(r)}
     <td class="num">${secs(r.ttft_s)}</td>
     <td class="num">${secs(r.total_s)}</td>
     <td class="num">${gap}</td>
@@ -91,7 +109,7 @@ export function render() {
   for (const r of records) {
     if (r.prev_id != null) state.successors.set(r.prev_id, r);
   }
-  state.visible = filterRecords(records, filters);
+  state.visible = sortRecords(filterRecords(records, filters), $('f-sort').value);
   $('rows').innerHTML = state.visible.map(rowHtml).join('');
   tick();
   $('empty').hidden = state.recs.size > 0;
@@ -104,6 +122,13 @@ export function render() {
   $('s-srv').textContent = summary.server;
   $('s-eff').textContent = `${summary.effortHit} / ${summary.effort}`;
   $('s-rate').textContent = summary.total ? ((100 * summary.read) / summary.total).toFixed(1) + ' %' : '–';
+
+  const costs = summarizeCosts(state.visible);
+  $('s-cost-label').textContent = costs.unpriced ? `coste · ${costs.unpriced} sin precio` : 'coste';
+  $('s-cost').textContent = costs.priced ? usd(costs.usd) : '–';
+  $('s-saved').textContent = costs.priced ? `${usd(costs.saved)} · ${pct(costs.saved, costs.noCache)}` : '–';
+  $('s-lost').textContent = costs.priced ? usd(costs.lost) : '–';
+  if ($('costs').open) renderCosts();
 }
 
 export function syncFilters() {
@@ -118,6 +143,7 @@ export function syncFilters() {
 
 export function resetFilters() {
   $('f-text').value = '';
+  $('f-min-cost').value = '';
   for (const [id] of SELECT_FILTERS) $(id).value = '';
   for (const id of TOGGLE_FILTERS) $(id).setAttribute('aria-pressed', 'false');
   render();

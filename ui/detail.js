@@ -5,6 +5,7 @@ import { $, esc, num, secs } from './format.js';
 import { badge, shareBar } from './parts.js';
 import { ttlLabel, timerHtml, tick } from './cache-timer.js';
 import { render } from './list.js';
+import { costHtml } from './detail-cost.js';
 import { showStatus } from './status.js';
 
 // ---------- detail ----------
@@ -216,6 +217,7 @@ function renderDetail(r) {
     </header>
     ${notesHtml}
     ${section('summary', 'Resumen', summaryHtml(r))}
+    ${section('cost', 'Coste', costHtml(r))}
     ${diff}
     ${section('params', 'Parámetros enviados', treeHost('params'), { tools: treeTools('params') })}
     ${section('usage', 'Usage tal como lo devuelve el servidor', treeHost('usage'), { tools: treeTools('usage') })}

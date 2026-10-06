@@ -262,7 +262,12 @@ async function main() {
       await until('help tables', () => js(`document.querySelectorAll('#help table')[1].tBodies[0].rows.length > 0`), 3000).catch(() => {});
       const sizes = await js(`[...document.querySelectorAll('#help table')].map((table) => table.tBodies[0].rows.length)`);
       const minimum = (await js(`!!document.getElementById('help-min')`)) ? 5 : 4;
-      expect(sizes, [5, 5, minimum], 'rows per help table');
+      expect(sizes.slice(0, 3), [5, 5, minimum], 'rows per help table');
+      if (await js(`!!document.getElementById('help-prices')`)) {
+        const price = await js(`[...document.querySelectorAll('#help-prices tr')].map((row) => [...row.cells].map((c) => c.textContent)).find((c) => c[0] === 'Copilot' && c[1] === 'gpt-6.1-sol')`);
+        expect(price, ['Copilot', 'gpt-6.1-sol', '2', '0,1', '2,5', '10', 'más de 272.000: 4 / 0,2 / 5 / 15'], 'Copilot price row');
+        expect(await text('#help-prices-reviewed'), 'octubre de 2026', '#help-prices-reviewed');
+      }
       if (minimum === 5) {
         const first = await js(`(() => { const row = document.querySelector('#help-ttl tr'); return [row.cells[0].textContent, [...row.querySelectorAll('code')].map((c) => c.textContent)]; })()`);
         expect(first, ['Claude (todos)', ['cache_control', 'ttl: "1h"']], 'first TTL row');
@@ -271,6 +276,49 @@ async function main() {
         expect(await text('#help-reviewed'), 'octubre de 2026', '#help-reviewed');
       }
       await js(`document.getElementById('help').close()`);
+    });
+    await check('C30', 'cost counters and columns', async () => {
+      const got = await js(`['s-cost-label','s-cost','s-saved','s-lost'].map((id) => document.getElementById(id).textContent)`);
+      expect(got, ['coste · 18 sin precio', '0,209 $', '0,058 $ · 21,9 %', '0,057 $'], 'cost counters');
+      const cells = (id) => js(`[...document.querySelector('#rows tr[data-id="${id}"]').cells].slice(10, 13).map((c) => c.textContent.trim())`);
+      expect(await cells(5), ['0,020 $', '-0,0038 $ -23,3 %', '0,017 $'], 'cost cells of a miss');
+      expect(await cells(2), ['0,0027 $', '0,011 $ 80,7 %', '–'], 'cost cells of a hit');
+      expect(await cells(27), ['–', '–', '–'], 'cost cells of a model without price');
+      expect(await js(`document.querySelector('#rows tr[data-id="27"]').cells[10].title`), 'sin precio para gpt-5.6 en la tarifa de OpenAI', 'reason for no price');
+    });
+    await check('C31', 'minimum cost filter and cost order', async () => {
+      const type = (value) => js(`(() => { const input = document.getElementById('f-min-cost'); input.value = '${value}'; input.dispatchEvent(new Event('input')); })()`);
+      const sort = (value) => js(`(() => { const select = document.getElementById('f-sort'); select.value = '${value}'; select.dispatchEvent(new Event('change')); })()`);
+      const ids = () => js(`[...document.querySelectorAll('#rows tr')].slice(0, 3).map((row) => Number(row.dataset.id))`);
+      await type('0.02');
+      await expectRows(3, 'rows costing at least 0.02 $');
+      expect(await ids(), [13, 6, 5], 'expensive rows, newest first');
+      await type('');
+      await sort('cost');
+      await expectRows(44, 'rows without a minimum cost');
+      expect(await ids(), [13, 6, 5], 'most expensive first');
+      await sort('lost');
+      expect(await ids(), [6, 5, 4], 'most lost first');
+      await sort('');
+      expect(await ids(), [44, 43, 42], 'newest first');
+    });
+    await check('C32', 'detail breaks the cost down', async () => {
+      await click('#rows tr[data-id="5"]');
+      await detailHas('#5', 'Entrada sin caché', 'Escrito en caché', 'Tarifa', 'Anthropic', 'habría costado 0,016 $', 'por no leer de caché el prefijo de #4', 'Conversación c1');
+      expect(await text('#detail .costs tfoot td:last-child'), '0,020 $', 'cost total');
+      await click('#rows tr[data-id="27"]');
+      await detailHas('#27', 'Sin coste: sin precio para gpt-5.6 en la tarifa de OpenAI.');
+      await press('Escape');
+    });
+    await check('C33', 'costs dialog groups by model, cause and conversation', async () => {
+      await click('#costs-open');
+      expect(await js(`document.getElementById('costs').open`), true, 'dialog open');
+      const firstCells = (id) => js(`[...document.querySelector('#${id} tr').cells].map((c) => c.textContent.trim())`);
+      expect(await firstCells('costs-models'), ['claude-opus-5-5 · Anthropic', '10', '0,097 $', '0,033 $', '25,4 %', '0,047 $'], 'costliest model');
+      expect(await firstCells('costs-causes'), ['prefijo modificado por el cliente', '1', '0,018 $', '32,4 %'], 'costliest cause');
+      expect(await js(`document.querySelectorAll('#costs-causes tr').length`), 4, 'causes with a loss');
+      expect(((await text('#costs-total')) || '').startsWith('22 peticiones con coste · 18 sin precio: 0,209 $'), true, 'visible total');
+      await js(`document.getElementById('costs').close()`);
     });
     await check('C16', 'the bundled fonts load', async () => {
       await js(`document.fonts.ready.then(() => true)`);

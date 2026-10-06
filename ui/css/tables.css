@@ -73,3 +73,10 @@ td.mono {
   color: var(--dim);
 }
 
+.saved {
+  color: var(--kiwi-text);
+}
+
+.lost {
+  color: var(--berry-text);
+}

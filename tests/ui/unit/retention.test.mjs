@@ -7,6 +7,7 @@ beforeEach(() => {
   state.recs.clear();
   state.visible = [];
   state.successors.clear();
+  state.convs.clear();
   state.selected = null;
   state.ttl = 300;
   state.maxRecords = 300;
@@ -55,4 +56,19 @@ test('evict reports selection invalidation while events without evictions retain
   assert.deepEqual([...state.recs.keys()].sort(), [1, 2]);
   assert.equal(applyEvent({ type: 'evict', ids: [1] }), true);
   assert.deepEqual([...state.recs.keys()], [2]);
+});
+
+test('conversation totals follow snapshot, record and clear events', () => {
+  const total = (usd) => ({ priced: 1, unpriced: 0, usd, no_cache_usd: usd, saved_usd: 0, lost_usd: 0 });
+  applyEvent({ type: 'snapshot', ttl: 300, recs: [{ id: 1, conv: 'c1' }], convs: { c1: total(1) } });
+  assert.deepEqual([...state.convs], [['c1', total(1)]]);
+  applyEvent({ type: 'record', rec: { id: 2, conv: 'c2' }, convs: { c2: total(2) } });
+  applyEvent({ type: 'record', rec: { id: 3, conv: 'c1' }, convs: { c1: total(5) } });
+  applyEvent({ type: 'record', rec: { id: 4, conv: 'c3' } });
+  assert.deepEqual([...state.convs], [['c1', total(5)], ['c2', total(2)]]);
+  applyEvent({ type: 'snapshot', ttl: 300, recs: [] });
+  assert.equal(state.convs.size, 0);
+  applyEvent({ type: 'record', rec: { id: 5, conv: 'c4' }, convs: { c4: total(1) } });
+  applyEvent({ type: 'clear' });
+  assert.equal(state.convs.size, 0);
 });

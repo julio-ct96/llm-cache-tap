@@ -40,7 +40,8 @@ a {
 
 .btn,
 select,
-input[type='search'] {
+input[type='search'],
+input[type='number'] {
   height: var(--control-h);
   padding: 0 var(--s2);
   border: 1px solid var(--line);
@@ -89,7 +90,8 @@ input[type='search'] {
   flex-shrink: 1;
 }
 
-input[type='search']::placeholder {
+input[type='search']::placeholder,
+input[type='number']::placeholder {
   color: var(--dim);
 }
 

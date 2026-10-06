@@ -12,6 +12,7 @@ test('starts with empty collections and no selected record', () => {
   assert.equal(state.recs.size, 0);
   assert.deepEqual(state.visible, []);
   assert.equal(state.successors.size, 0);
+  assert.equal(state.convs.size, 0);
   assert.equal(state.selected, null);
   assert.equal(state.ttl, 300);
 });

@@ -29,3 +29,10 @@ test('rejects malformed JSON, unknown variants, invalid IDs and invalid snapshot
     assert.throws(() => parseEvent(data));
   }
 });
+
+test('rejects conversation totals that are not totals', () => {
+  for (const convs of ['[]', '"c1"', 'null', '{"c1":null}', '{"c1":{"usd":"1"}}']) {
+    assert.throws(() => parseEvent(`{"type":"record","rec":{"id":1},"convs":${convs}}`));
+    assert.throws(() => parseEvent(`{"type":"snapshot","recs":[],"ttl":300,"convs":${convs}}`));
+  }
+});

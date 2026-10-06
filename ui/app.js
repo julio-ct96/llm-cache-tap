@@ -5,6 +5,7 @@ import { showDetail, closeDetail } from './detail.js';
 import { SELECT_FILTERS, TOGGLE_FILTERS, pressed, render, resetFilters } from './list.js';
 import { connect } from './stream.js';
 import { loadHelp } from './help.js';
+import { renderCosts } from './costs.js';
 import { clearStatus, showStatus } from './status.js';
 
 // ---------- events ----------
@@ -16,6 +17,8 @@ $('rows').addEventListener('click', (e) => {
 
 for (const [id] of SELECT_FILTERS) $(id).addEventListener('change', render);
 $('f-text').addEventListener('input', render);
+$('f-min-cost').addEventListener('input', render);
+$('f-sort').addEventListener('change', render);
 $('reset').addEventListener('click', resetFilters);
 for (const id of TOGGLE_FILTERS) {
   $(id).addEventListener('click', () => {
@@ -76,6 +79,10 @@ document.addEventListener('keydown', (e) => {
 setInterval(tick, 1000);
 
 $('help-open').addEventListener('click', () => $('help').showModal());
+$('costs-open').addEventListener('click', () => {
+  renderCosts();
+  $('costs').showModal();
+});
 
 loadHelp();
 connect();

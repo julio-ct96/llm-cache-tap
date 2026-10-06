@@ -178,3 +178,16 @@
   color: var(--dim);
 }
 
+.costs {
+  margin-bottom: var(--s3);
+}
+
+.costs th:first-child,
+.costs td:first-child {
+  padding-left: 0;
+}
+
+.costs tfoot td {
+  border-bottom: 0;
+  font-weight: 600;
+}
