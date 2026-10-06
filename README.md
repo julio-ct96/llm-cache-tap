@@ -151,8 +151,7 @@ Los límites de `cachetap/config.py` son políticas del inspector, no cotas de m
 
 mitmproxy recarga `tap.py` cada vez que se guarda; lo capturado en memoria se pierde en cada recarga.
 
-El mapa del código para agentes y las reglas de mantenimiento están en [`AGENTS.md`](AGENTS.md). Planes completados: [arquitectura por localidad](.plans/arquitectura-localidad/README.md) y [buenas prácticas](.plans/buenas-practicas/README.md).
-
+El mapa del código para agentes y las reglas de mantenimiento están en [`AGENTS.md`](AGENTS.md).
 ## Licencia
 
 [MIT](LICENSE).
