@@ -146,3 +146,15 @@ def written_ttl(events: list[record.UsageEvent]) -> int | None:
             if made.get("ephemeral_1h_input_tokens"):
                 return 3600
     return None
+
+
+def written_1h(events: list[record.UsageEvent]) -> int:
+    """Tokens Claude wrote to cache with a 1 hour TTL, which are billed at a higher rate."""
+    tokens = 0
+    for e in events:
+        made = e["usage"].get("cache_creation")
+        if isinstance(made, dict):
+            value = made.get("ephemeral_1h_input_tokens")
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                tokens = value
+    return tokens

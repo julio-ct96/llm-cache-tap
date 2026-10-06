@@ -88,6 +88,29 @@ class NormalizeTest(unittest.TestCase):
             {"read": 3900, "write": None, "uncached": 300, "input_total": 4200, "output": 80, "reasoning": 30},
         )
 
+    def test_cache_write_is_part_of_the_input(self):
+        merged = {
+            "input_tokens": 5000,
+            "input_tokens_details": {"cached_tokens": 3000, "cache_write_tokens": 1500},
+            "output_tokens": 80,
+        }
+        self.assertEqual(
+            openai.normalize(merged),
+            {"read": 3000, "write": 1500, "uncached": 500, "input_total": 5000, "output": 80, "reasoning": None},
+        )
+
+    def test_cache_write_never_exceeds_what_was_not_read(self):
+        merged = {"input_tokens": 100, "input_tokens_details": {"cached_tokens": 80, "cache_write_tokens": 900}}
+        usage = openai.normalize(merged)
+        self.assertEqual((usage["write"], usage["uncached"]), (20, 0))
+
+    def test_invalid_cache_write_is_unreported(self):
+        for value in (-1, True, "9", None):
+            with self.subTest(value=value):
+                merged = {"input_tokens": 100, "input_tokens_details": {"cache_write_tokens": value}}
+                usage = openai.normalize(merged)
+                self.assertEqual((usage["write"], usage["uncached"]), (None, 100))
+
     def test_chat_completions_shape(self):
         merged = {"prompt_tokens": 1600, "prompt_tokens_details": {"cached_tokens": 1400}, "completion_tokens": 40}
         self.assertEqual(

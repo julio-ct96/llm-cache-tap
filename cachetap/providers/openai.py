@@ -137,6 +137,12 @@ def normalize(merged: record.JsonObject) -> record.Usage | None:
     read = det.get("cached_tokens", 0)
     read = read if isinstance(read, int) and not isinstance(read, bool) and read >= 0 else 0
     read = min(read, inp)
+    # GPT-5.6 and later report what they wrote to cache; it is taken as part of the input
+    write = det.get("cache_write_tokens")
+    if not isinstance(write, int) or isinstance(write, bool) or write < 0:
+        write = None
+    elif write > inp - read:
+        write = inp - read
     output = merged.get("output_tokens", merged.get("completion_tokens", 0))
     output = (
         output if isinstance(output, int) and not isinstance(output, bool) and output >= 0 else 0
@@ -146,8 +152,8 @@ def normalize(merged: record.JsonObject) -> record.Usage | None:
         reasoning = None
     return {
         "read": read,
-        "write": None,
-        "uncached": inp - read,
+        "write": write,
+        "uncached": inp - read - (write or 0),
         "input_total": inp,
         "output": output,
         "reasoning": reasoning,

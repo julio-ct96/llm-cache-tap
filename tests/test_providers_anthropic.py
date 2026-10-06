@@ -147,5 +147,32 @@ class DeltasTest(unittest.TestCase):
         self.assertEqual(anthropic.deltas({}), ([], None))
 
 
+class Written1hTest(unittest.TestCase):
+    def events(self, *usages):
+        return [{"event": "message_start", "usage": usage} for usage in usages]
+
+    def test_breakdown(self):
+        events = self.events({"cache_creation": {"ephemeral_5m_input_tokens": 10, "ephemeral_1h_input_tokens": 5000}})
+        self.assertEqual(anthropic.written_1h(events), 5000)
+
+    def test_last_event_wins(self):
+        events = self.events(
+            {"cache_creation": {"ephemeral_1h_input_tokens": 100}},
+            {"output_tokens": 3},
+            {"cache_creation": {"ephemeral_1h_input_tokens": 70}},
+        )
+        self.assertEqual(anthropic.written_1h(events), 70)
+
+    def test_without_breakdown(self):
+        self.assertEqual(anthropic.written_1h(self.events({"cache_creation_input_tokens": 900})), 0)
+        self.assertEqual(anthropic.written_1h([]), 0)
+
+    def test_invalid_values_are_ignored(self):
+        for value in (-1, True, "70", None):
+            with self.subTest(value=value):
+                events = self.events({"cache_creation": {"ephemeral_1h_input_tokens": value}})
+                self.assertEqual(anthropic.written_1h(events), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

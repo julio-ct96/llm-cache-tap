@@ -72,6 +72,10 @@ def written_ttl(events: list[record.UsageEvent]) -> int | None:
     return anthropic.written_ttl(events)
 
 
+def written_1h(events: list[record.UsageEvent]) -> int:
+    return anthropic.written_1h(events)
+
+
 def effort_of(req: record.JsonObject) -> str | None:
     """Reasoning effort, judged by the shape of the message and not by the model name."""
     return anthropic.effort(req) or openai.effort(req)
