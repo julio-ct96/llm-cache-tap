@@ -13,6 +13,7 @@ def reset(log_path):
         for q in list(store.CLIENTS):
             store.unsubscribe(q)
         store.ACTIVE_CAPTURES.clear()
+        store.CONV_TOTALS.clear()
         store.STATE["next_id"] = 1
         store.STATE["next_conv"] = 1
         store.STATE["body_bytes"] = 0

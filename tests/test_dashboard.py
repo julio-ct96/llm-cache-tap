@@ -77,6 +77,8 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(res.status, 200)
         self.assertEqual(data["reviewed"], "octubre de 2026")
         self.assertEqual(len(data["ttl"]), 5)
+        self.assertEqual(len(data["prices"]), 60)
+        self.assertEqual(data["prices_reviewed"], "octubre de 2026")
 
     def test_missing_record(self):
         res = self._request("GET", "/api/record/99")
@@ -126,6 +128,20 @@ class DashboardTest(unittest.TestCase):
             self.assertEqual(len(event["recs"]), 2)
             self.assertEqual(event["ttl"], 300)
             self.assertEqual(event["max_records"], config.MAX)
+            self.assertEqual(
+                event["convs"],
+                {
+                    "c1": {
+                        "priced": 2,
+                        "unpriced": 0,
+                        "usd": 0.01876,
+                        "no_cache_usd": 0.02696,
+                        "saved_usd": 0.0082,
+                        "lost_usd": 0.0,
+                    }
+                },
+            )
+            self.assertEqual(event["recs"][1]["cost"]["tariff"], "Anthropic")
         finally:
             conn.close()
 

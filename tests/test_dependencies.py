@@ -26,11 +26,12 @@ ALLOWED = {
         "prices.copilot",
         "prices.openai",
     },
+    "cost.py": {"prices", "prices.base", "record"},
     "response_body.py": {"providers", "record"},
     "linking.py": {"segments", "record"},
     "verdict.py": {"config", "providers", "record"},
     "store.py": {"config", "record"},
-    "dashboard.py": {"config", "providers", "record", "store"},
+    "dashboard.py": {"config", "prices", "providers", "record", "store"},
 }
 
 

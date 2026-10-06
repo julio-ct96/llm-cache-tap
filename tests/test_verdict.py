@@ -64,6 +64,11 @@ class JudgeTest(unittest.TestCase):
             False,
         )
 
+    def test_only_a_miss_has_causes(self):
+        for changes, prev in (({"usage": U(2900, 3200)}, True), ({"usage": U(0, 3020), "prev_id": None}, False)):
+            with self.subTest(changes=changes):
+                self.assertNotIn("miss_causes", self.run_judge(changes, prev=prev))
+
     def test_clean_hit(self):
         rec = self.run_judge({"usage": U(3000, 3200)})
         self.check(rec, "HIT", [], False)
@@ -84,10 +89,12 @@ class JudgeTest(unittest.TestCase):
     def test_partial_without_client_cause(self):
         rec = self.run_judge({"usage": U(1000, 3200)})
         self.check(rec, "PARTIAL", ["sin causa en el cliente: mismo prefijo, mismo esfuerzo, 58.0 s desde #3"], True)
+        self.assertEqual(rec["miss_causes"], ["server"])
 
     def test_miss_ttl_expired_from_start(self):
         rec = self.run_judge({"usage": U(0, 3200), "age_s": 400.0})
         self.check(rec, "MISS", ["pasaron 400 s desde el inicio de #3 (TTL 300 s, por defecto de Claude)"], False)
+        self.assertEqual(rec["miss_causes"], ["ttl"])
 
     def test_miss_ttl_expired_from_end(self):
         rec = self.run_judge({"usage": U(0, 3200), "age_s": 400.0}, {"ttl_anchor": "end"})
@@ -96,10 +103,12 @@ class JudgeTest(unittest.TestCase):
     def test_miss_previous_failed(self):
         rec = self.run_judge({"usage": U(0, 3200)}, {"status": 529})
         self.check(rec, "MISS", ["la petición anterior (#3) no terminó bien"], False)
+        self.assertEqual(rec["miss_causes"], ["prev_failed"])
 
     def test_miss_modified_prefix(self):
         rec = self.run_judge({"usage": U(0, 3200), "prefix_intact": False, "diverge_at": "system"})
         self.check(rec, "MISS", ["el cliente modificó el prefijo en system"], False)
+        self.assertEqual(rec["miss_causes"], ["prefix"])
 
     def test_miss_model_and_params_changed(self):
         rec = self.run_judge(
@@ -112,6 +121,7 @@ class JudgeTest(unittest.TestCase):
             }
         )
         self.check(rec, "MISS", ["cambió el modelo (a → claude-sonnet-5-5)", "cambiaron thinking/tool_choice"], False)
+        self.assertEqual(rec["miss_causes"], ["model", "params"])
 
     def test_hit_when_previous_has_no_usage(self):
         prev = {k: v for k, v in BASE_PREV.items() if k != "usage"}

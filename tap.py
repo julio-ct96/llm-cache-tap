@@ -25,6 +25,7 @@ if __name__.startswith("__mitmproxy_script__"):
 
 from cachetap import (  # noqa: E402  # mitmproxy reloads cachetap modules above before this import.
     config,
+    cost,
     dashboard,
     linking,
     providers,
@@ -233,7 +234,10 @@ def response(flow: mitmproxy.http.HTTPFlow) -> None:
                         }
                     )
                 prev_id = rec.get("prev_id")
-                verdict.judge(rec, store.RECORDS.get(prev_id) if prev_id is not None else None)
+                prev = store.RECORDS.get(prev_id) if prev_id is not None else None
+                verdict.judge(rec, prev)
+                cost.price_record(rec, prev, providers.written_1h(events))
+                store.count_cost(rec)
             store.push(rec)
             log_rec = deepcopy(record.light(rec))
         try:

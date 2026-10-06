@@ -7,7 +7,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from cachetap import config, providers, record, store
+from cachetap import config, prices, providers, record, store
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -47,7 +47,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/events":
             return self._events()
         if path == "/api/reference":
-            return self._send(200, json.dumps(providers.reference(), ensure_ascii=False))
+            reference = {**providers.reference(), **prices.reference()}
+            return self._send(200, json.dumps(reference, ensure_ascii=False))
         m = re.match(r"^/api/(record|body)/(\d+)$", path)
         if m:
             rid = int(m.group(2))
@@ -81,6 +82,7 @@ class Handler(BaseHTTPRequestHandler):
     def _events(self) -> None:
         with store.LOCK:
             snap = [record.light(r) for r in store.RECORDS.values()]
+            convs = {conv: total.copy() for conv, total in store.CONV_TOTALS.items()}
             q = store.subscribe()
         try:
             self.send_response(200)
@@ -92,6 +94,7 @@ class Handler(BaseHTTPRequestHandler):
                 "recs": snap,
                 "ttl": config.TTL_S,
                 "max_records": config.MAX,
+                "convs": convs,
             }
             self.wfile.write(f"data: {json.dumps(snapshot)}\n\n".encode())
             self.wfile.flush()

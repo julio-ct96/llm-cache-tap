@@ -8,6 +8,7 @@ type CacheTTLAnchor = Literal["start", "end"]
 type RecordState = Literal["pending", "streaming", "done", "error"]
 type Verdict = Literal["HIT", "PARTIAL", "MISS", "COLD", "N/A", "ERR"]
 type CaptureLimit = Literal["response_size", "active_captures"]
+type MissCause = Literal["model", "effort", "params", "prefix", "ttl", "prev_failed", "server"]
 
 
 class CacheTTL(TypedDict):
@@ -45,6 +46,49 @@ class Usage(TypedDict):
     input_total: Required[int]  # total input tokens
     output: Required[int]  # output tokens
     reasoning: Required[int | None]  # reasoning tokens
+
+
+class CostRates(TypedDict):
+    """US dollars per million tokens, as applied to one request."""
+
+    input: Required[float]
+    read: Required[float]
+    write: Required[float]
+    write_1h: Required[float]
+    output: Required[float]
+
+
+class CostParts(TypedDict):
+    """US dollars billed for each kind of token."""
+
+    uncached: Required[float]
+    read: Required[float]
+    write: Required[float]
+    output: Required[float]
+
+
+class Cost(TypedDict):
+    tariff: Required[str]  # price table applied: Copilot, Anthropic or OpenAI
+    rates: Required[CostRates]  # rates applied, long-context tier included
+    parts: Required[CostParts]
+    usd: Required[float]  # what the request cost
+    no_cache_usd: Required[float]  # what it would have cost with no cache at all
+    saved_usd: Required[float]  # no_cache_usd - usd; negative when writes outweigh reads
+    lost_usd: NotRequired[float]  # overpaid because the cache missed; only MISS and PARTIAL
+    long_over: NotRequired[int]  # long-context threshold the input went over
+    write_1h: NotRequired[int]  # written tokens billed at the 1 hour rate
+    note: NotRequired[str]  # remark of the price table about this model
+
+
+class ConvTotal(TypedDict):
+    """Running cost of a conversation; it outlives the eviction of its older requests."""
+
+    priced: Required[int]  # requests with a cost
+    unpriced: Required[int]  # requests with usage whose model has no known price
+    usd: Required[float]
+    no_cache_usd: Required[float]
+    saved_usd: Required[float]
+    lost_usd: Required[float]
 
 
 class Record(TypedDict):
@@ -94,6 +138,9 @@ class Record(TypedDict):
     verdict: NotRequired[Verdict]  # cache verdict
     notes: NotRequired[list[str]]  # explanation of the verdict
     server_side: NotRequired[bool]  # failure not attributable to the client
+    miss_causes: NotRequired[list[MissCause]]  # why it missed, first the one that weighs most
+    cost: NotRequired[Cost]  # only when the usage and the price of the model are known
+    cost_missing: NotRequired[str]  # why a request with usage has no cost
     capture_limited: NotRequired[CaptureLimit]
 
 
@@ -101,6 +148,7 @@ class RecordEvent(TypedDict):
     type: Required[Literal["record"]]
     rec: Required[dict[str, object]]
     evicted_ids: NotRequired[list[int]]
+    convs: NotRequired[dict[str, ConvTotal]]  # total of the record's conversation
 
 
 class SnapshotEvent(TypedDict):
@@ -108,6 +156,7 @@ class SnapshotEvent(TypedDict):
     recs: Required[list[dict[str, object]]]
     ttl: Required[int]
     max_records: Required[int]
+    convs: Required[dict[str, ConvTotal]]
 
 
 class ClearEvent(TypedDict):

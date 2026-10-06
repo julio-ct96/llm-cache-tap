@@ -122,11 +122,59 @@ class StoreTest(unittest.TestCase):
         lines = log_path.read_text(encoding="utf-8").splitlines()
         self.assertEqual([json.loads(line)["id"] for line in lines], [1, 2])
 
+    def priced(self, rid, conv, usd, lost=None):
+        cost = {"usd": usd, "no_cache_usd": usd * 2, "saved_usd": usd}
+        if lost is not None:
+            cost["lost_usd"] = lost
+        return {"id": rid, "conv": conv, "cost": cost}
+
+    def test_count_cost_accumulates_per_conversation(self):
+        with store.LOCK:
+            store.count_cost(self.priced(1, "c1", 0.1))
+            store.count_cost(self.priced(2, "c1", 0.2, lost=0.05))
+            store.count_cost(self.priced(3, "c2", 1.0))
+            store.count_cost({"id": 4, "conv": "c1", "cost_missing": "sin precio"})
+            store.count_cost({"id": 5, "conv": "c1"})
+        self.assertEqual(
+            store.CONV_TOTALS,
+            {
+                "c1": {"priced": 2, "unpriced": 1, "usd": 0.3, "no_cache_usd": 0.6, "saved_usd": 0.3, "lost_usd": 0.05},
+                "c2": {"priced": 1, "unpriced": 0, "usd": 1.0, "no_cache_usd": 2.0, "saved_usd": 1.0, "lost_usd": 0.0},
+            },
+        )
+
+    def test_conversation_total_outlives_evicted_requests_but_not_the_conversation(self):
+        with mock.patch.object(config, "MAX", 2):
+            with store.LOCK:
+                for rid, conv in ((1, "c1"), (2, "c2"), (3, "c2")):
+                    rec = self.priced(rid, conv, 0.5)
+                    store.add(rec, "b")
+                    store.count_cost(rec)
+                self.assertEqual(list(store.CONV_TOTALS), ["c2"])
+                self.assertEqual(store.CONV_TOTALS["c2"]["priced"], 2)
+                store.add(self.priced(4, "c2", 0.5), "b")
+        self.assertEqual(list(store.RECORDS), [3, 4])
+        self.assertEqual(store.CONV_TOTALS["c2"]["usd"], 1.0)
+
+    def test_push_carries_the_total_of_the_conversation(self):
+        q = adapter.subscribe()
+        rec = self.priced(1, "c1", 0.25)
+        with store.LOCK:
+            store.count_cost(rec)
+            store.push(rec)
+            store.push({"id": 2, "conv": "c9"})
+        event = q.get_nowait()
+        self.assertEqual(event["convs"], {"c1": store.CONV_TOTALS["c1"]})
+        self.assertIsNot(event["convs"]["c1"], store.CONV_TOTALS["c1"])
+        self.assertNotIn("convs", q.get_nowait())
+
     def test_clear(self):
         q = adapter.subscribe()
         with store.LOCK:
             store.add({"id": 1}, "a")
+            store.count_cost(self.priced(1, "c1", 0.1))
             store.clear()
+        self.assertEqual(store.CONV_TOTALS, {})
         self.assertEqual(len(store.RECORDS), 0)
         self.assertEqual(len(store.BODIES), 0)
         self.assertEqual(store.STATE["body_bytes"], 0)

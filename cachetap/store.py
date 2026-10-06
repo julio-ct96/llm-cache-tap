@@ -17,6 +17,7 @@ RECORDS: OrderedDict[int, record.Record] = OrderedDict()
 BODIES: dict[int, str] = {}
 CLIENTS: list[EventQueue] = []
 ACTIVE_CAPTURES: set[int] = set()
+CONV_TOTALS: dict[str, record.ConvTotal] = {}
 STATE: dict[str, int] = {"next_id": 1, "next_conv": 1, "body_bytes": 0}
 
 
@@ -56,6 +57,9 @@ def push(rec: record.Record, evicted_ids: tuple[int, ...] | list[int] = ()) -> N
     ev: record.RecordEvent = {"type": "record", "rec": record.light(rec)}
     if evicted_ids:
         ev["evicted_ids"] = list(evicted_ids)
+    conv = rec.get("conv")
+    if conv in CONV_TOTALS:
+        ev["convs"] = {conv: CONV_TOTALS[conv].copy()}
     publish(ev)
 
 
@@ -97,12 +101,44 @@ def add(rec: record.Record, body: str) -> list[int]:
         if old_body is not None:
             STATE["body_bytes"] -= len(old_body.encode("utf-8"))
         evicted_ids.append(old)
+    if evicted_ids:
+        # a total lives as long as any request of its conversation does
+        alive = {r.get("conv") for r in RECORDS.values()}
+        for conv in [c for c in CONV_TOTALS if c not in alive]:
+            del CONV_TOTALS[conv]
     return evicted_ids
+
+
+def count_cost(rec: record.Record) -> None:
+    """Add a finished request to the running total of its conversation. Call it once per request."""
+    conv, cost = rec.get("conv"), rec.get("cost")
+    if conv is None or (cost is None and "cost_missing" not in rec):
+        return
+    total = CONV_TOTALS.setdefault(
+        conv,
+        {
+            "priced": 0,
+            "unpriced": 0,
+            "usd": 0.0,
+            "no_cache_usd": 0.0,
+            "saved_usd": 0.0,
+            "lost_usd": 0.0,
+        },
+    )
+    if cost is None:
+        total["unpriced"] += 1
+        return
+    total["priced"] += 1
+    total["usd"] = round(total["usd"] + cost["usd"], 8)
+    total["no_cache_usd"] = round(total["no_cache_usd"] + cost["no_cache_usd"], 8)
+    total["saved_usd"] = round(total["saved_usd"] + cost["saved_usd"], 8)
+    total["lost_usd"] = round(total["lost_usd"] + cost.get("lost_usd", 0.0), 8)
 
 
 def clear() -> None:
     RECORDS.clear()
     BODIES.clear()
+    CONV_TOTALS.clear()
     STATE["body_bytes"] = 0
     publish({"type": "clear"})
 
