@@ -16,27 +16,35 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | `cachetap/request_body.py` | Decodifica y valida cuerpos JSON antes de inspeccionarlos |
 | `cachetap/segments.py` | Trocea la petición en segmentos cacheables, los huella y los compara |
 | `cachetap/linking.py` | Empareja una petición con la anterior de su conversación |
-| `cachetap/verdict.py` | Calcula el veredicto de caché (HIT, PARTIAL, MISS...) y las notas que lo explican |
+| `cachetap/verdict.py` | Calcula el veredicto de caché (HIT, PARTIAL, MISS...), las notas que lo explican y las causas de un fallo |
+| `cachetap/cost.py` | Calcula el coste de una petición, lo que ahorró la caché y lo perdido por un fallo |
 | `cachetap/response_body.py` | Lee el uso y el texto generado del cuerpo de la respuesta, JSON o SSE |
-| `cachetap/store.py` | Registros en memoria, suscriptores del panel y el jsonl |
+| `cachetap/store.py` | Registros en memoria, acumulado de coste por conversación, suscriptores del panel y el jsonl |
 | `cachetap/dashboard.py` | Servidor HTTP del panel: estáticos de `ui/`, API de registros y stream en vivo |
 | `cachetap/providers/__init__.py` | Despacho por proveedor (`PROVIDERS`): vida de la caché, límites y formato del mensaje |
 | `cachetap/providers/base.py` | Lo común a los proveedores: leer la versión del nombre del modelo |
-| `cachetap/providers/anthropic.py` | Reglas de Claude: TTL de la caché y prefijo mínimo cacheable |
-| `cachetap/providers/openai.py` | Reglas de OpenAI: TTL de la caché y prefijo mínimo cacheable |
+| `cachetap/providers/anthropic.py` | Reglas de Claude: TTL de la caché, prefijo mínimo cacheable y lectura del usage |
+| `cachetap/providers/openai.py` | Reglas de OpenAI: TTL de la caché, prefijo mínimo cacheable y lectura del usage |
+| `cachetap/prices/__init__.py` | Qué tarifa paga una petición (`lookup`) y las tablas de precios para la ayuda |
+| `cachetap/prices/base.py` | Forma de un precio, nombre canónico de un modelo y tarifa de contexto largo |
+| `cachetap/prices/anthropic.py` | Precios de lista de los modelos Claude |
+| `cachetap/prices/openai.py` | Precios de lista de los modelos de OpenAI |
+| `cachetap/prices/copilot.py` | Tarifa de GitHub Copilot: en qué difiere de las listas y los modelos que solo lista GitHub |
 | `ui/index.html` | Estructura del panel; el orden de sus `<link>` es la cascada del CSS |
 | `ui/app.js` | Entrada del panel: cablea eventos y arranca la conexión |
 | `ui/state.js` | Estado compartido del panel |
-| `ui/format.js` | Utilidades de formato y escape de HTML |
+| `ui/format.js` | Utilidades de formato (números, dólares) y escape de HTML |
 | `ui/prefs.js` | Preferencias guardadas en localStorage |
 | `ui/parts.js` | Fragmentos de HTML reutilizables (badge, barra de reparto) |
 | `ui/cache-timer.js` | Temporizador de vida de la caché de cada petición |
-| `ui/list.js` | Lista de peticiones con filtros y contadores |
+| `ui/list.js` | Lista de peticiones con filtros, orden y contadores |
+| `ui/costs.js` | Sumas de coste por modelo, causa y conversación, y el diálogo que las pinta |
 | `ui/detail.js` | Panel de detalle de una petición |
+| `ui/detail-cost.js` | Sección «Coste» del detalle: tokens por precio, ahorro, perdido y total de la conversación |
 | `ui/stream.js` | Conexión en vivo (SSE) con el backend |
 | `ui/events.js` | Validación de eventos SSE recibidos |
 | `ui/status.js` | Mensajes accesibles de error/estado de operaciones |
-| `ui/help.js` | Diálogo de ayuda pintado desde la referencia de TTL y mínimos |
+| `ui/help.js` | Diálogo de ayuda pintado desde la referencia de TTL, mínimos y precios |
 | `ui/json-tree.js` | Visor de JSON plegable |
 | `ui/css/` | `tokens`, `base`, `header`, `layout`, `tables`, `parts`, `detail`, `json-tree`, `help`, `responsive` (el orden de los `<link>` es la cascada) |
 | `start.sh`, `via.sh` | Arrancan proxy y panel; lanzan un comando a través del proxy |
@@ -53,12 +61,17 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | Para… | Abre |
 | --- | --- |
 | cambiar el TTL o el mínimo cacheable de un modelo | el fichero de su proveedor en `cachetap/providers/` y su test |
+| cambiar o añadir el precio de un modelo | el fichero de su tarifa en `cachetap/prices/` (lista del proveedor, o `copilot.py` si difiere en Copilot), su test y `REVIEWED` de `cachetap/prices/__init__.py` |
+| añadir una tarifa (otro intermediario u otro proveedor) | un fichero nuevo en `cachetap/prices/` con `TARIFF` y `PRICES`, y añadirlo a `TARIFFS` y a `lookup` |
+| cambiar cómo se calcula el coste, el ahorro o lo perdido | `cachetap/cost.py` |
 | añadir un proveedor | un fichero nuevo en `cachetap/providers/` con la misma interfaz que `anthropic.py`, y añadirlo a `PROVIDERS` |
 | cambiar cuándo es HIT, MISS o PARTIAL | `cachetap/verdict.py` |
 | cambiar cómo se empareja una petición con la anterior | `cachetap/linking.py` |
 | añadir un campo al registro | `cachetap/record.py`, el hook de `tap.py` que lo rellena y `tests/replay/golden.json` |
 | añadir una columna a la lista | `ui/list.js`, `ui/index.html` y `ui/css/tables.css` |
 | cambiar el panel de detalle | `ui/detail.js` y `ui/css/detail.css` |
+| cambiar el desglose de coste del detalle | `ui/detail-cost.js` |
+| cambiar los repartos del diálogo de costes | `ui/costs.js` |
 | añadir un endpoint | `cachetap/dashboard.py` |
 
 ## Comandos
@@ -69,12 +82,14 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 - Panel de prueba sin proxy: `venv/bin/python tests/replay/serve.py` (puerto 8901).
 - Comprobación de la interfaz en un Chrome sin ventana: `node tests/ui/check.mjs --full`.
 - Comprobación unificada: `venv/bin/python scripts/check.py`; añade `--full` para ejecutar también Chrome. Requiere Node 24 y el entorno `venv/`; `--full` requiere Chrome/Chromium. Para preparar herramientas, `venv/bin/python -m pip install -r requirements-dev.txt`; `requirements-ci.txt` incluye mitmproxy y esas herramientas.
-- Suite Python: 229 tests con el comando anterior de unittest; suite JS: `node --test tests/ui/unit/*.test.mjs` (11 tests). `node tests/ui/benchmark.mjs` mide informativamente 30/300/3000 registros, sin umbral de aprobación.
+- Suite Python: 295 tests con el comando anterior de unittest; suite JS: `node --test tests/ui/unit/*.test.mjs` (20 tests). `node tests/ui/benchmark.mjs` mide informativamente 30/300/3000 registros, sin umbral de aprobación.
 
 ## Contratos y límites
 
-- `cachetap/record.py` define los contratos `TypedDict` del registro y eventos; `Record` se completa por fases (solo `id` es obligatorio) y usa `Literal` para estados/veredictos cerrados. `GET /api/record/<id>` entrega el registro sin claves internas; la lista/SSE omite campos pesados. `GET /api/body/<id>` entrega el cuerpo retenido. `GET /api/reference` sirve TTL/mínimos, `GET /events` emite snapshot y eventos, y `POST /api/clear` limpia.
+- `cachetap/record.py` define los contratos `TypedDict` del registro y eventos; `Record` se completa por fases (solo `id` es obligatorio) y usa `Literal` para estados/veredictos cerrados. `GET /api/record/<id>` entrega el registro sin claves internas; la lista/SSE omite campos pesados. `GET /api/body/<id>` entrega el cuerpo retenido. `GET /api/reference` sirve TTL/mínimos (`providers.reference`) y precios (`prices.reference`), `GET /events` emite snapshot y eventos, y `POST /api/clear` limpia.
 - `cachetap/request_body.py` es la frontera de entrada JSON: JSON mal formado da objeto vacío para compatibilidad; raíz u opciones con formas inválidas producen `ValueError`, se registran como petición no inspeccionable y no se inspeccionan.
+- Coste: `cost` solo existe si hay `usage` y precio conocido; si falta el precio queda `cost_missing` con el motivo y nunca se estima. La tarifa la decide `prices.lookup` por el host (`githubcopilot.com` → Copilot, sin recurrir a la lista; el resto, precio de lista del proveedor del modelo) y los nombres de modelo se comparan en forma canónica (`prices.base.canonical`). `cachetap/providers/` no sabe de precios: solo lee del usage lo escrito en caché. Pasado el umbral de contexto largo toda la petición paga la tarifa larga. `lost_usd` solo aparece en MISS/PARTIAL con `usage` en la petición anterior. Los importes se redondean a 8 decimales.
+- `store.CONV_TOTALS` acumula el coste por conversación al terminar cada petición (`count_cost`, una vez por registro); sobrevive al desalojo de sus peticiones, se borra cuando no queda ninguna de la conversación y con `clear`. Viaja en `convs` del snapshot y de cada evento `record`.
 - Límites del inspector: 300 registros, 4 MiB por petición inspeccionable, 64 MiB de cuerpos retenidos medidos en UTF-8, 8 MiB por buffer de respuesta, 16 capturas simultáneas y 512 eventos pendientes por cliente. No limitan buffers previos de mitmproxy ni la memoria/RSS total. Los bytes de respuesta siempre siguen hacia el cliente; una respuesta con captura limitada acaba en `N/A`. Cliente SSE lento: la cola se reemplaza por una señal de desconexión y el navegador reconecta para recibir un snapshot.
 
 ## Reglas

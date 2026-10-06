@@ -83,6 +83,16 @@ TAP_PROXY_PORT=9001 TAP_UI_PORT=9002 ./start.sh
 TAP_PROXY_PORT=9001 ./via.sh opencode
 ```
 
+## Costes
+
+Cada petición con `usage` y modelo de precio conocido muestra tres importes en dólares:
+
+- **Coste**: los tokens por el precio de cada tipo (entrada sin caché, leído de caché, escrito en caché y salida).
+- **Ahorro**: lo que habría costado sin caché menos lo que costó, con su porcentaje. Es negativo si escribir en caché costó más de lo que se leyó.
+- **Perdido**: en un MISS o PARTIAL, lo pagado de más por no leer de caché el prefijo de la petición anterior.
+
+Lo que va a `githubcopilot.com` se cuenta con la tarifa de Copilot y el resto con el precio de lista del proveedor del modelo. Un modelo sin precio no se estima: queda sin coste y se cuenta aparte. La cabecera suma lo visible, el botón **Costes** lo reparte por modelo, por causa del fallo y por conversación (acumulado de toda la conversación, aunque sus primeras peticiones ya no estén en la lista), y la **Ayuda** lista los precios aplicados y su fecha de revisión. Los precios viven en `cachetap/prices/`, un fichero por tarifa, y se actualizan a mano.
+
 ## Privacidad
 
 - Las cabeceras de la petición nunca se leen ni se guardan: ahí viaja tu token.
@@ -97,7 +107,7 @@ El servidor escucha solo en `127.0.0.1` (puerto `TAP_UI_PORT`, por defecto 8900)
 | Método y ruta | Respuesta |
 | --- | --- |
 | `GET /` y recursos de `ui/` | Interfaz estática; solo sirve ficheros dentro de `ui/` |
-| `GET /api/reference` | Referencia de TTL y mínimos cacheables de los proveedores |
+| `GET /api/reference` | Referencia de TTL, mínimos cacheables y precios por modelo |
 | `GET /api/record/<id>` | Registro público completo, sin claves internas |
 | `GET /api/body/<id>` | Cuerpo de petición retenido; devuelve 404 si ya fue expulsado |
 | `GET /events` | Stream SSE: `snapshot`, `record`, `evict` y `clear` |
