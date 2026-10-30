@@ -1,9 +1,11 @@
 """Decode and project GitHub Copilot Responses WebSocket messages."""
 
 import json
+import logging
+from dataclasses import dataclass
 from typing import Any, cast
 
-from cachetap import config, record, request_body
+from cachetap import capture, config, record, request_body
 
 _CLIENT_FIELDS = frozenset(
     {
@@ -40,6 +42,7 @@ _EVENT_RESPONSE_ERROR = "response de evento WebSocket debe ser un objeto"
 _EVENT_DELTA_ERROR = "delta de evento WebSocket debe ser texto"
 _EVENT_RESPONSE_ID_ERROR = "response_id de evento WebSocket debe ser texto"
 _EVENT_USAGE_ERROR = "usage de evento WebSocket debe ser un objeto o null"
+_CLOSE_ERROR = "conexión WebSocket cerrada antes de completar la respuesta"
 
 
 def _loads(content: bytes, utf8_error: str, json_error: str) -> Any:
@@ -178,3 +181,123 @@ def project_event(event: record.JsonObject) -> record.JsonObject | None:
         return projected
 
     return None
+
+
+@dataclass
+class _ActiveCapture:
+    rid: int
+    state: capture.StreamState
+    client_at: float
+    response_id: str | None = None
+    server_bytes: int = 0
+
+
+class Session:
+    """Inspect sequential Responses requests on one WebSocket connection."""
+
+    def __init__(self, host: str, path: str, logger: logging.Logger) -> None:
+        self.host = host
+        self.path = path
+        self.logger = logger
+        self._active: _ActiveCapture | None = None
+        self._last_response_id: str | None = None
+
+    def client(self, content: bytes, at: float) -> None:
+        """Start one capture for a validated response.create message."""
+        if self._active is not None:
+            return
+
+        req = decode_client(content)
+        if req is None:
+            return
+
+        text = json.dumps(req, ensure_ascii=False, separators=(",", ":"))
+        previous_response_id = req.get("previous_response_id")
+        context_partial = isinstance(previous_response_id, str) and bool(previous_response_id)
+        rid = capture.begin(
+            req,
+            text,
+            self.host,
+            self.path,
+            len(content),
+            at,
+            transport="websocket",
+            context_partial=context_partial,
+        )
+        state = capture.start(rid, 101, {}, at, None)
+        self._active = _ActiveCapture(rid, state, at)
+
+    def server(self, content: bytes, at: float) -> None:
+        """Feed sanitized server projections and finish the matching response."""
+        active = self._active
+        if active is None:
+            return
+
+        # Count wire bytes before decoding/projection; no event history is kept.
+        active.server_bytes += len(content)
+        event = decode_server(content)
+        projected = project_event(event)
+        if projected is None:
+            return
+
+        event_type = projected.get("type")
+        if not isinstance(event_type, str):
+            return
+        response_id = self._projected_response_id(projected)
+
+        if event_type == "response.completed" and response_id == self._last_response_id:
+            return
+
+        if event_type == "response.created":
+            if response_id is None:
+                return
+            if active.response_id is not None and response_id != active.response_id:
+                return
+            active.response_id = response_id
+        elif active.response_id is None:
+            return
+        elif response_id is not None:
+            if response_id != active.response_id:
+                return
+
+        if event_type == "response.completed":
+            if active.response_id is None or response_id != active.response_id:
+                return
+
+        if event_type == "response.output_text.delta" and projected.get("delta") == "":
+            return
+
+        data = json.dumps(projected, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        capture.feed(active.rid, active.state, b"data: " + data + b"\n\n", at=at)
+
+        if event_type == "response.completed":
+            self._active = None
+            self._last_response_id = active.response_id
+            capture.finish(
+                active.rid,
+                active.state,
+                101,
+                active.client_at,
+                self.logger,
+                ended_at=at,
+            )
+
+    @staticmethod
+    def _projected_response_id(event: record.JsonObject) -> str | None:
+        response_id = event.get("response_id")
+        if isinstance(response_id, str):
+            return response_id
+        response = event.get("response")
+        if isinstance(response, dict):
+            response_id = response.get("id")
+            if isinstance(response_id, str):
+                return response_id
+        return None
+
+    def close(self, at: float | None = None) -> None:
+        """Fail and release an unfinished capture; safe to call repeatedly."""
+        active = self._active
+        self._active = None
+        self._last_response_id = None
+        if active is not None:
+            capture.fail(active.rid, active.state, _CLOSE_ERROR, ended_at=at)
