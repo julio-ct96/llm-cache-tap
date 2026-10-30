@@ -7,7 +7,7 @@
 //
 // CHROME_BIN, TAP_UI_PORT (default 8901) and TAP_DEBUG_PORT (default 9334) override the defaults.
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -20,6 +20,36 @@ const UI_PORT = process.env.TAP_UI_PORT || '8901';
 const DEBUG_PORT = process.env.TAP_DEBUG_PORT || '9334';
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = `http://127.0.0.1:${UI_PORT}/`;
+
+function websocketFixture() {
+  const source = `
+import json
+import tempfile
+from pathlib import Path
+from cachetap import record, store
+from tests.replay import adapter
+from tests.test_websocket_hooks import play_fixture
+
+with tempfile.TemporaryDirectory(prefix="tap-c34-") as temporary:
+    adapter.reset(Path(temporary) / "requests.jsonl")
+    _flow, rid = play_fixture()
+    with store.LOCK:
+        rec = store.RECORDS[rid]
+        value = {
+            "detail": record.public(rec),
+            "light": record.light(rec),
+            "body": json.loads(store.BODIES[rid]),
+            "total": store.CONV_TOTALS[rec["conv"]].copy(),
+        }
+    print(json.dumps(value, ensure_ascii=False))
+`;
+  const output = execFileSync(join(ROOT, 'venv/bin/python'), ['-c', source], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+  return JSON.parse(output);
+}
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 // every request has a deadline: a fetch that never connects would otherwise hang the whole run
@@ -682,6 +712,107 @@ async function main() {
       } finally { window.fetch = original; clearStatus(); }
     })()`);
     expect(result, { selected: null, hidden: true, message: 'La petición ya no está en memoria.' }, 'record 404');
+  });
+
+  await check('C34', 'synthetic WebSocket record reaches the list, detail and body', async () => {
+    try {
+      const fixture = websocketFixture();
+      const id = 987654321;
+      const conv = 'c-ws-fixture';
+      const detail = { ...fixture.detail, id, conv };
+      const light = { ...fixture.light, id, conv };
+      expect(light.status, 101, 'C34 WebSocket status');
+      expect(light.transport, 'websocket', 'C34 WebSocket transport');
+
+      const rowId = await js(`(async () => {
+        const { state, applyEvent } = await import('/state.js');
+        const { render, syncFilters } = await import('/list.js');
+        const { closeDetail } = await import('/detail.js');
+        const originalFetch = window.fetch;
+        const saved = {
+          recs: new Map(state.recs),
+          convs: new Map(state.convs),
+          selected: state.selected,
+        };
+        const id = ${id};
+        const detail = ${JSON.stringify(detail)};
+        const light = ${JSON.stringify(light)};
+        const body = ${JSON.stringify(fixture.body)};
+        const conv = ${JSON.stringify(conv)};
+        const total = ${JSON.stringify(fixture.total)};
+        window.__cachetapC34 = { state, render, syncFilters, closeDetail, originalFetch, saved };
+        window.fetch = (url, options) => {
+          const target = typeof url === 'string' ? url : url.url;
+          if (target === '/api/record/' + id) return Promise.resolve({ ok: true, status: 200, json: async () => detail });
+          if (target === '/api/body/' + id) return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+          return originalFetch(url, options);
+        };
+        state.selected = null;
+        applyEvent({ type: 'record', rec: light, convs: { [conv]: total } });
+        syncFilters(); render();
+        return id;
+      })()`);
+
+      await until('C34 WebSocket row', async () => {
+        return js(`!!document.querySelector('#rows tr[data-id="${rowId}"]')`);
+      });
+      const row = await js(`document.querySelector('#rows tr[data-id="${rowId}"]')?.textContent ?? ''`);
+      expect(row.includes('gpt-6-luna'), true, 'C34 model in row');
+      await click(`#rows tr[data-id="${rowId}"]`);
+      await detailHas(`#${rowId}`, 'PARTIAL', 'Copilot', 'Hola mundo');
+      const detailText = await text('#detail');
+      const readText = await js(`new Intl.NumberFormat('es-ES').format(${fixture.detail.usage.read})`);
+      const writeText = await js(`new Intl.NumberFormat('es-ES').format(${fixture.detail.usage.write})`);
+      expect(detailText.includes(readText), true, 'C34 cached read tokens');
+      expect(detailText.includes(writeText), true, 'C34 cached write tokens');
+
+      const bodySectionOpen = await js(`document.querySelector('[data-sec="body"]').open`);
+      if (!bodySectionOpen) await click('[data-sec="body"] > summary');
+      await until('C34 request body tree loaded', async () => {
+        const bodyText = await text('[data-tree="body"]');
+        return bodyText?.includes('model') && bodyText.includes('input');
+      });
+      const expanded = await js(`(() => {
+        const section = document.querySelector('[data-sec="body"]');
+        const button = [...section.querySelectorAll('button')].find((item) =>
+          /expand/i.test([item.textContent, item.getAttribute('aria-label'), item.title, item.dataset.act].join(' ')));
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`);
+      expect(expanded, true, 'C34 body expand button');
+      await until('C34 normalized request body content', async () => {
+        const bodyText = await text('[data-tree="body"]');
+        return bodyText?.toLowerCase().includes('hola');
+      });
+      const bodyText = await text('[data-tree="body"]');
+      expect(bodyText.includes('SYNTHETIC_SECRET_DO_NOT_STORE'), false, 'C34 sentinel absent from body');
+      expect(bodyText.includes('headers'), false, 'C34 transport envelope absent from body');
+    } finally {
+      await js(`(async () => {
+        const context = window.__cachetapC34;
+        if (!context) return;
+        const { state, render, syncFilters, closeDetail, originalFetch, saved } = context;
+        try {
+          state.recs.clear();
+          saved.recs.forEach((record, key) => state.recs.set(key, record));
+          state.convs.clear();
+          saved.convs.forEach((total, key) => state.convs.set(key, total));
+          state.selected = null;
+          window.fetch = originalFetch;
+          closeDetail();
+          syncFilters(); render();
+          if (saved.selected !== null && saved.selected !== undefined) {
+            await (await import('/detail.js')).showDetail(saved.selected);
+          } else {
+            state.selected = saved.selected;
+          }
+        } finally {
+          window.fetch = originalFetch;
+          delete window.__cachetapC34;
+        }
+      })()`);
+    }
   });
 
   console.log(failed ? `\n${failed} check(s) failed` : `\nall checks passed (${FULL ? 'full' : 'short'} list)`);

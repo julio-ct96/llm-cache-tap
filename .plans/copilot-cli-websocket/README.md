@@ -2,7 +2,7 @@
 
 Objetivo: reconocer la inferencia Responses WebSocket que usa Copilot CLI y mostrar cada petición en el inspector con modelo, tokens, caché y coste por las tablas existentes. Mantener sin cambios el comportamiento HTTP, los datos del usuario y el replay histórico.
 
-**Fase 1 terminada; fase 2 en ejecución.** La captura común ya está extraída; se está incorporando el soporte WebSocket.
+**Fases 1 y 2 terminadas; fase 3 pendiente de confirmación.** El soporte WebSocket está conectado y verificado con tráfico sintético, API y Chrome. La comprobación real económica y la documentación final siguen pendientes.
 
 ## Acuerdo de ejecución
 
@@ -38,7 +38,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 2.03 | Sesión secuencial: camino correcto | [2.03](fase-2/2.03-sesion-secuencial.md) | 2.02 | terminada con commit | Auditado; correlación y privacidad del fixture OK; CHECK: 324 Python y 20 JS; sin hooks |
 | 2.04 | Errores, límites y desincronización | [2.04](fase-2/2.04-errores-y-limites.md) | 2.03 | terminada con commit | Auditada: error sin ID y fallo de log corregidos; CHECK: 339 Python y 20 JS; golden intacto |
 | 2.05 | Cablear hooks mitmproxy | [2.05](fase-2/2.05-hooks-mitmproxy.md) | 2.04 | terminada con commit | Auditado: fixture acordado, host/ruta y no-mutación; CHECK: 349 Python y 20 JS; golden intacto |
-| 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | pendiente | Chrome sin cuota; no cambia ui/ |
+| 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | terminada con commit | Auditada; fixture generado por hooks; 350 Python y 20 JS; FULL/C34 repetido; golden intacto |
 | 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | pendiente | Prepararlo no llama al modelo |
 | 3.02 | Documentar soporte y límites | [3.02](fase-3/3.02-documentacion.md) | 2.06 | pendiente | Conserva los cambios ajenos de AGENTS.md |
 | 3.03 | Una comprobación real barata | [3.03](fase-3/3.03-verificacion-real.md) | 3.01 | pendiente | Optativa; requiere autorización vigente y acceso; nunca reintenta |
@@ -48,6 +48,15 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 - Las fases 1 y 2 son cadenas: las extracciones comparten tap/capture y la incorporación del transporte comparte websocket y sus tests.
 - Tras confirmar el cierre de fase 2, 3.01 y 3.02 pueden ir en paralelo: no comparten ficheros de trabajo. Cada una modifica solo su propia fila del índice.
 - 3.03 puede ejecutarse cuando 3.01 esté terminada, aunque la documentación siga pendiente: no edita código. Un bloqueo de autenticación o cuota no impide acabar 3.02 ni entregar el soporte offline.
+
+## Auditoría y cierre de fase 2
+
+- El orquestador revisó los diffs contra AGENTS.md además de Ruff, mypy y los tests: fronteras, tipos, locks, efectos, privacidad, límites e independencia de las pruebas.
+- Se corrigieron y reprodujeron regresiones de error sin ID, fallo del log después de calcular el coste, Unicode inválido, uso profundo y limpieza de capturas. Un fallo del log no reabre ni duplica un resultado calculado.
+- Se corrigió el host con punto DNS final para conservar la tarifa Copilot y se preserva la barra final de la ruta almacenada. Los hooks no modifican mensajes ni historial de mitmproxy.
+- La revisión sustituyó datos simulados incompletos por el fixture acordado y el pipeline real; reforzó snapshots de no-mutación y el aislamiento de estado/log/SSE. C34 genera su registro mediante hooks reales en un subprocess local, sin red externa.
+- Cierre local: 350 tests Python y 20 JS; FULL pasó dos veces en el ejecutor y otra en el orquestador, con C34. Las siete huellas de base (seis ficheros previos y golden) permanecieron idénticas.
+- No se hicieron llamadas reales a Copilot CLI durante esta fase. Se para antes de fase 3, cuya prueba de cuota es optativa.
 
 ## Estructura final de la implementación
 
