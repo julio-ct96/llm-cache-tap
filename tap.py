@@ -11,9 +11,6 @@ show them; data/requests.jsonl only stores metrics.
 import logging
 import re
 import sys
-import time
-from copy import deepcopy
-from typing import TypedDict
 
 import mitmproxy.addonmanager
 import mitmproxy.http
@@ -26,25 +23,12 @@ if __name__.startswith("__mitmproxy_script__"):
 from cachetap import (  # noqa: E402  # mitmproxy reloads cachetap modules above before this import.
     capture,
     config,
-    cost,
     dashboard,
-    providers,
-    record,
     request_body,
-    response_body,
     store,
-    verdict,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class StreamState(TypedDict):
-    chunks: list[bytes]
-    first: float | None
-    bytes: int
-    limited: record.CaptureLimit | None
-    reserved: bool
 
 
 LLM_PATHS = ("/messages", "/responses", "/chat/completions")
@@ -91,51 +75,24 @@ def responseheaders(flow: mitmproxy.http.HTTPFlow) -> None:
     rid = flow.metadata.get("tap_id")
     if rid is None or flow.response is None:
         return
-    with store.LOCK:
-        reserved = store.begin_capture(rid)
-        st: StreamState = {
-            "chunks": [],
-            "first": None,
-            "bytes": 0,
-            "limited": None,
-            "reserved": reserved,
-        }
-        if not reserved:
-            st["limited"] = "active_captures"
-        flow.metadata["tap_stream"] = st
+    response_headers = {
+        k: v
+        for k, v in flow.response.headers.items()
+        if SAFE_HEADER.search(k) and not UNSAFE_HEADER.search(k)
+    }
+    st = capture.start(
+        rid,
+        flow.response.status_code,
+        response_headers,
+        flow.request.timestamp_end,
+        flow.response.timestamp_start,
+    )
+    flow.metadata["tap_stream"] = st
 
-        def stream(data: bytes) -> bytes:
-            if data:
-                if st["first"] is None and any(k in data for k in providers.FIRST_TOKEN):
-                    st["first"] = time.time()
-                if st["limited"] is None:
-                    st["bytes"] += len(data)
-                    if st["bytes"] > config.MAX_RESPONSE_BYTES:
-                        st["chunks"].clear()
-                        st["limited"] = "response_size"
-                        if st["reserved"]:
-                            with store.LOCK:
-                                store.end_capture(rid)
-                            st["reserved"] = False
-                    else:
-                        st["chunks"].append(data)
-            return data
+    def stream(data: bytes) -> bytes:
+        return capture.feed(rid, st, data)
 
-        flow.response.stream = stream
-        rec = store.RECORDS.get(rid)
-        if rec:
-            rec["state"] = "streaming"
-            rec["status"] = flow.response.status_code
-            response_start = flow.response.timestamp_start
-            request_end = flow.request.timestamp_end
-            if response_start is not None and request_end is not None:
-                rec["hdr_s"] = round(response_start - request_end, 3)
-            rec["resp_headers"] = {
-                k: v
-                for k, v in flow.response.headers.items()
-                if SAFE_HEADER.search(k) and not UNSAFE_HEADER.search(k)
-            }
-            store.push(rec)
+    flow.response.stream = stream
 
 
 def response(flow: mitmproxy.http.HTTPFlow) -> None:
@@ -144,90 +101,23 @@ def response(flow: mitmproxy.http.HTTPFlow) -> None:
     if rid is None or st is None or flow.response is None:
         return
     try:
-        now = time.time()
-        limited = st["limited"]
-        body = b"".join(st["chunks"]).decode("utf8", "replace") if limited is None else ""
-        events = response_body.usage_events(body) if limited is None else []
-        output, stop = response_body.output_text(body) if limited is None else ("", None)
-        t0 = flow.request.timestamp_end
-        with store.LOCK:
-            rec = store.RECORDS.get(rid)
-            if not rec:
-                return
-            rec.update(
-                {
-                    "state": "done",
-                    "ts_end": now,
-                    "raw_usage": events,
-                    "usage": providers.normalize(events) if limited is None else None,
-                    "output": output if flow.response.status_code < 400 else body[:2000],
-                    "stop_reason": stop,
-                }
-            )
-            if t0 is not None:
-                rec["total_s"] = round(now - t0, 3)
-                rec["ttft_s"] = round(st["first"] - t0, 3) if st["first"] else None
-            if limited:
-                note = (
-                    "captura incompleta: límite de tamaño de respuesta"
-                    if limited == "response_size"
-                    else "captura incompleta: límite de respuestas simultáneas"
-                )
-                rec.update({"capture_limited": limited, "verdict": "N/A", "notes": [note]})
-            else:
-                written = providers.written_ttl(events)
-                if written and not config.TTL_FORCED:
-                    minutes = written // 60
-                    rec.update(
-                        {
-                            "ttl_s": written,
-                            "ttl_source": f"confirmado por usage: escritura a {minutes} min",
-                        }
-                    )
-                prev_id = rec.get("prev_id")
-                prev = store.RECORDS.get(prev_id) if prev_id is not None else None
-                verdict.judge(rec, prev)
-                cost.price_record(rec, prev, providers.written_1h(events))
-                store.count_cost(rec)
-            store.push(rec)
-            log_rec = deepcopy(record.light(rec))
-        try:
-            store.append_log(log_rec)
-        except OSError as exc:
-            logger.warning(
-                "No se pudo escribir el log del registro %s (%s)", rid, type(exc).__name__
-            )
+        capture.finish(
+            rid,
+            st,
+            flow.response.status_code,
+            flow.request.timestamp_end,
+            logger,
+        )
     finally:
-        with store.LOCK:
-            if st["reserved"]:
-                store.end_capture(rid)
-                st["reserved"] = False
-            st["chunks"].clear()
-            flow.metadata.pop("tap_stream", None)
+        flow.metadata.pop("tap_stream", None)
 
 
 def error(flow: mitmproxy.http.HTTPFlow) -> None:
     rid = flow.metadata.get("tap_id")
     if rid is None:
         return
-    with store.LOCK:
-        st = flow.metadata.pop("tap_stream", None)
-        if st:
-            if st["reserved"]:
-                store.end_capture(rid)
-                st["reserved"] = False
-            st["chunks"].clear()
-        rec = store.RECORDS.get(rid)
-        if rec:
-            rec.update(
-                {
-                    "state": "error",
-                    "ts_end": time.time(),
-                    "verdict": "ERR",
-                    "notes": [str(flow.error)],
-                }
-            )
-            store.push(rec)
+    st = flow.metadata.pop("tap_stream", None)
+    capture.fail(rid, st, str(flow.error))
 
 
 def load(loader: mitmproxy.addonmanager.Loader) -> None:

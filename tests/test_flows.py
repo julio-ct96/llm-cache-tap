@@ -137,8 +137,8 @@ class FlowsTest(unittest.TestCase):
         overflow_chunk = b"x"
         with mock.patch.object(config, "MAX_RESPONSE_BYTES", len(usage_chunk)):
             flow, returned = self._start_response([usage_chunk, overflow_chunk])
-            with mock.patch("tap.response_body.usage_events") as usage_events, mock.patch(
-                "tap.response_body.output_text"
+            with mock.patch("cachetap.capture.response_body.usage_events") as usage_events, mock.patch(
+                "cachetap.capture.response_body.output_text"
             ) as output_text:
                 adapter.hooks().response(flow)
         usage_events.assert_not_called()

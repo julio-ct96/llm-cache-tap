@@ -2,7 +2,7 @@
 
 Objetivo: reconocer la inferencia Responses WebSocket que usa Copilot CLI y mostrar cada petición en el inspector con modelo, tokens, caché y coste por las tablas existentes. Mantener sin cambios el comportamiento HTTP, los datos del usuario y el replay histórico.
 
-**Ejecución autorizada; fase 1 pendiente.** No se ha implementado el soporte todavía.
+**Fase 1 terminada; fase 2 pendiente de confirmación.** La captura común ya está extraída; el soporte WebSocket todavía no está conectado.
 
 ## Acuerdo de ejecución
 
@@ -32,7 +32,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | --- | --- | --- | --- | --- | --- |
 | 1.01 | Red de seguridad HTTP y caso Responses | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | CHECK: 301 Python y 20 JS; golden y cambios previos intactos |
 | 1.02 | Extraer el alta compartida | [1.02](fase-1/1.02-alta-compartida.md) | 1.01 | terminada con commit | CHECK y golden OK; retorno corregido a int tras revisión |
-| 1.03 | Extraer el ciclo de captura | [1.03](fase-1/1.03-ciclo-captura.md) | 1.02 | pendiente | HTTP y golden idénticos |
+| 1.03 | Extraer el ciclo de captura | [1.03](fase-1/1.03-ciclo-captura.md) | 1.02 | terminada con commit | CHECK --full OK; formato corregido tras revisión; golden intacto |
 | 2.01 | Decoder y proyección sin sobre | [2.01](fase-2/2.01-decodificacion.md) | 1.03 | pendiente | Sin hooks todavía |
 | 2.02 | Contrato del transporte e idempotencia | [2.02](fase-2/2.02-contrato-transporte.md) | 2.01 | pendiente | Contexto parcial en N/A; HTTP sin nuevos defaults |
 | 2.03 | Sesión secuencial: camino correcto | [2.03](fase-2/2.03-sesion-secuencial.md) | 2.02 | pendiente | Una captura por create; sin hooks todavía |
