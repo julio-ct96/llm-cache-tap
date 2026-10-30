@@ -23,7 +23,7 @@ El módulo actual usa `RunnerError` y `main` imprime `ERROR: …`; no contiene u
 
 `actual` solo puede ser `missing`, `null`, `boolean`, `number`, `string`, `array`, `object`, `negative_number`, `non_finite_number` o `invalid_identifier`. Sin clasificación allowlisted, omitir el diagnóstico y conservar `invalid_schema`.
 
-Mantener el decoder igual de estricto: no defaults ni campos nuevos opcionales, no inferir formato del fichero CLI desde el SDK público y no atribuir los rechazos históricos de Gemini/Grok. Para el runner de uso, no editar el flujo de `run_real`; solo propagar/publicar el campo allowlisted. Para el JSON de fallo WS, aceptar `id_symbol` solo como entero exacto 1–32 en paso de servidor; formas inválidas siguen política de diagnóstico inválido existente.
+Durante las tareas diagnósticas 1.01–1.03 se mantuvo el decoder igual de estricto. Después de las cinco llamadas, la única excepción aprobada es la receta 1.05 de `contrato-uso-observado.md`, sin defaults. No inferir el fichero desde el SDK ni atribuir los rechazos históricos. El flujo de `run_real` no cambia. Para el JSON de fallo WS, aceptar `id_symbol` solo como entero exacto 1–32 en paso de servidor; formas inválidas siguen la política de diagnóstico inválido existente.
 
 ## 3. Epistemología y operativa real
 

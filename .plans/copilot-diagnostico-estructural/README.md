@@ -1,6 +1,8 @@
 # Diagnóstico estructural Copilot: índice
 
-Objetivo: dos implementaciones offline acotadas (igualdad simbólica de IDs en diagnóstico de fallo; detalle allowlisted de `invalid_schema`), integración y una reserva operativa real bloqueada. No cambia atribución, proyección, validación estricta, precios ni tráfico.
+Objetivo: diagnóstico estructural acotado, adquisición real respaldada y compatibilidad del lector limitada a las formas acreditadas. No cambia atribución, proyección, precios ni tráfico; los campos presentes inválidos siguen rechazados y no se rellenan contadores ausentes.
+
+**Estado final:** seis tareas terminadas y publicadas. Cinco saludos reales respondidos con esfuerzo low; dos capturas WS siguen ERR con IDs A-B-C. Los dos rechazos de schema actuales tienen reparación acotada aplicada en `71268cb` y validada offline. No se afirma que WebSocket o el precio de Argon estén reparados. Véase [resultado.md](resultado.md).
 
 **Autorización y límite.** El usuario autorizó llegar a validación real tras backup/activación, con esfuerzo `low`, saludos básicos y sin bucle de reintentos. El orquestador asume las decisiones y la ejecución real; Luna ejecuta cambios mecánicos cerrados. Los agentes offline no leen `data/`, panel, bodies, JSONL, binarios o prompts, ni activan, reinician o capturan. El inventario de solo lectura y el respaldo inicial ya fueron verificados por el orquestador. La reserva real sigue bloqueada hasta publicar su receta exacta.
 
@@ -29,18 +31,22 @@ Objetivo: dos implementaciones offline acotadas (igualdad simbólica de IDs en d
   README.md
   reglas.md
   contrato.md
+  contrato-uso-observado.md
   verificacion-real.md
+  resultado.md
   fase-1/1.01-relaciones-simbolicas.md
   fase-1/1.02-invalid-schema-sanitizado.md
   fase-1/1.03-integracion-offline.md
   fase-1/1.04-reserva-operativa-real.md
+  fase-1/1.04a-harness-evidencia.md
+  fase-1/1.05-compatibilidad-cli-observada.md
 ```
 
 ## Decisiones y exclusiones
 
 - Mapa por `_ActiveCapture`, máximo 32 identidades; ordinal entero 1–32. Sin hashes, colisiones al saturar ni `unknown` equivalente a “mismo”. Limpiar al liberar. No usarlo para atribución.
-- Solo dos cambios de producción: `cachetap/record.py` + `cachetap/websocket.py`, y `scripts/check_copilot.py` para diagnóstico de schema/sanitización. Sin módulos, scripts genéricos, infraestructura o proyección nuevos.
-- El runner conserva el código JSON `invalid_schema`, añade `diagnostic` opcional con ruta/tipos allowlisted, sin excepción dinámica ni JSON crudo. La validación estricta no cambia. No tocar `run_real` salvo propagar/publicar ese dato allowlisted de usage.
+- Cambios de producción: `cachetap/record.py` + `cachetap/websocket.py` para diagnóstico, y `scripts/check_copilot.py` para diagnóstico/sanitización y las dos compatibilidades acreditadas de 1.05. Sin módulos, scripts genéricos, infraestructura o proyección nuevos.
+- El runner conserva el código JSON `invalid_schema`, añade `diagnostic` opcional con ruta/tipos allowlisted, sin excepción dinámica ni JSON crudo. La tarea 1.05 admite únicamente dos omisiones acreditadas, con guardas y sin defaults. `run_real` no cambió.
 - Hecho aportado por el usuario: promoción Argon `2/.10/10` y `Default/Not applicable` confirmados por investigación oficial; sigue sin acreditarse tarifa/semántica de `cache_write`. Billing reports solo define una cantidad. No extrapolar nota OpenAI/Anthropic a Google; mantener `cost_missing`, `approved=false`, sin tocar precios.
 - Cuota, nombre de modelo o crédito reportado no prueban tarifa. Ni ordinales entre eventos ni igualdad observada prueban relación con `response.create`.
 - El orquestador ejecuta CHECK/FULL, tipos, Ruff y huellas antes de cada commit/push aprobado. Nunca dos FULL simultáneos. El antiguo `--baseline` fija diagnósticos idénticos y queda como comprobación histórica: tras añadir símbolos se comprueban acciones/resultados iguales, pero diagnósticos distintos, mediante los tests actualizados. El verificador antiguo sin `--baseline` sigue aplicando.
