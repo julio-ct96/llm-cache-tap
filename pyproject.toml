@@ -24,6 +24,7 @@ files = [
     "cachetap/cost.py",
     "cachetap/capture.py",
     "cachetap/request_body.py",
+    "cachetap/websocket.py",
     "cachetap/segments.py",
     "cachetap/linking.py",
     "cachetap/verdict.py",
