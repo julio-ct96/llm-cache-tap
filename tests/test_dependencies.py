@@ -11,7 +11,7 @@ ALLOWED = {
     "record.py": set(),
     "segments.py": {"record"},
     "request_body.py": {"record"},
-    "websocket.py": {"config", "record", "request_body"},
+    "websocket.py": {"config", "record", "request_body", "capture", "store"},
     "providers/base.py": set(),
     "providers/anthropic.py": {"record", "providers.base"},
     "providers/openai.py": {"record", "providers.base"},
