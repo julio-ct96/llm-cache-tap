@@ -28,6 +28,8 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(
             record.Record.__optional_keys__, set(record.Record.__annotations__) - {"id"}
         )
+        self.assertIn("transport", record.Record.__optional_keys__)
+        self.assertIn("context_partial", record.Record.__optional_keys__)
 
     def test_cache_ttl_and_usage_event_contracts(self):
         self.assertEqual(

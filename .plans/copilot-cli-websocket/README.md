@@ -34,7 +34,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 1.02 | Extraer el alta compartida | [1.02](fase-1/1.02-alta-compartida.md) | 1.01 | terminada con commit | CHECK y golden OK; retorno corregido a int tras revisión |
 | 1.03 | Extraer el ciclo de captura | [1.03](fase-1/1.03-ciclo-captura.md) | 1.02 | terminada con commit | CHECK --full OK; formato corregido tras revisión; golden intacto |
 | 2.01 | Decoder y proyección sin sobre | [2.01](fase-2/2.01-decodificacion.md) | 1.03 | terminada con commit | CHECK: 309 Python y 20 JS; proyección sin sobre; golden intacto |
-| 2.02 | Contrato del transporte e idempotencia | [2.02](fase-2/2.02-contrato-transporte.md) | 2.01 | pendiente | Contexto parcial en N/A; HTTP sin nuevos defaults |
+| 2.02 | Contrato del transporte e idempotencia | [2.02](fase-2/2.02-contrato-transporte.md) | 2.01 | terminada con commit | Auditado; fixture/pipeline reales; CHECK: 318 Python y 20 JS; golden intacto |
 | 2.03 | Sesión secuencial: camino correcto | [2.03](fase-2/2.03-sesion-secuencial.md) | 2.02 | pendiente | Una captura por create; sin hooks todavía |
 | 2.04 | Errores, límites y desincronización | [2.04](fase-2/2.04-errores-y-limites.md) | 2.03 | pendiente | Compartir slots HTTP; liberar siempre |
 | 2.05 | Cablear hooks mitmproxy | [2.05](fase-2/2.05-hooks-mitmproxy.md) | 2.04 | pendiente | Un registro por create, no por conexión |

@@ -93,6 +93,8 @@ class ConvTotal(TypedDict):
 
 class Record(TypedDict):
     id: Required[int]  # request number
+    transport: NotRequired[Literal["websocket"]]  # transport used for this request, absent for HTTP
+    context_partial: NotRequired[Literal[True]]  # whether the full prompt prefix is unavailable
     ts: NotRequired[float]  # request start, epoch
     time: NotRequired[str]  # local time HH:MM:SS
     host: NotRequired[str]  # destination host

@@ -9,6 +9,11 @@ def judge(rec: record.Record, prev: record.Record | None) -> None:
     if not u or not isinstance(u, dict):
         rec["verdict"], rec["notes"] = "N/A", ["la respuesta no trae usage"]
         return
+    if rec.get("context_partial"):
+        rec["verdict"] = "N/A"
+        rec["notes"] = ["contexto incremental WebSocket: no se dispone del prefijo completo"]
+        rec["server_side"] = False
+        return
     read, total = u["read"], u["input_total"]
     previous_usage = prev.get("usage") if prev else None
     base = previous_usage["input_total"] if isinstance(previous_usage, dict) else None

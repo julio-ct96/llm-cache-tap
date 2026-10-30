@@ -3,7 +3,7 @@
 import logging
 import time
 from copy import deepcopy
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from cachetap import (
     config,
@@ -24,6 +24,7 @@ class StreamState(TypedDict):
     bytes: int
     limited: record.CaptureLimit | None
     reserved: bool
+    closed: bool
 
 
 def begin(
@@ -33,6 +34,9 @@ def begin(
     path: str,
     request_bytes: int,
     started_at: float | None,
+    *,
+    transport: Literal["websocket"] | None = None,
+    context_partial: bool = False,
 ) -> int:
     """Create and publish a pending record for a validated request."""
     messages = req.get("messages") or req.get("input") or []
@@ -75,19 +79,28 @@ def begin(
             "segs": segments.segments(req),
             "state": "pending",
         }
+        if transport is not None:
+            rec["transport"] = transport
+        if context_partial:
+            rec["context_partial"] = True
         if started_at is not None:
             rec["ts"] = started_at
             rec["time"] = time.strftime("%H:%M:%S", time.localtime(started_at))
         rec.update(providers.cache_ttl(req))
         linking.prepare_fingerprints(rec)
-        previous, matched_message_count = linking.find_previous(rec, store.RECORDS.values())
-        if previous is None:
+        if context_partial:
+            rec["_msgs"] = []
             rec["conv"] = store.new_conv()
             rec["prev_id"] = None
         else:
-            linking.link(
-                rec, req, previous, matched_message_count, store.BODIES.get(previous["id"])
-            )
+            previous, matched_message_count = linking.find_previous(rec, store.RECORDS.values())
+            if previous is None:
+                rec["conv"] = store.new_conv()
+                rec["prev_id"] = None
+            else:
+                linking.link(
+                    rec, req, previous, matched_message_count, store.BODIES.get(previous["id"])
+                )
         evicted_ids = store.add(rec, text)
         store.push(rec, evicted_ids)
     return rid
@@ -109,6 +122,7 @@ def start(
             "bytes": 0,
             "limited": None if reserved else "active_captures",
             "reserved": reserved,
+            "closed": False,
         }
         rec = store.RECORDS.get(rid)
         if rec:
@@ -121,11 +135,13 @@ def start(
     return state
 
 
-def feed(rid: int, state: StreamState, data: bytes) -> bytes:
+def feed(rid: int, state: StreamState, data: bytes, *, at: float | None = None) -> bytes:
     """Observe response bytes for metrics while returning them unchanged."""
+    if state["closed"]:
+        return data
     if data:
         if state["first"] is None and any(k in data for k in providers.FIRST_TOKEN):
-            state["first"] = time.time()
+            state["first"] = time.time() if at is None else at
         if state["limited"] is None:
             state["bytes"] += len(data)
             if state["bytes"] > config.MAX_RESPONSE_BYTES:
@@ -137,6 +153,8 @@ def feed(rid: int, state: StreamState, data: bytes) -> bytes:
 
 def limit(rid: int, state: StreamState, reason: record.CaptureLimit) -> None:
     """Stop retaining response data and release its reservation once."""
+    if state["closed"]:
+        return
     if state["limited"] is None:
         state["chunks"].clear()
         state["limited"] = reason
@@ -152,10 +170,15 @@ def finish(
     status: int,
     request_end: float | None,
     logger: logging.Logger,
+    *,
+    ended_at: float | None = None,
 ) -> None:
     """Read the captured response, publish its verdict and log, then clean up."""
+    if state["closed"]:
+        return
+    state["closed"] = True
     try:
-        now = time.time()
+        now = time.time() if ended_at is None else ended_at
         limited = state["limited"]
         body = b"".join(state["chunks"]).decode("utf8", "replace") if limited is None else ""
         events = response_body.usage_events(body) if limited is None else []
@@ -217,8 +240,14 @@ def finish(
             state["chunks"].clear()
 
 
-def fail(rid: int, state: StreamState | None, message: str) -> None:
+def fail(
+    rid: int, state: StreamState | None, message: str, *, ended_at: float | None = None
+) -> None:
     """Release an unfinished response capture and publish its error."""
+    if state is not None:
+        if state["closed"]:
+            return
+        state["closed"] = True
     with store.LOCK:
         if state:
             if state["reserved"]:
@@ -230,7 +259,7 @@ def fail(rid: int, state: StreamState | None, message: str) -> None:
             rec.update(
                 {
                     "state": "error",
-                    "ts_end": time.time(),
+                    "ts_end": time.time() if ended_at is None else ended_at,
                     "verdict": "ERR",
                     "notes": [message],
                 }

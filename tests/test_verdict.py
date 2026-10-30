@@ -47,6 +47,21 @@ class JudgeTest(unittest.TestCase):
         rec = self.run_judge({}, prev=False)
         self.check(rec, "N/A", ["la respuesta no trae usage"], None)
 
+    def test_partial_context_with_usage(self):
+        rec = self.run_judge({"usage": U(1000, 3200), "context_partial": True, "prev_id": None})
+        self.check(
+            rec,
+            "N/A",
+            ["contexto incremental WebSocket: no se dispone del prefijo completo"],
+            False,
+        )
+        self.assertNotIn("miss_causes", rec)
+        self.assertNotIn("lost_usd", rec)
+
+    def test_partial_context_without_usage_keeps_usage_note(self):
+        rec = self.run_judge({"context_partial": True}, prev=False)
+        self.check(rec, "N/A", ["la respuesta no trae usage"], None)
+
     def test_below_minimum(self):
         rec = self.run_judge({"usage": U(0, 600), "model": "claude-opus-4-7"}, prev=False)
         self.check(rec, "N/A", ["menos de 2048 tokens de entrada: por debajo del mínimo cacheable de este modelo"], False)
