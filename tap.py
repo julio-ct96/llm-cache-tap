@@ -24,15 +24,14 @@ if __name__.startswith("__mitmproxy_script__"):
         del sys.modules[_name]
 
 from cachetap import (  # noqa: E402  # mitmproxy reloads cachetap modules above before this import.
+    capture,
     config,
     cost,
     dashboard,
-    linking,
     providers,
     record,
     request_body,
     response_body,
-    segments,
     store,
     verdict,
 )
@@ -77,62 +76,14 @@ def request(flow: mitmproxy.http.HTTPFlow) -> None:
     except ValueError as exc:
         logger.warning("Petición no inspeccionable: %s", exc)
         return
-    messages = req.get("messages") or req.get("input") or []
-    n_msgs = (
-        int(bool(messages))
-        if isinstance(messages, str)
-        else len(messages)
-        if isinstance(messages, (list, dict))
-        else 0
+    rid = capture.begin(
+        req,
+        text,
+        flow.request.pretty_host,
+        flow.request.path.split("?")[0],
+        len(flow.request.raw_content or b""),
+        flow.request.timestamp_start,
     )
-    tools = req.get("tools")
-    request_start = flow.request.timestamp_start
-    model = req.get("model")
-    with store.LOCK:
-        rid = store.next_id()
-        rec: record.Record = {
-            "id": rid,
-            "host": flow.request.pretty_host,
-            "path": flow.request.path.split("?")[0],
-            "model": model if isinstance(model, str) else None,
-            "effort": providers.effort_of(req),
-            "effort_fields": {
-                k: req[k]
-                for k in (
-                    "output_config",
-                    "thinking",
-                    "reasoning",
-                    "reasoning_effort",
-                    "tool_choice",
-                    "max_tokens",
-                    "max_output_tokens",
-                    "stream",
-                )
-                if k in req
-            },
-            "_params": segments.dump({k: req.get(k) for k in ("thinking", "tool_choice")}),
-            "req_bytes": len(flow.request.raw_content or b""),
-            "n_tools": len(tools) if isinstance(tools, (list, dict)) else 0,
-            "n_msgs": n_msgs,
-            "cc_marks": text.count('"cache_control"'),
-            "segs": segments.segments(req),
-            "state": "pending",
-        }
-        if request_start is not None:
-            rec["ts"] = request_start
-            rec["time"] = time.strftime("%H:%M:%S", time.localtime(request_start))
-        rec.update(providers.cache_ttl(req))
-        linking.prepare_fingerprints(rec)
-        previous, matched_message_count = linking.find_previous(rec, store.RECORDS.values())
-        if previous is None:
-            rec["conv"] = store.new_conv()
-            rec["prev_id"] = None
-        else:
-            linking.link(
-                rec, req, previous, matched_message_count, store.BODIES.get(previous["id"])
-            )
-        evicted_ids = store.add(rec, text)
-        store.push(rec, evicted_ids)
     flow.metadata["tap_id"] = rid
 
 

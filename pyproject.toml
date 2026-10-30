@@ -22,6 +22,7 @@ files = [
     "cachetap/prices/copilot.py",
     "cachetap/prices/__init__.py",
     "cachetap/cost.py",
+    "cachetap/capture.py",
     "cachetap/request_body.py",
     "cachetap/segments.py",
     "cachetap/linking.py",
