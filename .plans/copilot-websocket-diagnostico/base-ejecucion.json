@@ -1,0 +1,15 @@
+{
+  "head": "ac0dc0734d56ffd1a6ef498a760955b11122061b",
+  "preserved_sha256": {
+    ".plans/copilot-cli-websocket/README.md": "578a13c5dbdc37e7321d8694ab897a7bc14e66c1aa9c8efe9b3ab1f69232fd6c",
+    ".plans/copilot-cli-websocket/verificacion-real.md": "75bb7f6f1fe611aeef176896120b777b91ef4be198a6d039097505e03ebfeeee",
+    "AGENTS.md": "8db15d5518fb4240ce27c71a2210fbf4c207693b239847128149b8616ef9201a",
+    "cachetap/prices/openai.py": "54669a9820367729785eb3cfdb5a66cd9d9534b1c6038e73c750d74c5adc55cb",
+    "tests/test_dashboard.py": "fe2dde136b3b8639926d784cdd5ccdc95a30f4263db025fd729148e92783a047",
+    "tests/test_prices.py": "2042130b2ba5c52174491b5135b23ed7cc10bd2e705f30f39b30810ffd447b31",
+    "tests/test_prices_copilot.py": "2480f8c16e2016ac51638c683592f59a0ac488189e0e3276329c6cca6f6e6f77",
+    "tests/test_prices_openai.py": "b418f491daf5c2a901a89f0a61c948d101259ef135b67f5f41833f386909f58c",
+    "tests/replay/golden.json": "c48e2cd230af19dce60013cdb48e5f21548dc2521cd0581476c3274521a42632",
+    "tests/fixtures/copilot_responses_ws.json": "77d67c748f6b8016f4257817bd4012e7f55cd35832aae9cc4eba1cae57c95ccd"
+  }
+}
