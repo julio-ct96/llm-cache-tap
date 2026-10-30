@@ -25,6 +25,7 @@ class StreamState(TypedDict):
     limited: record.CaptureLimit | None
     reserved: bool
     closed: bool
+    committed: bool
 
 
 def begin(
@@ -106,6 +107,22 @@ def begin(
     return rid
 
 
+def _count_cost_transaction(rec: record.Record) -> None:
+    """Restore the conversation total if counting fails partway through."""
+    conv = rec.get("conv")
+    before = store.CONV_TOTALS.get(conv) if conv is not None else None
+    snapshot = before.copy() if before is not None else None
+    try:
+        store.count_cost(rec)
+    except BaseException:
+        if conv is not None:
+            if snapshot is None:
+                store.CONV_TOTALS.pop(conv, None)
+            else:
+                store.CONV_TOTALS[conv] = snapshot
+        raise
+
+
 def start(
     rid: int,
     status: int,
@@ -123,6 +140,7 @@ def start(
             "limited": None if reserved else "active_captures",
             "reserved": reserved,
             "closed": False,
+            "committed": False,
         }
         rec = store.RECORDS.get(rid)
         if rec:
@@ -221,7 +239,8 @@ def finish(
                 prev = store.RECORDS.get(prev_id) if prev_id is not None else None
                 verdict.judge(rec, prev)
                 cost.price_record(rec, prev, providers.written_1h(events))
-                store.count_cost(rec)
+                _count_cost_transaction(rec)
+            state["committed"] = True
             store.push(rec)
             log_rec = deepcopy(record.light(rec))
         try:
@@ -244,10 +263,17 @@ def fail(
     rid: int, state: StreamState | None, message: str, *, ended_at: float | None = None
 ) -> None:
     """Release an unfinished response capture and publish its error."""
+    already_closed = False
     if state is not None:
-        if state["closed"]:
-            return
+        already_closed = state["closed"]
         state["closed"] = True
+        if state["committed"]:
+            with store.LOCK:
+                if state["reserved"]:
+                    store.end_capture(rid)
+                    state["reserved"] = False
+                state["chunks"].clear()
+            return
     with store.LOCK:
         if state:
             if state["reserved"]:
@@ -256,6 +282,19 @@ def fail(
             state["chunks"].clear()
         rec = store.RECORDS.get(rid)
         if rec:
+            if already_closed and rec.get("state") == "error":
+                return
+            if rec.get("state") == "done":
+                rec.pop("raw_usage", None)
+                rec.pop("usage", None)
+                rec.pop("output", None)
+                rec.pop("stop_reason", None)
+                rec.pop("total_s", None)
+                rec.pop("ttft_s", None)
+                rec.pop("ttl_s", None)
+                rec.pop("ttl_source", None)
+                rec.pop("cost", None)
+                rec.pop("cost_missing", None)
             rec.update(
                 {
                     "state": "error",

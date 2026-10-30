@@ -36,7 +36,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 2.01 | Decoder y proyección sin sobre | [2.01](fase-2/2.01-decodificacion.md) | 1.03 | terminada con commit | CHECK: 309 Python y 20 JS; proyección sin sobre; golden intacto |
 | 2.02 | Contrato del transporte e idempotencia | [2.02](fase-2/2.02-contrato-transporte.md) | 2.01 | terminada con commit | Auditado; fixture/pipeline reales; CHECK: 318 Python y 20 JS; golden intacto |
 | 2.03 | Sesión secuencial: camino correcto | [2.03](fase-2/2.03-sesion-secuencial.md) | 2.02 | terminada con commit | Auditado; correlación y privacidad del fixture OK; CHECK: 324 Python y 20 JS; sin hooks |
-| 2.04 | Errores, límites y desincronización | [2.04](fase-2/2.04-errores-y-limites.md) | 2.03 | pendiente | Compartir slots HTTP; liberar siempre |
+| 2.04 | Errores, límites y desincronización | [2.04](fase-2/2.04-errores-y-limites.md) | 2.03 | terminada con commit | Auditada: error sin ID y fallo de log corregidos; CHECK: 339 Python y 20 JS; golden intacto |
 | 2.05 | Cablear hooks mitmproxy | [2.05](fase-2/2.05-hooks-mitmproxy.md) | 2.04 | pendiente | Un registro por create, no por conexión |
 | 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | pendiente | Chrome sin cuota; no cambia ui/ |
 | 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | pendiente | Prepararlo no llama al modelo |

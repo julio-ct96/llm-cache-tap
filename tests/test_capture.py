@@ -3,6 +3,7 @@ import logging
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cachetap import capture, config, store
 from tests.replay import adapter
@@ -99,9 +100,14 @@ class CaptureTest(unittest.TestCase):
 
     def test_http_defaults_leave_transport_metadata_absent(self):
         rid = self.begin(transport=None)
+        state = self.start(rid)
         rec = self.record(rid)
         self.assertNotIn("transport", rec)
         self.assertNotIn("context_partial", rec)
+        self.assertFalse(state["closed"])
+        self.assertFalse(state["committed"])
+        self.assertNotIn("committed", rec)
+        capture.fail(rid, state, "synthetic cleanup")
 
     def test_websocket_transport_uses_fixture_request_and_model(self):
         rid = self.begin()
@@ -129,11 +135,16 @@ class CaptureTest(unittest.TestCase):
     def test_fixture_usage_cost_timestamps_and_finish_are_idempotent(self):
         rid = self.begin()
         state = self.start(rid)
+        self.assertFalse(state["closed"])
+        self.assertFalse(state["committed"])
         self.feed_fixture_events(rid, state)
         self.finish(rid, state)
+        self.assertTrue(state["closed"])
+        self.assertTrue(state["committed"])
 
         expected = self.case["expected"]
         rec = self.record(rid)
+        self.assertNotIn("committed", rec)
         self.assertEqual(rec["model"], expected["model"])
         self.assertEqual(rec["usage"], expected["usage"])
         self.assertEqual(rec["output"], expected["output"])
@@ -168,6 +179,36 @@ class CaptureTest(unittest.TestCase):
         self.assertEqual(len(config.LOG.read_text(encoding="utf-8").splitlines()), 1)
         self.assertEqual(state["chunks"], [])
         self.assertFalse(state["reserved"])
+
+    def test_closed_uncommitted_finish_can_be_failed_without_reopening_buffer(self):
+        rid = self.begin()
+        state = self.start(rid)
+        capture.feed(rid, state, b"partial response")
+        original = RuntimeError("synthetic verdict failure")
+
+        with patch.object(capture.verdict, "judge", side_effect=original):
+            with self.assertRaises(RuntimeError) as raised:
+                self.finish(rid, state)
+
+        self.assertIs(raised.exception, original)
+        self.assertTrue(state["closed"])
+        self.assertFalse(state["committed"])
+        self.assertEqual(state["chunks"], [])
+        self.assertFalse(state["reserved"])
+        capture.fail(rid, state, "error interno al inspeccionar WebSocket")
+
+        rec = self.record(rid)
+        self.assertEqual(rec["state"], "error")
+        self.assertEqual(rec["verdict"], "ERR")
+        self.assertEqual(rec["notes"], ["error interno al inspeccionar WebSocket"])
+        self.assertNotIn("usage", rec)
+        self.assertNotIn("cost", rec)
+        self.assertTrue(state["closed"])
+        self.assertFalse(state["committed"])
+        with store.LOCK:
+            self.assertEqual(store.CONV_TOTALS, {})
+            self.assertEqual(store.ACTIVE_CAPTURES, set())
+        self.assertFalse(config.LOG.exists())
 
     def test_partial_context_keeps_fixture_cost_without_lost_cost(self):
         rid = self.begin(context_partial=True)
