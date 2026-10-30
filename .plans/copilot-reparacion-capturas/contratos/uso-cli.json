@@ -1,11 +1,46 @@
 {
-  "status": "pendiente",
+  "status": "insuficiente",
   "approved": false,
-  "sources": [],
-  "decision": null,
+  "sources": [
+    {
+      "location": "https://docs.github.com/en/copilot/how-tos/copilot-sdk/features/usage-and-billing#accumulated-ai-credit-and-token-totals",
+      "version": "documentación oficial vigente, consultada 2026-10-30",
+      "claim": "session.usage.getMetrics expone totales acumulados por sesión; modelMetrics desglosa por modelo y totalNanoAiu expresa nano-AI units",
+      "limitation": "No especifica el formato ni la serialización del fichero temporal de uso del CLI"
+    },
+    {
+      "location": "https://github.com/github/copilot-sdk/blob/e22b95e6ead5e1de7e9a68d3087b8d28dc5f364a/nodejs/src/generated/session-events.ts#L3552-L3706; https://github.com/github/copilot-sdk/commit/e22b95e6ead5e1de7e9a68d3087b8d28dc5f364a",
+      "version": "commit público del SDK e22b95e6ead5e1de7e9a68d3087b8d28dc5f364a, fechado 2026-10-28T17:51:00Z y consultado 2026-10-30; cliVersion.ts en el mismo commit fija 1.0.105-1",
+      "claim": "UsageMetricsModelMetric requiere requests y usage; usage.reasoningTokens y tokenDetails son opcionales; tokenDetails es un mapa de detalles tokenCount",
+      "limitation": "Describe la superficie SDK/RPC, no acredita que el fichero temporal sea esa misma proyección ni atribuye los fallos históricos"
+    },
+    {
+      "location": "https://github.com/github/copilot-sdk/blob/e22b95e6ead5e1de7e9a68d3087b8d28dc5f364a/nodejs/src/cliVersion.ts#L1; https://api.github.com/repos/github/copilot-cli/git/ref/tags/v1.0.105; https://api.github.com/repos/github/copilot-cli/git/ref/tags/v1.0.105-1",
+      "version": "fuentes SDK fijadas al commit e22b95e6ead5e1de7e9a68d3087b8d28dc5f364a (2026-10-28T17:51:00Z; consultado 2026-10-30); tags CLI v1.0.105 y v1.0.105-1",
+      "claim": "cliVersion.ts declara el pin 1.0.105-1; ambas refs de tag consultadas devuelven object.type=commit y el mismo object.sha 8f18becc073481aeab76c83bc38d6db8c3d6c85a en el repositorio público",
+      "limitation": "Solo verifica el mismo destino de ref/objeto commit en ese repositorio; no demuestra identidad de activos/binarios ni equivalencia del runtime empaquetado, ni documenta el serializador temporal"
+    },
+    {
+      "location": "https://docs.github.com/en/copilot/how-tos/copilot-sdk/features/streaming-events#assistantusage",
+      "version": "documentación oficial vigente, consultada 2026-10-30",
+      "claim": "assistant.usage describe métricas de una llamada y varios contadores son opcionales",
+      "limitation": "Es un evento efímero por llamada, no el JSON acumulado leído por el runner"
+    }
+  ],
+  "decision": {
+    "status": "insuficiente",
+    "approved": false,
+    "admissible_without_estimation": [
+      "En UsageGetMetrics del SDK/RPC, usage.reasoningTokens puede omitirse.",
+      "En UsageGetMetrics del SDK/RPC, tokenDetails puede omitirse y es un mapa de nombres de tipo de token no fijados por el tipo; cada detalle presente contiene tokenCount numérico."
+    ],
+    "reader_change": "Ninguno: no se demuestra que el fichero temporal del CLI use el mismo contrato. Mantener el rechazo actual sin defaults."
+  },
   "unknowns": [
-    "Which exact field failed strict decoding for Gemini and Grok",
-    "Which missing or null fields are valid in CLI 1.0.105",
-    "The rejected raw usage files were deleted; panel usage does not reconstruct them"
+    "Qué campo exacto falló al decodificar Gemini y Grok; el campo rechazado en las dos pruebas históricas no se conservó",
+    "Si el JSON temporal de CLI v1.0.105 es idéntico o una proyección de UsageGetMetricsResult del SDK/RPC",
+    "Qué campos opcionales o null son válidos en el fichero temporal del CLI v1.0.105",
+    "Si cache_write es una clave obligatoria del fichero temporal y qué nombres exactos admite su mapa",
+    "Los ficheros originales rechazados fueron eliminados; ni los contadores HTTP ni los mirrors permiten reconstruirlos"
   ]
 }
