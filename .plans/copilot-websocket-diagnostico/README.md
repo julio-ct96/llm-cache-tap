@@ -20,7 +20,7 @@ Objetivo: hacer observable por qué el inspector termina con «peticiones solapa
 | 1.01 | Red de seguridad del diagnóstico | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | Auditada: siete casos; CHECK 372 Python/20 JS; invariantes OK |
 | 1.02 | Traza estructural acotada | [1.02](fase-1/1.02-traza-acotada.md) | 1.01 | terminada con commit | Auditada y corregida: deltas, generate y limpieza; FULL e invariantes OK |
 | 1.03 | Fallos saneados del runner | [1.03](fase-1/1.03-errores-runner.md) | 1.01 | terminada con commit | Auditada: diagnóstico validado; bloqueo transitorio resuelto; FULL y RUNNER OK |
-| 2.01 | Integración hooks/API/runner | [2.01](fase-2/2.01-integracion.md) | 1.02, 1.03 | pendiente | Tras auditar el cierre de fase 1; autorización global |
+| 2.01 | Integración hooks/API/runner | [2.01](fase-2/2.01-integracion.md) | 1.02, 1.03 | terminada con commit | Auditada: dos errores por hooks/API; cierres SSE explícitos; FULL 392/20+C34 OK |
 | 2.02 | Informe y puerta de decisión | [2.02](fase-2/2.02-informe.md) | 2.01 | pendiente | No declara reparado el WebSocket real |
 
 ## Paralelismo

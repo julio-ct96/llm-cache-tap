@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 import tap
 from cachetap import config, dashboard, store
-from tests.test_websocket_hooks import play_fixture
+from scripts import check_copilot as runner
+from tests.test_websocket_hooks import play_failure_cases, play_fixture
 
 
 class WebSocketDashboardTest(unittest.TestCase):
@@ -92,6 +93,7 @@ class WebSocketDashboardTest(unittest.TestCase):
         self.addCleanup(conn.close)
         conn.request("GET", "/events")
         response = conn.getresponse()
+        self.addCleanup(response.close)
         self.assertEqual(response.status, 200)
         self.assertEqual(response.getheader("Content-Type"), "text/event-stream")
         return conn, response, self._read_event(response)
@@ -128,6 +130,7 @@ class WebSocketDashboardTest(unittest.TestCase):
                 ):
                     terminal = event
         finally:
+            response.close()
             conn.close()
             self._release_subscribers()
 
@@ -137,6 +140,7 @@ class WebSocketDashboardTest(unittest.TestCase):
         self.assertEqual(detail["state"], "done")
         self.assertEqual(detail["status"], 101)
         self.assertEqual(detail["transport"], "websocket")
+        self.assertNotIn("ws_diagnostic", detail)
         self.assertEqual(detail["model"], "gpt-6-luna")
         self.assertEqual(detail["verdict"], "PARTIAL")
         self.assertEqual(
@@ -179,11 +183,132 @@ class WebSocketDashboardTest(unittest.TestCase):
             self.assertNotIn("SYNTHETIC_SECRET_DO_NOT_STORE", json.dumps(snapshot))
             self.assertEqual(snapshot["convs"][detail["conv"]]["priced"], 1)
         finally:
+            _snapshot_response.close()
             _snapshot_conn.close()
             self._release_subscribers()
 
         log_text = self.log_path.read_text(encoding="utf-8")
         self.assertNotIn("SYNTHETIC_SECRET_DO_NOT_STORE", log_text)
+
+    def test_hook_failures_are_diagnosable_only_from_api_detail(self) -> None:
+        conn, response, initial = self._open_events()
+        self.assertEqual(initial["type"], "snapshot")
+        self.assertEqual(initial["recs"], [])
+
+        try:
+            _overlap_flow, overlap_rid, _close_flow, close_rid = play_failure_cases()
+            expected_ids = {overlap_rid, close_rid}
+            terminal: dict[int, dict] = {}
+            while set(terminal) != expected_ids:
+                event = self._read_event(response)
+                if event.get("type") != "record":
+                    continue
+                rec = event.get("rec", {})
+                if rec.get("id") in expected_ids and rec.get("state") == "error":
+                    terminal[rec["id"]] = event
+        finally:
+            response.close()
+            conn.close()
+            self._release_subscribers()
+
+        expected = {
+            overlap_rid: (
+                "captura WebSocket interrumpida: peticiones solapadas",
+                "overlap",
+            ),
+            close_rid: (
+                "conexión WebSocket cerrada antes de completar la respuesta",
+                "closed_before_completed",
+            ),
+        }
+        for rid, (note, category) in expected.items():
+            with self.subTest(category=category):
+                event = terminal[rid]
+                light = event["rec"]
+                self.assertEqual(light["state"], "error")
+                self.assertEqual(light["status"], 101)
+                self.assertEqual(light["verdict"], "ERR")
+                self.assertEqual(light["notes"], [note])
+                self.assertNotIn("ws_diagnostic", light)
+
+                status, payload = self._request(f"/api/record/{rid}")
+                self.assertEqual(status, 200)
+                detail = json.loads(payload)
+                self.assertEqual(detail["state"], "error")
+                self.assertEqual(detail["status"], 101)
+                self.assertEqual(detail["notes"], [note])
+                self.assertEqual(detail["ws_diagnostic"]["truncated"], False)
+
+                with self.assertRaises(runner.RunnerError) as raised:
+                    runner.decode_completed_record(detail, rid)
+                failure_text = str(raised.exception)
+                prefix = "the WebSocket record did not complete successfully; diagnostic="
+                self.assertTrue(failure_text.startswith(prefix))
+                failure = json.loads(failure_text[len(prefix) :])
+                self.assertEqual(failure["reason"], category)
+                self.assertEqual(failure["state"], "error")
+                self.assertEqual(failure["ws_diagnostic"], detail["ws_diagnostic"])
+                self.assertEqual(
+                    set(failure),
+                    {"transport", "status", "state", "verdict", "reason", "ws_diagnostic"},
+                )
+                failure_keys = set(failure)
+                for step in failure["ws_diagnostic"]["events"]:
+                    failure_keys.update(step)
+                self.assertFalse(
+                    {"id", "response_id", "input", "headers", "output", "reasoning"} & failure_keys
+                )
+                for sentinel in (
+                    "WS_OVERLAP_INPUT_SENTINEL",
+                    "WS_OVERLAP_SECOND_INPUT_SENTINEL",
+                    "WS_CLOSE_INPUT_SENTINEL",
+                    "WS_FAILURE_OUTPUT_SENTINEL",
+                    "WEBSOCKET_TRANSPORT_SENTINEL",
+                    "synthetic-overlap-response-id",
+                    "synthetic-close-response-id",
+                    "synthetic-previous-response-id",
+                ):
+                    self.assertNotIn(sentinel, failure_text)
+
+                status, payload = self._request(f"/api/body/{rid}")
+                self.assertEqual(status, 200)
+                body = json.loads(payload)
+                self.assertNotIn("headers", body)
+                self.assertNotIn("ws_diagnostic", body)
+                self.assertNotIn("WEBSOCKET_TRANSPORT_SENTINEL", payload.decode("utf-8"))
+                self.assertNotIn("WS_FAILURE_OUTPUT_SENTINEL", payload.decode("utf-8"))
+
+        _snapshot_conn, _snapshot_response, snapshot = self._open_events()
+        try:
+            self.assertEqual(snapshot["type"], "snapshot")
+            snapshot_rows = {row["id"]: row for row in snapshot["recs"]}
+            self.assertEqual(set(snapshot_rows), set(expected))
+            for rid, (note, _category) in expected.items():
+                self.assertEqual(snapshot_rows[rid]["state"], "error")
+                self.assertEqual(snapshot_rows[rid]["notes"], [note])
+                self.assertNotIn("ws_diagnostic", snapshot_rows[rid])
+        finally:
+            _snapshot_response.close()
+            _snapshot_conn.close()
+            self._release_subscribers()
+
+        with store.LOCK:
+            self.assertFalse(store.ACTIVE_CAPTURES)
+            self.assertEqual(store.CONV_TOTALS, {})
+            for rid in expected:
+                self.assertNotIn("cost", store.RECORDS[rid])
+                self.assertNotIn("cost_missing", store.RECORDS[rid])
+
+        log_text = self.log_path.read_text(encoding="utf-8") if self.log_path.exists() else ""
+        self.assertEqual(log_text, "")
+        for sentinel in (
+            "ws_diagnostic",
+            "WS_OVERLAP_INPUT_SENTINEL",
+            "WS_CLOSE_INPUT_SENTINEL",
+            "WEBSOCKET_TRANSPORT_SENTINEL",
+            "WS_FAILURE_OUTPUT_SENTINEL",
+        ):
+            self.assertNotIn(sentinel, log_text)
 
 
 if __name__ == "__main__":

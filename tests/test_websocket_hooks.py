@@ -65,10 +65,32 @@ def _message(
     assert flow.websocket is not None
     flow.websocket.messages.append(message)
     history_before = tuple(flow.websocket.messages)
-    states_before = tuple(item.get_state() for item in history_before)
+    states_before = tuple(
+        (
+            item.is_text,
+            item.from_client,
+            item.content,
+            item.timestamp,
+            item.dropped,
+            item.injected,
+            copy.deepcopy(item.get_state()),
+        )
+        for item in history_before
+    )
     tap.websocket_message(flow)
     history_after = tuple(flow.websocket.messages)
-    states_after = tuple(item.get_state() for item in history_after)
+    states_after = tuple(
+        (
+            item.is_text,
+            item.from_client,
+            item.content,
+            item.timestamp,
+            item.dropped,
+            item.injected,
+            copy.deepcopy(item.get_state()),
+        )
+        for item in history_after
+    )
     assert len(history_after) == len(history_before)
     assert all(before is after for before, after in zip(history_before, history_after, strict=True))
     assert states_after == states_before
@@ -150,6 +172,103 @@ def play_fixture() -> tuple[mitmproxy.http.HTTPFlow, int]:
     """Play the contract fixture; caller owns store/log setup and reset."""
     case = _load_fixture()
     return _play_fixture_case(case, case["host"])
+
+
+def play_failure_cases() -> tuple[mitmproxy.http.HTTPFlow, int, mitmproxy.http.HTTPFlow, int]:
+    """Generate synthetic overlap and close errors through two independent hooks."""
+    overlap_input = "WS_OVERLAP_INPUT_SENTINEL"
+    close_input = "WS_CLOSE_INPUT_SENTINEL"
+    with store.LOCK:
+        before = set(store.RECORDS)
+
+    overlap = _flow()
+    closed = _flow(host="api.githubcopilot.com")
+    try:
+        tap.websocket_start(overlap)
+        tap.websocket_start(closed)
+
+        _message(
+            overlap,
+            from_client=True,
+            payload={
+                "type": "response.create",
+                "model": _MODEL,
+                "input": overlap_input,
+                "generate": True,
+                "headers": {"authorization": _REQUEST_SENTINEL},
+            },
+            timestamp=160.0,
+        )
+        _message(
+            closed,
+            from_client=True,
+            payload={
+                "type": "response.create",
+                "model": _MODEL,
+                "input": close_input,
+                "headers": {"authorization": _REQUEST_SENTINEL},
+            },
+            timestamp=160.1,
+        )
+        _message(
+            overlap,
+            from_client=False,
+            payload={
+                "type": "response.created",
+                "response": {"id": "synthetic-overlap-response-id", "model": _MODEL},
+            },
+            timestamp=160.2,
+        )
+        _message(
+            closed,
+            from_client=False,
+            payload={
+                "type": "response.created",
+                "response": {"id": "synthetic-close-response-id", "model": _MODEL},
+            },
+            timestamp=160.3,
+        )
+        _message(
+            overlap,
+            from_client=False,
+            payload={
+                "type": "response.output_text.delta",
+                "response_id": "synthetic-overlap-response-id",
+                "delta": "WS_FAILURE_OUTPUT_SENTINEL",
+            },
+            timestamp=160.4,
+        )
+        _message(
+            overlap,
+            from_client=True,
+            payload={
+                "type": "response.create",
+                "model": _MODEL,
+                "input": "WS_OVERLAP_SECOND_INPUT_SENTINEL",
+                "generate": False,
+                "previous_response_id": "synthetic-previous-response-id",
+                "headers": {"authorization": _REQUEST_SENTINEL},
+            },
+            timestamp=160.5,
+        )
+        tap.websocket_end(closed)
+    finally:
+        tap.websocket_end(overlap)
+        tap.websocket_end(closed)
+
+    with store.LOCK:
+        matching = {
+            marker: [rid for rid, body in store.BODIES.items() if marker in body]
+            for marker in (overlap_input, close_input)
+        }
+        created = set(store.RECORDS) - before
+    if any(len(ids) != 1 for ids in matching.values()):
+        raise AssertionError("synthetic failure cases did not create exactly one record each")
+    overlap_rid = matching[overlap_input][0]
+    close_rid = matching[close_input][0]
+    if {overlap_rid, close_rid} != created:
+        raise AssertionError("synthetic failure cases created unexpected records")
+    return overlap, overlap_rid, closed, close_rid
 
 
 class WebSocketHookTest(unittest.TestCase):
@@ -410,6 +529,101 @@ class WebSocketHookTest(unittest.TestCase):
         with store.LOCK:
             self.assertFalse(store.ACTIVE_CAPTURES)
             self.assertEqual(set(store.RECORDS), {first_rid, second_rid})
+
+    def test_overlap_and_close_diagnostics_are_isolated_and_do_not_mutate_messages(self) -> None:
+        _overlap, overlap_rid, _closed, close_rid = play_failure_cases()
+
+        with store.LOCK:
+            overlap_record = copy.deepcopy(store.RECORDS[overlap_rid])
+            close_record = copy.deepcopy(store.RECORDS[close_rid])
+            self.assertFalse(store.ACTIVE_CAPTURES)
+            self.assertEqual(store.CONV_TOTALS, {})
+
+        self.assertEqual(overlap_record["state"], "error")
+        self.assertEqual(
+            overlap_record["notes"], ["captura WebSocket interrumpida: peticiones solapadas"]
+        )
+        self.assertEqual(
+            overlap_record["ws_diagnostic"],
+            {
+                "events": [
+                    {
+                        "direction": "client",
+                        "event": "response.create",
+                        "action": "start",
+                        "identified": False,
+                        "id_relation": "missing",
+                        "generate": "true",
+                        "incremental": False,
+                    },
+                    {
+                        "direction": "server",
+                        "event": "response.created",
+                        "action": "observe",
+                        "identified": False,
+                        "id_relation": "unbound",
+                    },
+                    {
+                        "direction": "client",
+                        "event": "response.create",
+                        "action": "overlap",
+                        "identified": True,
+                        "id_relation": "missing",
+                        "generate": "false",
+                        "incremental": True,
+                    },
+                ],
+                "truncated": False,
+                "omitted_server_events": 1,
+            },
+        )
+        self.assertEqual(close_record["state"], "error")
+        self.assertEqual(
+            close_record["notes"], ["conexión WebSocket cerrada antes de completar la respuesta"]
+        )
+        self.assertEqual(
+            close_record["ws_diagnostic"],
+            {
+                "events": [
+                    {
+                        "direction": "client",
+                        "event": "response.create",
+                        "action": "start",
+                        "identified": False,
+                        "id_relation": "missing",
+                        "generate": "absent",
+                        "incremental": False,
+                    },
+                    {
+                        "direction": "server",
+                        "event": "response.created",
+                        "action": "observe",
+                        "identified": False,
+                        "id_relation": "unbound",
+                    },
+                    {
+                        "direction": "local",
+                        "event": "close",
+                        "action": "fail",
+                        "identified": True,
+                        "id_relation": "missing",
+                    },
+                ],
+                "truncated": False,
+                "omitted_server_events": 0,
+            },
+        )
+        rendered = json.dumps(
+            [overlap_record["ws_diagnostic"], close_record["ws_diagnostic"]], ensure_ascii=True
+        )
+        for sentinel in (
+            "synthetic-overlap-response-id",
+            "synthetic-close-response-id",
+            "synthetic-previous-response-id",
+            "WS_FAILURE_OUTPUT_SENTINEL",
+            _REQUEST_SENTINEL,
+        ):
+            self.assertNotIn(sentinel, rendered)
 
     def test_done_closes_websockets_before_stopping_dashboard_and_clears_http_slots(self) -> None:
         ws_flow = _flow()
