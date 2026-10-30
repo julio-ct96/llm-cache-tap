@@ -2,9 +2,10 @@
 
 import json
 import logging
+from collections import deque
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from cachetap import capture, config, record, request_body, store
@@ -57,6 +58,8 @@ _FAILURE_ERRORS = {
     "error": "error del protocolo WebSocket",
 }
 _TERMINAL_ERRORS = frozenset(_FAILURE_ERRORS)
+_DIAGNOSTIC_EVENT_LIMIT = 32
+_DIAGNOSTIC_OMITTED_LIMIT = 255
 
 
 def _loads(content: bytes, utf8_error: str, json_error: str) -> Any:
@@ -72,8 +75,14 @@ def _loads(content: bytes, utf8_error: str, json_error: str) -> Any:
     return decoded
 
 
-def decode_client(content: bytes) -> record.JsonObject | None:
-    """Return a validated, transport-free response.create request, if applicable."""
+@dataclass(frozen=True)
+class _ClientMessage:
+    request: record.JsonObject | None
+    generate: record.WebSocketGenerate
+
+
+def _decode_client_message(content: bytes) -> _ClientMessage:
+    """Return the normalized request and safe create metadata from one parse."""
     if len(content) > config.MAX_REQUEST_BYTES:
         raise ValueError(_CLIENT_SIZE_ERROR)
 
@@ -84,8 +93,17 @@ def decode_client(content: bytes) -> record.JsonObject | None:
     message_type = message.get("type")
     if not isinstance(message_type, str):
         raise ValueError(_CLIENT_TYPE_ERROR)
+    generate_value = message.get("generate")
+    if "generate" not in message:
+        generate: record.WebSocketGenerate = "absent"
+    elif generate_value is True:
+        generate = "true"
+    elif generate_value is False:
+        generate = "false"
+    else:
+        generate = "invalid"
     if message_type != "response.create":
-        return None
+        return _ClientMessage(None, generate)
 
     normalized: dict[str, record.JsonValue] = {
         key: value for key, value in message.items() if key in _CLIENT_FIELDS
@@ -99,11 +117,16 @@ def decode_client(content: bytes) -> record.JsonObject | None:
     try:
         normalized_text = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
         normalized_text.encode("utf-8")
-        return request_body.parse(normalized_text)
+        return _ClientMessage(request_body.parse(normalized_text), generate)
     except UnicodeEncodeError:
         raise ValueError(_CLIENT_UNICODE_ERROR) from None
     except RecursionError:
         raise ValueError(_CLIENT_JSON_ERROR) from None
+
+
+def decode_client(content: bytes) -> record.JsonObject | None:
+    """Return a validated, transport-free response.create request, if applicable."""
+    return _decode_client_message(content).request
 
 
 def decode_server(content: bytes) -> record.JsonObject:
@@ -229,6 +252,98 @@ class _ActiveCapture:
     client_at: float
     response_id: str | None = None
     server_bytes: int = 0
+    diagnostic_events: deque[record.WebSocketDiagnosticStep] = field(
+        default_factory=lambda: deque(maxlen=_DIAGNOSTIC_EVENT_LIMIT)
+    )
+    diagnostic_truncated: bool = False
+    omitted_server_events: int = 0
+
+
+def _id_relation(
+    active: _ActiveCapture,
+    response_id: str | None,
+    last_response_id: str | None,
+) -> record.WebSocketIdRelation:
+    if response_id is None:
+        return "missing"
+    if last_response_id is not None and response_id == last_response_id:
+        return "last"
+    if active.response_id is None:
+        return "unbound"
+    if response_id == active.response_id:
+        return "active"
+    return "other"
+
+
+def _append_diagnostic_step(
+    active: _ActiveCapture,
+    direction: record.WebSocketDirection,
+    event: record.WebSocketControlEvent,
+    action: record.WebSocketAction,
+    *,
+    response_id: str | None = None,
+    last_response_id: str | None = None,
+    identified: bool | None = None,
+    id_relation: record.WebSocketIdRelation | None = None,
+    generate: record.WebSocketGenerate | None = None,
+    incremental: bool | None = None,
+) -> None:
+    step: record.WebSocketDiagnosticStep = {
+        "direction": direction,
+        "event": event,
+        "action": action,
+        "identified": active.response_id is not None if identified is None else identified,
+        "id_relation": id_relation
+        if id_relation is not None
+        else _id_relation(active, response_id, last_response_id),
+    }
+    if generate is not None:
+        step["generate"] = generate
+    if incremental is not None:
+        step["incremental"] = incremental
+    if len(active.diagnostic_events) == _DIAGNOSTIC_EVENT_LIMIT:
+        active.diagnostic_truncated = True
+    active.diagnostic_events.append(step)
+
+
+def _omit_server_event(active: _ActiveCapture) -> None:
+    active.omitted_server_events = min(_DIAGNOSTIC_OMITTED_LIMIT, active.omitted_server_events + 1)
+
+
+def _diagnostic_copy(active: _ActiveCapture) -> record.WebSocketDiagnostic:
+    return {
+        "events": [
+            cast(record.WebSocketDiagnosticStep, dict(step)) for step in active.diagnostic_events
+        ],
+        "truncated": active.diagnostic_truncated,
+        "omitted_server_events": active.omitted_server_events,
+    }
+
+
+def _clear_diagnostic(active: _ActiveCapture) -> None:
+    active.diagnostic_events.clear()
+    active.diagnostic_truncated = False
+    active.omitted_server_events = 0
+
+
+def _append_server_diagnostic_step(
+    active: _ActiveCapture,
+    event_type: str,
+    action: record.WebSocketAction,
+    *,
+    identified: bool,
+    id_relation: record.WebSocketIdRelation,
+) -> None:
+    if event_type == "response.output_text.delta":
+        return
+    _append_diagnostic_step(
+        active,
+        "server",
+        cast(record.WebSocketControlEvent, event_type),
+        action,
+        identified=identified,
+        id_relation=id_relation,
+    )
 
 
 class Session:
@@ -269,6 +384,7 @@ class Session:
                     self._active = None
                 try:
                     if not target.state["committed"]:
+                        self._attach_diagnostic(target)
                         capture.fail(
                             target.rid,
                             target.state,
@@ -305,6 +421,7 @@ class Session:
             state["bytes"] = 0
             state["first"] = None
             active.server_bytes = 0
+            _clear_diagnostic(active)
 
     def _abandon(self, active: _ActiveCapture) -> None:
         """Forget a cleared or evicted record without resuscitating it."""
@@ -329,9 +446,20 @@ class Session:
         if self._active is active:
             self._active = None
         try:
+            self._attach_diagnostic(active)
             capture.fail(active.rid, active.state, message, ended_at=at)
         finally:
             self._release(active)
+
+    @staticmethod
+    def _attach_diagnostic(active: _ActiveCapture) -> None:
+        diagnostic = _diagnostic_copy(active)
+        with store.LOCK:
+            if active.state["committed"]:
+                return
+            rec = store.RECORDS.get(active.rid)
+            if rec is not None:
+                rec["ws_diagnostic"] = diagnostic
 
     def _finish_limited(self, active: _ActiveCapture, at: float) -> None:
         self._disable()
@@ -359,22 +487,43 @@ class Session:
         if active is not None:
             with self._guard(at, active):
                 try:
-                    req = decode_client(content)
+                    message = _decode_client_message(content)
                 except ValueError:
                     self.logger.warning(_CLIENT_WARNING)
+                    _append_diagnostic_step(
+                        active,
+                        "client",
+                        "invalid",
+                        "fail",
+                        id_relation="missing",
+                    )
                     self._fail_active(active, _UNINSPECTABLE_ERROR, at)
                     return
-                if req is not None:
+                if message.request is not None:
+                    previous_response_id = message.request.get("previous_response_id")
+                    incremental = isinstance(previous_response_id, str) and bool(
+                        previous_response_id
+                    )
+                    _append_diagnostic_step(
+                        active,
+                        "client",
+                        "response.create",
+                        "overlap",
+                        id_relation="missing",
+                        generate=message.generate,
+                        incremental=incremental,
+                    )
                     self._fail_active(active, _OVERLAP_ERROR, at)
             return
 
         with self._guard(at):
             try:
-                req = decode_client(content)
+                message = _decode_client_message(content)
             except ValueError:
                 self.logger.warning(_CLIENT_WARNING)
                 self._disable()
                 return
+        req = message.request
         if req is None:
             return
 
@@ -397,6 +546,16 @@ class Session:
             state = capture.start(rid, 101, {}, at, None)
             active = _ActiveCapture(rid, state, at)
             self._active = active
+            _append_diagnostic_step(
+                active,
+                "client",
+                "response.create",
+                "start",
+                id_relation="missing",
+                identified=False,
+                generate=message.generate,
+                incremental=context_partial,
+            )
             if state["limited"] is not None:
                 self._finish_limited(active, at)
 
@@ -423,22 +582,42 @@ class Session:
             event = decode_server(content)
             projected = project_event(event)
         except ValueError:
+            _append_diagnostic_step(
+                active,
+                "server",
+                "invalid",
+                "fail",
+                id_relation="missing",
+            )
             self._fail_active(active, _UNINSPECTABLE_ERROR, at)
             return
 
         if projected is None:
+            _omit_server_event(active)
             return
 
         event_type = projected.get("type")
         if not isinstance(event_type, str):
             raise RuntimeError("projected WebSocket event has no type")
         response_id = self._projected_response_id(projected)
+        identified_before = active.response_id is not None
+        relation_before = _id_relation(active, response_id, self._last_response_id)
+
+        if event_type == "response.output_text.delta":
+            _omit_server_event(active)
 
         if (
             event_type in _TERMINAL_ERRORS | {"response.completed"}
             and response_id is not None
             and response_id == self._last_response_id
         ):
+            _append_server_diagnostic_step(
+                active,
+                event_type,
+                "ignore_previous",
+                identified=identified_before,
+                id_relation=relation_before,
+            )
             return
 
         if event_type in _FAILURE_ERRORS:
@@ -447,24 +626,73 @@ class Session:
                 and response_id is not None
                 and response_id != active.response_id
             ):
+                _append_server_diagnostic_step(
+                    active,
+                    event_type,
+                    "ignore_other_id",
+                    identified=identified_before,
+                    id_relation=relation_before,
+                )
                 return
+            _append_server_diagnostic_step(
+                active,
+                event_type,
+                "fail",
+                identified=identified_before,
+                id_relation=relation_before,
+            )
             self._fail_active(active, _FAILURE_ERRORS[event_type], at)
             return
 
         if event_type == "response.created":
             if response_id is None:
+                _append_server_diagnostic_step(
+                    active,
+                    event_type,
+                    "ignore_no_id",
+                    identified=identified_before,
+                    id_relation=relation_before,
+                )
                 return
             if active.response_id is not None and response_id != active.response_id:
+                _append_server_diagnostic_step(
+                    active,
+                    event_type,
+                    "ignore_other_id",
+                    identified=identified_before,
+                    id_relation=relation_before,
+                )
                 return
             active.response_id = response_id
         elif active.response_id is None:
+            _append_server_diagnostic_step(
+                active,
+                event_type,
+                "ignore_no_id",
+                identified=identified_before,
+                id_relation=relation_before,
+            )
             return
         elif response_id is not None:
             if response_id != active.response_id:
+                _append_server_diagnostic_step(
+                    active,
+                    event_type,
+                    "ignore_other_id",
+                    identified=identified_before,
+                    id_relation=relation_before,
+                )
                 return
 
         if event_type == "response.completed":
             if active.response_id is None or response_id != active.response_id:
+                _append_server_diagnostic_step(
+                    active,
+                    event_type,
+                    "ignore_no_id",
+                    identified=identified_before,
+                    id_relation=relation_before,
+                )
                 return
 
         if event_type == "response.output_text.delta" and projected.get("delta") == "":
@@ -473,8 +701,23 @@ class Session:
         try:
             data = _encode_projection(projected)
         except ValueError:
+            _append_diagnostic_step(
+                active,
+                "server",
+                "invalid",
+                "fail",
+                identified=identified_before,
+                id_relation=relation_before,
+            )
             self._fail_active(active, _UNINSPECTABLE_ERROR, at)
             return
+        _append_server_diagnostic_step(
+            active,
+            event_type,
+            "finish" if event_type == "response.completed" else "observe",
+            identified=identified_before,
+            id_relation=relation_before,
+        )
         capture.feed(active.rid, active.state, b"data: " + data + b"\n\n", at=at)
         if active.state["limited"] is not None:
             self._finish_limited(active, at)
@@ -491,6 +734,7 @@ class Session:
             )
             self._active = None
             self._last_response_id = active.response_id
+            _clear_diagnostic(active)
 
     @staticmethod
     def _projected_response_id(event: record.JsonObject) -> str | None:
@@ -512,6 +756,13 @@ class Session:
         self._disable()
         if active is not None:
             with self._guard(at if at is not None else active.client_at, active):
+                _append_diagnostic_step(
+                    active,
+                    "local",
+                    "close",
+                    "fail",
+                    id_relation="missing",
+                )
                 self._fail_active(active, _CLOSE_ERROR, at)
 
     def uninspectable(self, at: float) -> None:
@@ -522,4 +773,11 @@ class Session:
         if active is None:
             return
         with self._guard(at, active):
+            _append_diagnostic_step(
+                active,
+                "local",
+                "uninspectable",
+                "fail",
+                id_relation="missing",
+            )
             self._fail_active(active, _UNINSPECTABLE_ERROR, at)

@@ -9,6 +9,47 @@ type RecordState = Literal["pending", "streaming", "done", "error"]
 type Verdict = Literal["HIT", "PARTIAL", "MISS", "COLD", "N/A", "ERR"]
 type CaptureLimit = Literal["response_size", "active_captures"]
 type MissCause = Literal["model", "effort", "params", "prefix", "ttl", "prev_failed", "server"]
+type WebSocketDirection = Literal["client", "server", "local"]
+type WebSocketControlEvent = Literal[
+    "response.create",
+    "response.created",
+    "response.in_progress",
+    "response.completed",
+    "response.failed",
+    "response.incomplete",
+    "error",
+    "invalid",
+    "close",
+    "uninspectable",
+]
+type WebSocketAction = Literal[
+    "start",
+    "observe",
+    "ignore_no_id",
+    "ignore_other_id",
+    "ignore_previous",
+    "finish",
+    "fail",
+    "overlap",
+]
+type WebSocketIdRelation = Literal["missing", "last", "unbound", "active", "other"]
+type WebSocketGenerate = Literal["absent", "true", "false", "invalid"]
+
+
+class WebSocketDiagnosticStep(TypedDict):
+    direction: Required[WebSocketDirection]
+    event: Required[WebSocketControlEvent]
+    action: Required[WebSocketAction]
+    identified: Required[bool]
+    id_relation: Required[WebSocketIdRelation]
+    generate: NotRequired[WebSocketGenerate]
+    incremental: NotRequired[bool]
+
+
+class WebSocketDiagnostic(TypedDict):
+    events: Required[list[WebSocketDiagnosticStep]]
+    truncated: Required[bool]
+    omitted_server_events: Required[int]
 
 
 class CacheTTL(TypedDict):
@@ -144,6 +185,7 @@ class Record(TypedDict):
     cost: NotRequired[Cost]  # only when the usage and the price of the model are known
     cost_missing: NotRequired[str]  # why a request with usage has no cost
     capture_limited: NotRequired[CaptureLimit]
+    ws_diagnostic: NotRequired[WebSocketDiagnostic]  # present only for failed WebSocket captures
 
 
 class RecordEvent(TypedDict):
@@ -178,7 +220,7 @@ type Event = RecordEvent | SnapshotEvent | ClearEvent | EvictEvent | DisconnectE
 
 
 # Fields that only travel in /api/record/<id>, not in the list nor in the jsonl.
-HEAVY = ("segs", "raw_usage", "output", "effort_fields", "resp_headers", "diff")
+HEAVY = ("segs", "raw_usage", "output", "effort_fields", "resp_headers", "diff", "ws_diagnostic")
 
 
 def light(rec: Mapping[str, object]) -> dict[str, object]:
