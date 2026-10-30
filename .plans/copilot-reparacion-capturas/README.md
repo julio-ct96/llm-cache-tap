@@ -19,7 +19,7 @@ Objetivo: corregir las falsas capturas WebSocket fallidas, admitir uso CLI váli
 | 1.01 | Red de seguridad WebSocket | [1.01](fase-1/1.01-regresiones-websocket.md) | — | terminada con commit | Seis secuencias auditadas; acumulados y coste comprobados explícitamente; ninguna reparación de producción |
 | 1.02 | Contrato seguro de correlación | [1.02](fase-1/1.02-contrato-ids.md) | 1.01 | pendiente | Puede concluir evidencia insuficiente; no debilita la correlación |
 | 1.03 | Contrato y seguridad del uso CLI | [1.03](fase-1/1.03-contrato-uso-cli.md) | — | pendiente | No reconstruye los temporales Google/xAI eliminados |
-| 1.04 | Fuente oficial para Argon | [1.04](fase-1/1.04-verificar-tarifa.md) | — | pendiente | No usa el catálogo OpenCode como tarifa Copilot |
+| 1.04 | Fuente oficial para Argon | [1.04](fase-1/1.04-verificar-tarifa.md) | — | terminada con commit | Tarifas promocionales y tier de contexto auditados al 2026-10-30; escritura no acreditada, approved=false y cost_missing conservados |
 | 2.01 | Reparación WebSocket | [2.01](fase-2/2.01-correlacion-websocket.md) | 1.02 | bloqueada | Falta contrato aprobado y sustitución de la reserva por una receta exacta |
 | 2.02 | Compatibilidad del lector de uso | [2.02](fase-2/2.02-validacion-uso-cli.md) | 1.03 | bloqueada | Falta esquema probado y receta exacta; no defaults inventados |
 | 2.03 | Fila Copilot de Argon | [2.03](fase-2/2.03-precio-argon.md) | 1.04 | bloqueada | Sin cifras oficiales verificadas se conserva cost_missing |

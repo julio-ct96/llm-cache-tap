@@ -1,9 +1,29 @@
 {
-  "status": "pendiente",
+  "status": "insuficiente",
   "approved": false,
-  "sources": [],
-  "decision": null,
+  "sources": [
+    {
+      "title": "Models and pricing for GitHub Copilot — Google pricing table",
+      "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#google",
+      "consulted": "2026-10-30",
+      "evidence": "Gemini 4 Argon is listed GA, Powerful, Default, threshold Not applicable, at promotional USD 2.00 input, 0.10 cached input, and 10.00 output per million tokens. The Default tier and Not applicable threshold are the published context-pricing data."
+    },
+    {
+      "title": "Models and pricing for GitHub Copilot — Gemini 4 Argon promotion",
+      "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#user-content-fn-gemini-4-argon-promo",
+      "consulted": "2026-10-30",
+      "evidence": "The stated promotional prices apply until December 1, 2026."
+    },
+    {
+      "title": "Supported AI models in GitHub Copilot — supported models",
+      "url": "https://docs.github.com/en/copilot/reference/ai-models/supported-models#supported-ai-models-in-copilot",
+      "consulted": "2026-10-30",
+      "evidence": "Gemini 4 Argon is listed as a Google model with GA release status in Copilot."
+    }
+  ],
+  "decision": "Conservar cost_missing únicamente porque la fuente no acredita la semántica ni la tarifa de escritura de caché, necesarias para codificar una fila completa sin supuestos. Input, cached input, output y el tier Default con umbral Not applicable están verificados para 2026-10-30, fecha de consulta y de las pruebas guardadas. No se infiere una tarifa de escritura de cero.",
   "unknowns": [
-    "Official GitHub Copilot tariff for gemini-4-argon, including cache and context tiers"
+    "La tabla de Google no acredita si la escritura de caché se factura aparte ni su tarifa; la ausencia de una columna de cache write no se interpreta como tarifa cero.",
+    "A fecha 2026-10-30, la fuente no publica las tarifas que regirán después del fin promocional del 1 de diciembre de 2026; esto no cuestiona la tarifa promocional publicada para 2026-10-30."
   ]
 }
