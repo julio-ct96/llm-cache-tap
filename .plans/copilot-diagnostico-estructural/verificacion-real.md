@@ -1,6 +1,6 @@
-# Activación real: receta y harness auditados
+# Activación y adquisición real terminadas
 
-**Estado:** receta exacta del orquestador en la ficha 1.04 y harness 1.04a auditados; activación pendiente de repetir preflight. El inventario siguiente es histórico y no sustituye su comprobación inmediata antes de actuar. El permiso real del usuario incluye backup/recarga/pruebas low, no una reparación sin evidencia.
+**Estado:** activación y cinco invocaciones reales terminadas con respaldo anterior y posterior verificado. El permiso del usuario permitió backup/recarga/pruebas low, no inventar una correlación o tarifa. Las observaciones actuales justifican únicamente la receta de lector 1.05.
 
 ## Inventario aportado
 
@@ -39,3 +39,21 @@ El orquestador lleva las decisiones y la ejecución real autorizadas por el usua
 | `offline_check.py` | `44782ca57b6c5a25614b948d5228897fe233dea0cdf9243c2ca5a7f64d499bb5` |
 
 Se revisó el código completo y se ejecutaron los ocho tests fake. Se contrastaron solo formas/booleanos de los cuerpos ya respaldados: las cinco familias contienen una línea user igual al saludo, aunque el último mensaje suele ser auxiliar; esfuerzo en el campo propio de cada familia. No se publicaron cuerpos ni contenidos de esos mensajes. El lector/diagnóstico de producción permanece estricto.
+
+## Resultado real (2026-10-30)
+
+- Fast-forward del original a `3d56cf2` sin stash/reset ni solapamiento con los ocho cambios previos. Diez huellas protegidas intactas. Recarga nativa por mtime de `tap.py`, contenido sin cambios, PID `73039` y puertos `8899/8900` conservados. Estado anterior de 25 filas exportado completo; después de recargar se verificó snapshot vacío.
+- Cinco invocaciones, una por nombre, sin retries del harness; los contadores CLI conservados reportan una petición por sesión. La política interna del CLI no está controlada. En cada ventana se observó exactamente una fila del modelo solicitado, esfuerzo low en su campo propio y saludo literal en user; esto no acredita una regla de propiedad de IDs.
+
+| Familia / modelo | Saludo | Respuesta CLI | Captura | Lector estricto durante la prueba |
+| --- | --- | --- | --- | --- |
+| OpenAI / Terra | `hola` | Correcta | WS ERR, `created/in_progress/completed` con símbolos `1,2,3` | Válido |
+| Anthropic / Opus | `que tal` | Correcta | HTTP done | Válido |
+| Google / Argon | `buenas` | Correcta | HTTP done, `cost_missing` | Falta `usage.reasoningTokens` |
+| xAI / Grok | `hola` | Correcta | HTTP done | Falta `tokenDetails.cache_write`; contador usage write explícito 0 |
+| Microsoft / MAI | `que tal` | Correcta | WS ERR, símbolos `1,2,3` | Válido |
+
+- Ambos diagnósticos WS están sin truncar: 14 y 15 eventos omitidos. Tres IDs distintos desacreditan una solución que solo reutilice el segundo ID, pero no prueban cómo atribuir el terminal. Se conservan las protecciones actuales. No se reetiqueta Auto histórico.
+- Evidencia local con 14 artefactos hasheados más manifest: plan/harness/tests fake, cinco solicitudes/resultados proyectados y resumen. Manifest SHA-256 `19e0c7f7c8f39638d6cedc07feb196b1c6c0d0f9010c607635d62edab8291cd0`. No se retuvieron eventos CLI, uso bruto, IDs wire, credenciales ni cuerpos de sistema en la evidencia estructural. Las respuestas a saludos sí están conservadas localmente.
+- Respaldo final separado: cinco detalles y cinco cuerpos disponibles, dos snapshots iguales con cinco filas, JSONL de 1.175.364 bytes estable y manifest SHA-256 `392762a2d48e793130bd5bd2fa5d860f80e4e3a2532e5dcbbc67331567aea7ba`. Export best effort, no atómico. No se publica ninguno de los backups privados.
+- Los rechazos observados son nuevos; no recuperan ni demuestran el campo de los temporales históricos eliminados. La compatibilidad posterior se juzga con la receta acotada `contrato-uso-observado.md`, sin otra inferencia ni defaults.

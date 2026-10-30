@@ -19,7 +19,8 @@ Objetivo: dos implementaciones offline acotadas (igualdad simbólica de IDs en d
 | 1.02 | Error `invalid_schema` sanitizado | `fase-1/1.02-invalid-schema-sanitizado.md` | — | terminada con commit | Auditado: raíz sin campo inventado, paths/tipos cerrados y símbolo server 1–32; FULL 404 Python/20 JS/Chrome. |
 | 1.03 | Integración offline | `fase-1/1.03-integracion-offline.md` | 1.01, 1.02 | terminada con commit | Auditados hooks/API/sanitizador y exclusiones SSE/snapshot/body/JSONL; FULL 407 Python/20 JS/Chrome, sin mutar tráfico. |
 | 1.04a | Preparar harness de evidencia | `fase-1/1.04a-harness-evidencia.md` | 1.02 | terminada con commit | Auditado: 8 pruebas fake, formas por familia contrastadas con backup, sin convertir contadores desconocidos en cero; artefactos solo locales. |
-| 1.04 | Activación y adquisición real | `fase-1/1.04-reserva-operativa-real.md` | 1.03, 1.04a | pendiente | Receta y harness auditados; repetir preflight, ff-only y recarga nativa antes de cinco invocaciones máximas. |
+| 1.04 | Activación y adquisición real | `fase-1/1.04-reserva-operativa-real.md` | 1.03, 1.04a | terminada con commit | Recarga nativa verificada y cinco saludos exitosos low, una petición cada uno; backups antes/después, dos WS A-B-C y dos rechazos CLI precisados. |
+| 1.05 | Compatibilidad CLI acreditada | `fase-1/1.05-compatibilidad-cli-observada.md` | 1.04 | pendiente | Receta cerrada aprobada tras las cinco llamadas: reasoning opcional, detalle write ausente solo con contador explícito cero; sin otra inferencia. |
 
 ## Estructura
 
