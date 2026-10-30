@@ -58,7 +58,7 @@ La tarea 1.02 crea `begin`; 1.03 completa el resto. Los argumentos opcionales nu
 | `finish(rid, state, status, request_end, logger)` | Lectores, veredicto, coste, total y log; limpieza en finally. En 2.02 admite keyword `ended_at=None` |
 | `fail(rid, state, message)` | `state` admite None; conserva el comportamiento actual de error HTTP. En 2.02 admite keyword `ended_at=None` |
 
-`StreamState` conserva `chunks`, `first`, `bytes`, `limited`, `reserved`. En 2.02 añade `closed` para impedir doble finalización/coste/log. Los valores temporales por defecto siguen usando `time.time`, como hoy. El logger de `finish` lo pasa el llamador: los avisos HTTP siguen siendo de `tap`.
+`StreamState` conserva `chunks`, `first`, `bytes`, `limited`, `reserved`. En 2.02 añade `closed` para impedir doble finalización/coste/log. La auditoría de 2.04 añade `committed`, inicialmente False, que marca que el resultado terminal y su coste/total ya están calculados, antes de publicar/loguear. Nunca se reabre closed para manejar un fallo del log: si committed es True se conserva el resultado calculado y se propaga el error después de limpiar. Ambos flags son internos. Los valores temporales por defecto siguen usando `time.time`, como hoy. El logger de `finish` lo pasa el llamador: los avisos HTTP siguen siendo de `tap`.
 
 ## Decodificación Responses WebSocket
 
@@ -107,7 +107,7 @@ Los mensajes locales están fijados para no dejar decisiones de privacidad al ej
 | `response.created` | Asociar ID. Un ID diferente del activo no puede finalizar la petición actual |
 | `response.completed` correspondiente | `finish` una vez, soltar estado activo; permitir otra petición en esa conexión |
 | Terminal duplicado / evento sin petición activa | Ignorar; no crear filas ni sumar coste |
-| Terminal con ID del último ya terminado | Ignorar, incluso si ya llegó otra petición cliente |
+| Terminal con ID del último ya terminado | Ignorar, incluso si ya llegó otra petición cliente; solo comparar IDs de texto, nunca tratar None como un ID terminado |
 | `response.failed`, `response.incomplete`, `error`, cierre con petición activa | `fail`, estado error/ERR y nota local fija; sin inventar usage/coste de una respuesta incompleta |
 | Segundo create mientras sigue activa la primera | Fallar la activa con nota de solapamiento y deshabilitar inspección de esa conexión hasta su cierre. No asignar eventos ambiguos a una segunda fila |
 | JSON o UTF-8 servidor inválido durante una captura, o mensaje binario durante ella | Fallar con nota de evento no inspeccionable y deshabilitar esa conexión. Mensajes ajenos sin captura activa no crean filas |
