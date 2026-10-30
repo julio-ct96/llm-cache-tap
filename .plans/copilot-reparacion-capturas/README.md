@@ -16,7 +16,7 @@ Objetivo: corregir las falsas capturas WebSocket fallidas, admitir uso CLI váli
 
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
-| 1.01 | Red de seguridad WebSocket | [1.01](fase-1/1.01-regresiones-websocket.md) | — | pendiente | Caracteriza el fallo y prueba que dos identidades alternativas son indistinguibles en la traza actual |
+| 1.01 | Red de seguridad WebSocket | [1.01](fase-1/1.01-regresiones-websocket.md) | — | terminada con commit | Seis secuencias auditadas; acumulados y coste comprobados explícitamente; ninguna reparación de producción |
 | 1.02 | Contrato seguro de correlación | [1.02](fase-1/1.02-contrato-ids.md) | 1.01 | pendiente | Puede concluir evidencia insuficiente; no debilita la correlación |
 | 1.03 | Contrato y seguridad del uso CLI | [1.03](fase-1/1.03-contrato-uso-cli.md) | — | pendiente | No reconstruye los temporales Google/xAI eliminados |
 | 1.04 | Fuente oficial para Argon | [1.04](fase-1/1.04-verificar-tarifa.md) | — | pendiente | No usa el catálogo OpenCode como tarifa Copilot |

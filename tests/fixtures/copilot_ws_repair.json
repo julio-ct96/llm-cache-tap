@@ -1,0 +1,105 @@
+{
+  "provenance": "Synthetic counterexamples, not recovered wire events. A, B and C are artificial IDs. other_same and other_different are indistinguishable in the saved diagnostic.",
+  "source_fixture": "tests/fixtures/copilot_responses_ws.json",
+  "host": "api.business.githubcopilot.com",
+  "path": "/responses",
+  "client": {
+    "type": "response.create",
+    "model": "gpt-6-luna",
+    "input": [
+      {
+        "role": "system",
+        "content": [{"type": "input_text", "text": "Eres un asistente de pruebas."}]
+      },
+      {
+        "role": "user",
+        "content": [{"type": "input_text", "text": "hola"}]
+      }
+    ],
+    "tools": [],
+    "reasoning": {"effort": "medium"}
+  },
+  "events": {
+    "created": {
+      "type": "response.created",
+      "response": {"id": "A", "model": "gpt-6-luna"}
+    },
+    "in_progress": {
+      "type": "response.in_progress",
+      "response": {"id": "A", "model": "gpt-6-luna"}
+    },
+    "completed": {
+      "type": "response.completed",
+      "response": {
+        "id": "A",
+        "model": "gpt-6-luna",
+        "usage": {
+          "input_tokens": 13293,
+          "input_tokens_details": {
+            "cache_write_tokens": 4286,
+            "cache_write_tokens_details": {"ttl_12h_tokens": 0, "ttl_30m_tokens": 4286},
+            "cached_tokens": 9004
+          },
+          "output_tokens": 36,
+          "output_tokens_details": {"reasoning_tokens": 21},
+          "total_tokens": 13329
+        }
+      }
+    }
+  },
+  "expected": {
+    "usage": {
+      "read": 9004,
+      "write": 4286,
+      "uncached": 3,
+      "input_total": 13293,
+      "output": 36,
+      "reasoning": 21
+    },
+    "usd": 0.00064409
+  },
+  "cases": [
+    {
+      "name": "other_same",
+      "steps": ["create", "created_a", "in_progress_b", "completed_b", "close"],
+      "state": "error",
+      "verdict": "ERR",
+      "actions": ["start", "observe", "ignore_other_id", "ignore_other_id", "fail"]
+    },
+    {
+      "name": "other_different",
+      "steps": ["create", "created_a", "in_progress_b", "completed_c", "close"],
+      "state": "error",
+      "verdict": "ERR",
+      "actions": ["start", "observe", "ignore_other_id", "ignore_other_id", "fail"]
+    },
+    {
+      "name": "terminal_only",
+      "steps": ["create", "created_a", "completed_b", "close"],
+      "state": "error",
+      "verdict": "ERR",
+      "actions": ["start", "observe", "ignore_other_id", "fail"]
+    },
+    {
+      "name": "matching",
+      "steps": ["create", "created_a", "in_progress_a", "completed_a", "close"],
+      "state": "done",
+      "verdict": "PARTIAL",
+      "actions": null
+    },
+    {
+      "name": "wrong_then_correct",
+      "steps": ["create", "created_a", "completed_b", "completed_a", "close"],
+      "state": "done",
+      "verdict": "PARTIAL",
+      "actions": null
+    },
+    {
+      "name": "overlap",
+      "steps": ["create", "created_a", "create", "close"],
+      "state": "error",
+      "verdict": "ERR",
+      "actions": ["start", "observe", "overlap"]
+    }
+  ]
+}
