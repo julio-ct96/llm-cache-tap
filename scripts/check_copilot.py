@@ -29,8 +29,76 @@ CLI_TIMEOUT_SECONDS = 90.0
 TERMINATE_SECONDS = 5.0
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_USAGE_BYTES = 2 * 1024 * 1024
+MAX_RECORD_FAILURE_BYTES = 8192
 MODEL_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}\Z")
 ALLOWED_VERDICTS = {"HIT", "PARTIAL", "MISS", "N/A", "COLD"}
+
+FailureTransport = Literal["websocket", "http", "unknown"]
+FailureState = Literal["pending", "streaming", "done", "error", "unknown"]
+FailureVerdict = Literal["HIT", "PARTIAL", "MISS", "COLD", "N/A", "ERR", "unknown"]
+FailureReason = Literal[
+    "overlap",
+    "closed_before_completed",
+    "response_failed",
+    "response_incomplete",
+    "protocol_error",
+    "uninspectable",
+    "internal_error",
+    "response_size_limit",
+    "active_capture_limit",
+    "unknown",
+]
+FailureDirection = Literal["client", "server", "local"]
+FailureEvent = Literal[
+    "response.create",
+    "response.created",
+    "response.in_progress",
+    "response.completed",
+    "response.failed",
+    "response.incomplete",
+    "error",
+    "invalid",
+    "close",
+    "uninspectable",
+]
+FailureAction = Literal[
+    "start",
+    "observe",
+    "ignore_no_id",
+    "ignore_other_id",
+    "ignore_previous",
+    "finish",
+    "fail",
+    "overlap",
+]
+FailureIdRelation = Literal["missing", "last", "unbound", "active", "other"]
+FailureGenerate = Literal["absent", "true", "false", "invalid"]
+
+
+class FailureDiagnosticStep(TypedDict):
+    direction: FailureDirection
+    event: FailureEvent
+    action: FailureAction
+    identified: bool
+    id_relation: FailureIdRelation
+    generate: NotRequired[FailureGenerate]
+    incremental: NotRequired[bool]
+
+
+class FailureWebSocketDiagnostic(TypedDict):
+    events: list[FailureDiagnosticStep]
+    truncated: bool
+    omitted_server_events: int
+
+
+class RecordFailureDiagnostic(TypedDict):
+    transport: FailureTransport
+    status: int | None
+    state: FailureState
+    verdict: FailureVerdict
+    reason: FailureReason
+    ws_diagnostic: FailureWebSocketDiagnostic | None
+
 
 Verdict = Literal["HIT", "PARTIAL", "MISS", "N/A", "COLD"]
 
@@ -362,6 +430,162 @@ def read_snapshot(port: int, *, http_open: HTTPOpen) -> SnapshotData:
     return decode_snapshot(_json_value("\n".join(data_lines), "dashboard snapshot"))
 
 
+def _failure_enum(value: object, allowed: frozenset[str]) -> str | None:
+    if type(value) is str and value in allowed:
+        return value
+    return None
+
+
+def _failure_step(value: object) -> FailureDiagnosticStep | None:
+    if not isinstance(value, dict):
+        return None
+    required = ("direction", "event", "action", "identified", "id_relation")
+    if any(key not in value for key in required):
+        return None
+
+    direction = _failure_enum(value.get("direction"), frozenset({"client", "server", "local"}))
+    event = _failure_enum(
+        value.get("event"),
+        frozenset(
+            {
+                "response.create",
+                "response.created",
+                "response.in_progress",
+                "response.completed",
+                "response.failed",
+                "response.incomplete",
+                "error",
+                "invalid",
+                "close",
+                "uninspectable",
+            }
+        ),
+    )
+    action = _failure_enum(
+        value.get("action"),
+        frozenset(
+            {
+                "start",
+                "observe",
+                "ignore_no_id",
+                "ignore_other_id",
+                "ignore_previous",
+                "finish",
+                "fail",
+                "overlap",
+            }
+        ),
+    )
+    id_relation = _failure_enum(
+        value.get("id_relation"), frozenset({"missing", "last", "unbound", "active", "other"})
+    )
+    identified = value.get("identified")
+    if (
+        direction is None
+        or event is None
+        or action is None
+        or id_relation is None
+        or type(identified) is not bool
+    ):
+        return None
+
+    step: FailureDiagnosticStep = {
+        "direction": cast(FailureDirection, direction),
+        "event": cast(FailureEvent, event),
+        "action": cast(FailureAction, action),
+        "identified": identified,
+        "id_relation": cast(FailureIdRelation, id_relation),
+    }
+    if event != "response.create" and ("generate" in value or "incremental" in value):
+        return None
+    if "generate" in value:
+        generate = _failure_enum(
+            value.get("generate"), frozenset({"absent", "true", "false", "invalid"})
+        )
+        if generate is None:
+            return None
+        step["generate"] = cast(FailureGenerate, generate)
+    if "incremental" in value:
+        incremental = value.get("incremental")
+        if type(incremental) is not bool:
+            return None
+        step["incremental"] = incremental
+    return step
+
+
+def _failure_websocket_diagnostic(value: object) -> FailureWebSocketDiagnostic | None:
+    if not isinstance(value, dict):
+        return None
+    events = value.get("events")
+    truncated = value.get("truncated")
+    omitted_server_events = value.get("omitted_server_events")
+    if (
+        not isinstance(events, list)
+        or len(events) > 32
+        or type(truncated) is not bool
+        or type(omitted_server_events) is not int
+        or not 0 <= omitted_server_events <= 255
+    ):
+        return None
+    decoded_events: list[FailureDiagnosticStep] = []
+    for event in events:
+        decoded = _failure_step(event)
+        if decoded is None:
+            return None
+        decoded_events.append(decoded)
+    return {
+        "events": decoded_events,
+        "truncated": truncated,
+        "omitted_server_events": omitted_server_events,
+    }
+
+
+def _failure_reason(notes: object) -> FailureReason:
+    reasons = {
+        "captura WebSocket interrumpida: peticiones solapadas": "overlap",
+        "conexión WebSocket cerrada antes de completar la respuesta": "closed_before_completed",
+        "respuesta WebSocket fallida": "response_failed",
+        "respuesta WebSocket incompleta": "response_incomplete",
+        "error del protocolo WebSocket": "protocol_error",
+        "evento WebSocket no inspeccionable": "uninspectable",
+        "error interno al inspeccionar WebSocket": "internal_error",
+        "captura incompleta: límite de tamaño de respuesta": "response_size_limit",
+        "captura incompleta: límite de respuestas simultáneas": "active_capture_limit",
+    }
+    if isinstance(notes, list):
+        for note in notes[:8]:
+            if type(note) is str and note in reasons:
+                return cast(FailureReason, reasons[note])
+    return "unknown"
+
+
+def format_record_failure(record: dict[str, object]) -> str:
+    """Return a bounded JSON projection of an unsuccessful dashboard record."""
+    transport = record.get("transport", "http")
+    if type(transport) is not str or transport not in {"websocket", "http"}:
+        transport = "unknown"
+    status = record.get("status")
+    if type(status) is not int or not 100 <= status <= 599:
+        status = None
+    state = _failure_enum(record.get("state"), frozenset({"pending", "streaming", "done", "error"}))
+    verdict = _failure_enum(
+        record.get("verdict"), frozenset({"HIT", "PARTIAL", "MISS", "COLD", "N/A", "ERR"})
+    )
+    result: RecordFailureDiagnostic = {
+        "transport": cast(FailureTransport, transport),
+        "status": status,
+        "state": cast(FailureState, state if state is not None else "unknown"),
+        "verdict": cast(FailureVerdict, verdict if verdict is not None else "unknown"),
+        "reason": _failure_reason(record.get("notes")),
+        "ws_diagnostic": _failure_websocket_diagnostic(record.get("ws_diagnostic")),
+    }
+    rendered = json.dumps(result, ensure_ascii=True, separators=(",", ":"))
+    if len(rendered.encode("utf-8")) > MAX_RECORD_FAILURE_BYTES:
+        result["ws_diagnostic"] = None
+        rendered = json.dumps(result, ensure_ascii=True, separators=(",", ":"))
+    return rendered
+
+
 def decode_completed_record(value: object, expected_id: int) -> CompletedRecord:
     record = _object(value, "dashboard record")
     record_id = _positive_id(record.get("id"))
@@ -372,7 +596,10 @@ def decode_completed_record(value: object, expected_id: int) -> CompletedRecord:
         or record.get("status") != 101
         or record.get("state") != "done"
     ):
-        raise RunnerError("the WebSocket record did not complete successfully")
+        diagnostic = format_record_failure(record)
+        raise RunnerError(
+            f"the WebSocket record did not complete successfully; diagnostic={diagnostic}"
+        )
     model = record.get("model")
     if not isinstance(model, str) or MODEL_IDENTIFIER.fullmatch(model) is None:
         raise RunnerError("the completed WebSocket record lacks an explicit model")

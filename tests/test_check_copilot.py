@@ -64,6 +64,43 @@ def completed_record(*, record_id=RECORD_ID, verdict="PARTIAL", usage=None):
     }
 
 
+def diagnostic_step(*, event="response.create", action="start"):
+    step = {
+        "direction": "client",
+        "event": event,
+        "action": action,
+        "identified": False,
+        "id_relation": "missing",
+    }
+    if event == "response.create":
+        step.update(generate="true", incremental=True)
+    return step
+
+
+def diagnostic_record(record=None):
+    return {
+        "transport": "websocket",
+        "status": 101,
+        "state": "error",
+        "verdict": "ERR",
+        "notes": [],
+        "ws_diagnostic": {
+            "events": [diagnostic_step()],
+            "truncated": False,
+            "omitted_server_events": 0,
+        },
+        **({} if record is None else record),
+    }
+
+
+def failure_json(error):
+    prefix = "the WebSocket record did not complete successfully; diagnostic="
+    message = str(error)
+    if not message.startswith(prefix):
+        raise AssertionError("record failure did not contain its sanitized diagnostic")
+    return json.loads(message[len(prefix) :])
+
+
 class Response:
     def __init__(self, content=b"", lines=None):
         self.content = content
@@ -248,9 +285,9 @@ class CheckCopilotTest(unittest.TestCase):
     def reserve(self):
         return self.reservations, (20001, 20002)
 
-    def run_runner(self, *, mode="success", recs=None, usage=None, http_mode=None):
+    def run_runner(self, *, mode="success", recs=None, record=None, usage=None, http_mode=None):
         popen = FakePopen(self.groups, mode=mode, usage=usage)
-        http = FakeHTTP(mode=http_mode or mode, recs=recs)
+        http = FakeHTTP(mode=http_mode or mode, recs=recs, record=record)
         summary = runner.run_real(
             str(self.copilot),
             root=self.root,
@@ -271,10 +308,10 @@ class CheckCopilotTest(unittest.TestCase):
             self.assertFalse(Path(directory.name).exists())
 
     def run_with_failure(
-        self, *, mode="success", recs=None, usage=None, http_mode=None, message=None
+        self, *, mode="success", recs=None, record=None, usage=None, http_mode=None, message=None
     ):
         popen = FakePopen(self.groups, mode=mode, usage=usage)
-        http = FakeHTTP(mode=http_mode or mode, recs=recs)
+        http = FakeHTTP(mode=http_mode or mode, recs=recs, record=record)
         with self.assertRaisesRegex(runner.RunnerError, message or ".*"):
             runner.run_real(
                 str(self.copilot),
@@ -570,6 +607,304 @@ class CheckCopilotTest(unittest.TestCase):
             with self.subTest(verdict=verdict):
                 with self.assertRaisesRegex(runner.RunnerError, "unknown cache verdict"):
                     runner.decode_completed_record(completed_record(verdict=verdict), RECORD_ID)
+
+    def test_failed_record_includes_sanitized_overlap_diagnostic_without_accepting_err(self):
+        record = {
+            "id": RECORD_ID,
+            **diagnostic_record(
+                {
+                    "notes": ["captura WebSocket interrumpida: peticiones solapadas"],
+                    "ws_diagnostic": {
+                        "events": [diagnostic_step(action="overlap")],
+                        "truncated": False,
+                        "omitted_server_events": 0,
+                    },
+                }
+            ),
+        }
+        with self.assertRaises(runner.RunnerError) as raised:
+            runner.decode_completed_record(record, RECORD_ID)
+        failure = failure_json(raised.exception)
+        self.assertEqual(failure["reason"], "overlap")
+        self.assertEqual(failure["state"], "error")
+        self.assertEqual(failure["verdict"], "ERR")
+        self.assertEqual(failure["ws_diagnostic"]["events"][0]["action"], "overlap")
+        self.assertNotIn("model", failure)
+        self.assertNotIn("id", failure)
+
+    def test_failure_reason_uses_only_exact_recognized_notes_in_first_eight(self):
+        note_reasons = (
+            ("captura WebSocket interrumpida: peticiones solapadas", "overlap"),
+            (
+                "conexión WebSocket cerrada antes de completar la respuesta",
+                "closed_before_completed",
+            ),
+            ("respuesta WebSocket fallida", "response_failed"),
+            ("respuesta WebSocket incompleta", "response_incomplete"),
+            ("error del protocolo WebSocket", "protocol_error"),
+            ("evento WebSocket no inspeccionable", "uninspectable"),
+            ("error interno al inspeccionar WebSocket", "internal_error"),
+            ("captura incompleta: límite de tamaño de respuesta", "response_size_limit"),
+            ("captura incompleta: límite de respuestas simultáneas", "active_capture_limit"),
+        )
+        for note, expected in note_reasons:
+            with self.subTest(note=note):
+                failure = json.loads(
+                    runner.format_record_failure(diagnostic_record({"notes": [note]}))
+                )
+                self.assertEqual(failure["reason"], expected)
+
+        closed = note_reasons[1][0]
+        for notes, expected in (
+            (["private note", closed], "closed_before_completed"),
+            (["private note"] * 7 + [closed], "closed_before_completed"),
+            (["private note"] * 8 + [closed], "unknown"),
+            ([note_reasons[0][0], closed], "overlap"),
+            ("not a note list", "unknown"),
+        ):
+            with self.subTest(notes=notes):
+                failure = json.loads(
+                    runner.format_record_failure(diagnostic_record({"notes": notes}))
+                )
+                self.assertEqual(failure["reason"], expected)
+
+    def test_valid_failure_diagnostic_is_rebuilt_with_closed_values_and_booleans(self):
+        record = diagnostic_record(
+            {
+                "unrelated": {"sentinel": "private-key"},
+                "ws_diagnostic": {
+                    "events": [
+                        {
+                            **diagnostic_step(),
+                            "foreign": "private-step-value",
+                        },
+                        {
+                            "direction": "server",
+                            "event": "response.in_progress",
+                            "action": "observe",
+                            "identified": True,
+                            "id_relation": "active",
+                        },
+                    ],
+                    "truncated": True,
+                    "omitted_server_events": 255,
+                    "foreign": "private-diagnostic-value",
+                },
+            }
+        )
+        failure = json.loads(runner.format_record_failure(record))
+        self.assertEqual(
+            list(failure),
+            ["transport", "status", "state", "verdict", "reason", "ws_diagnostic"],
+        )
+        diagnostic = failure["ws_diagnostic"]
+        self.assertEqual(diagnostic["truncated"], True)
+        self.assertEqual(diagnostic["omitted_server_events"], 255)
+        self.assertEqual(diagnostic["events"][0]["generate"], "true")
+        self.assertIs(diagnostic["events"][0]["incremental"], True)
+        self.assertIs(diagnostic["events"][1]["identified"], True)
+        self.assertEqual(set(diagnostic), {"events", "truncated", "omitted_server_events"})
+        self.assertEqual(
+            set(diagnostic["events"][0]),
+            {
+                "direction",
+                "event",
+                "action",
+                "identified",
+                "id_relation",
+                "generate",
+                "incremental",
+            },
+        )
+        self.assertNotIn("foreign", diagnostic)
+        self.assertNotIn("foreign", diagnostic["events"][0])
+        self.assertNotIn("private-key", json.dumps(failure))
+
+    def test_invalid_or_over_limit_failure_diagnostic_becomes_null(self):
+        valid = diagnostic_step()
+        invalid_steps = (
+            {key: value for key, value in valid.items() if key != "action"},
+            {**valid, "direction": "private-direction"},
+            {**valid, "event": "private-event"},
+            {**valid, "id_relation": "private-relation"},
+            {**valid, "identified": 1},
+            {**valid, "incremental": True, "event": "response.completed"},
+            {**valid, "generate": "private-generate"},
+        )
+        diagnostics = [
+            None,
+            {},
+            {"events": "not a list", "truncated": False, "omitted_server_events": 0},
+            {"events": [valid] * 33, "truncated": False, "omitted_server_events": 0},
+            {"events": [], "truncated": 1, "omitted_server_events": 0},
+            {"events": [], "truncated": False, "omitted_server_events": True},
+            {"events": [], "truncated": False, "omitted_server_events": -1},
+            {"events": [], "truncated": False, "omitted_server_events": 256},
+        ] + [
+            {"events": [step], "truncated": False, "omitted_server_events": 0}
+            for step in invalid_steps
+        ]
+        for diagnostic in diagnostics:
+            with self.subTest(diagnostic=diagnostic):
+                failure = json.loads(
+                    runner.format_record_failure(diagnostic_record({"ws_diagnostic": diagnostic}))
+                )
+                self.assertIsNone(failure["ws_diagnostic"])
+
+        missing = diagnostic_record()
+        del missing["ws_diagnostic"]
+        failure = json.loads(runner.format_record_failure(missing))
+        self.assertIsNone(failure["ws_diagnostic"])
+
+    def test_failure_projection_hides_sentinels_and_main_stderr(self):
+        sentinels = (
+            "sentinel-transport",
+            "sentinel-status",
+            "sentinel-state",
+            "sentinel-verdict",
+            "sentinel-note",
+            "sentinel-model",
+            "sentinel-header",
+            "sentinel-response-id",
+            "sentinel-extra-key-value",
+        )
+        record = {
+            "id": RECORD_ID,
+            **diagnostic_record(
+                {
+                    "transport": sentinels[0],
+                    "status": sentinels[1],
+                    "state": sentinels[2],
+                    "verdict": sentinels[3],
+                    "notes": [sentinels[4]],
+                    "model": sentinels[5],
+                    "headers": sentinels[6],
+                    "response_id": sentinels[7],
+                    "foreign": sentinels[8],
+                    "ws_diagnostic": {
+                        "events": [
+                            {
+                                **diagnostic_step(),
+                                "foreign": sentinels[8],
+                            }
+                        ],
+                        "truncated": False,
+                        "omitted_server_events": 0,
+                        "foreign": sentinels[8],
+                    },
+                }
+            ),
+        }
+        with self.assertRaises(runner.RunnerError) as raised:
+            runner.decode_completed_record(record, RECORD_ID)
+        message = str(raised.exception)
+        output = io.StringIO()
+        with (
+            patch.object(runner, "run_real", side_effect=raised.exception),
+            contextlib.redirect_stderr(output),
+        ):
+            status = runner.main(["--run-real"])
+        self.assertEqual(status, 1)
+        for sentinel in sentinels:
+            self.assertNotIn(sentinel, message)
+            self.assertNotIn(sentinel, output.getvalue())
+        failure = failure_json(raised.exception)
+        self.assertEqual(failure["transport"], "unknown")
+        self.assertIsNone(failure["status"])
+        self.assertEqual(failure["state"], "unknown")
+        self.assertEqual(failure["verdict"], "unknown")
+        self.assertEqual(failure["reason"], "unknown")
+        self.assertEqual(failure["ws_diagnostic"]["events"][0]["event"], "response.create")
+
+    def test_failure_status_requires_exact_integer_and_unknown_values_are_closed(self):
+        for status in (True, False, "status-sentinel", 99, 600):
+            with self.subTest(status=status):
+                failure = json.loads(
+                    runner.format_record_failure(diagnostic_record({"status": status}))
+                )
+                self.assertIsNone(failure["status"])
+
+        failure = json.loads(
+            runner.format_record_failure(
+                diagnostic_record(
+                    {
+                        "transport": "transport-sentinel",
+                        "state": "state-sentinel",
+                        "verdict": "verdict-sentinel",
+                    }
+                )
+            )
+        )
+        self.assertEqual(
+            (failure["transport"], failure["state"], failure["verdict"]),
+            ("unknown", "unknown", "unknown"),
+        )
+        missing_transport = json.loads(
+            runner.format_record_failure(
+                {key: value for key, value in diagnostic_record().items() if key != "transport"}
+            )
+        )
+        self.assertEqual(missing_transport["transport"], "http")
+
+    def test_failure_json_is_compact_bounded_and_does_not_write_diagnostics(self):
+        steps = [
+            {
+                "direction": "server",
+                "event": "response.in_progress",
+                "action": "ignore_previous",
+                "identified": True,
+                "id_relation": "other",
+            }
+            for _ in range(32)
+        ]
+        record = diagnostic_record(
+            {
+                "ws_diagnostic": {
+                    "events": steps,
+                    "truncated": True,
+                    "omitted_server_events": 255,
+                }
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="record-failure-format-") as temporary:
+            directory = Path(temporary)
+            before = set(directory.iterdir())
+            with (
+                patch.object(Path, "open", side_effect=AssertionError("unexpected file access")),
+                patch.object(
+                    Path, "write_text", side_effect=AssertionError("unexpected file write")
+                ),
+            ):
+                rendered = runner.format_record_failure(record)
+            self.assertEqual(set(directory.iterdir()), before)
+        self.assertLessEqual(len(rendered.encode("utf-8")), 8192)
+        self.assertNotIn(" ", rendered)
+        self.assertTrue(rendered.isascii())
+
+    def test_failed_record_cleans_all_runner_resources_after_one_hola_invocation(self):
+        record = {
+            "id": RECORD_ID,
+            **diagnostic_record(
+                {"notes": ["captura WebSocket interrumpida: peticiones solapadas"]}
+            ),
+        }
+        popen, http = self.run_with_failure(
+            record=record, message="the WebSocket record did not complete successfully"
+        )
+        self.assertEqual(len(popen.calls), 2)
+        cli_command = popen.calls[1][0]
+        self.assertEqual(cli_command.count("--prompt"), 1)
+        self.assertEqual(cli_command[cli_command.index("--prompt") + 1], "hola")
+        self.assertTrue(any(url.endswith(f"/api/record/{RECORD_ID}") for url, _ in http.urls))
+        self.assertEqual(
+            self.groups.calls,
+            [
+                (popen.processes[1].pid, signal.SIGTERM),
+                (popen.processes[0].pid, signal.SIGTERM),
+            ],
+        )
+        self.assertTrue(all(reservation.closed for reservation in self.reservations))
+        self.assert_temp_dirs_removed()
 
     def test_main_prints_only_validated_summary_fields(self):
         output = io.StringIO()
