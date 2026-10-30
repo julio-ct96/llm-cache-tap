@@ -1,6 +1,6 @@
-# Activación real: receta preparada, pendiente de auditoría del harness
+# Activación real: receta y harness auditados
 
-**Estado:** receta exacta del orquestador en la ficha 1.04; activación bloqueada hasta auditar 1.04a y repetir preflight. El inventario siguiente es histórico y no sustituye su comprobación inmediata antes de actuar. El permiso real del usuario incluye backup/recarga/pruebas low, no una reparación sin evidencia.
+**Estado:** receta exacta del orquestador en la ficha 1.04 y harness 1.04a auditados; activación pendiente de repetir preflight. El inventario siguiente es histórico y no sustituye su comprobación inmediata antes de actuar. El permiso real del usuario incluye backup/recarga/pruebas low, no una reparación sin evidencia.
 
 ## Inventario aportado
 
@@ -17,7 +17,7 @@
 1. **Backup:** export completo inicial verificado; debe seguir coincidiendo con el estado actual al activar o repetirse. No es atómico. La recarga vacía la memoria del panel; sus datos permanecen en el backup, no se reimportan.
 2. **Fast-forward:** receta fijada en 1.04; requiere ancestry, cero overlap con cambios locales y huellas posteriores iguales. Sin stash/reset.
 3. **Activación:** solo recarga nativa por mtime de `tap.py`, sin cambiar contenido ni reiniciar procesos, tras verificar inventario actual y ausencia de capturas activas.
-4. **Prueba real:** falta auditar el harness de 1.04a y sus comprobaciones offline. No inferencias antes de cerrar esa puerta.
+4. **Prueba real:** harness 1.04a auditado tras corregir checks por familia/mensajes auxiliares y contadores desconocidos. Ocho tests fake pasan sin red ni CLI. Una invocación por nombre, sin batch/retry y con decisión individual del orquestador.
 
 El orquestador lleva las decisiones y la ejecución real autorizadas por el usuario. Las tareas offline no leen `data/`; el acceso operativo requiere su receta auditada. No hay autorización aquí para inventar tarifa, correlación o protocolo.
 
@@ -29,3 +29,13 @@ El orquestador lleva las decisiones y la ejecución real autorizadas por el usua
 - Sin reintentos del harness; la política interna del CLI no está controlada. Verificar los contadores observados y no afirmar ausencia de retries internos. Un error de captura o `invalid_schema` esperado se conserva como evidencia, no se reintenta. Detener campaña ante fallo CLI, timeout, autenticación/cuota, múltiples peticiones observadas o atribución ambigua.
 - No guardar eventos CLI crudos, razonamiento, IDs wire, credenciales ni cuerpos de sistema en la evidencia estructural. Guardar prompts sintéticos, respuesta final proyectada, métricas/diagnóstico allowlisted y manifiesto de hashes. El backup privado completo anterior es independiente y no se publica.
 - Antes de activar, repetir inventario y respaldo si el estado cambió; verificar huellas protegidas y diff entrante, fast-forward-only del original sin stash/reset, y `touch tap.py` para recarga nativa. La recarga vacía el estado en memoria; este queda preservado en backup, no se promete reimportación al panel. No reiniciar el proceso si basta recargar. Verificar PID/puertos y readiness local después. La ejecución sigue bloqueada hasta terminar integración y auditar el harness nuevo.
+
+## Harness local auditado
+
+| Artefacto (solo en evidencia local ignorada) | SHA-256 |
+| --- | --- |
+| `run_one.py` | `132b34890ef64dfc0fe05948193c21e31f195841f6d5160757f5b9d7328de641` |
+| `plan.json` | `8e4ea8e311ad5323269cd2b57254f227c7d37ae7f71b7aac082be26c47946fea` |
+| `offline_check.py` | `44782ca57b6c5a25614b948d5228897fe233dea0cdf9243c2ca5a7f64d499bb5` |
+
+Se revisó el código completo y se ejecutaron los ocho tests fake. Se contrastaron solo formas/booleanos de los cuerpos ya respaldados: las cinco familias contienen una línea user igual al saludo, aunque el último mensaje suele ser auxiliar; esfuerzo en el campo propio de cada familia. No se publicaron cuerpos ni contenidos de esos mensajes. El lector/diagnóstico de producción permanece estricto.

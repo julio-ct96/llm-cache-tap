@@ -18,8 +18,8 @@ Objetivo: dos implementaciones offline acotadas (igualdad simbólica de IDs en d
 | 1.01 | Símbolos de igualdad de ID | `fase-1/1.01-relaciones-simbolicas.md` | 1.02 | terminada con commit | Auditado: A-B-B/A-B-C diferenciados solo por ordinales, mapa acotado y limpio; FULL 405 Python/20 JS/Chrome. |
 | 1.02 | Error `invalid_schema` sanitizado | `fase-1/1.02-invalid-schema-sanitizado.md` | — | terminada con commit | Auditado: raíz sin campo inventado, paths/tipos cerrados y símbolo server 1–32; FULL 404 Python/20 JS/Chrome. |
 | 1.03 | Integración offline | `fase-1/1.03-integracion-offline.md` | 1.01, 1.02 | terminada con commit | Auditados hooks/API/sanitizador y exclusiones SSE/snapshot/body/JSONL; FULL 407 Python/20 JS/Chrome, sin mutar tráfico. |
-| 1.04a | Preparar harness de evidencia | `fase-1/1.04a-harness-evidencia.md` | 1.02 | pendiente | Solo artefactos locales ignorados y verificación sin red; ninguna inferencia. |
-| 1.04 | Reserva operativa real | `fase-1/1.04-reserva-operativa-real.md` | 1.03, 1.04a | bloqueada | Requiere auditoría del harness y receta final de activación. |
+| 1.04a | Preparar harness de evidencia | `fase-1/1.04a-harness-evidencia.md` | 1.02 | terminada con commit | Auditado: 8 pruebas fake, formas por familia contrastadas con backup, sin convertir contadores desconocidos en cero; artefactos solo locales. |
+| 1.04 | Activación y adquisición real | `fase-1/1.04-reserva-operativa-real.md` | 1.03, 1.04a | pendiente | Receta y harness auditados; repetir preflight, ff-only y recarga nativa antes de cinco invocaciones máximas. |
 
 ## Estructura
 
