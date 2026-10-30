@@ -12,7 +12,7 @@ from unittest.mock import patch
 import tap
 from cachetap import config, dashboard, store
 from scripts import check_copilot as runner
-from tests.test_websocket_hooks import play_failure_cases, play_fixture
+from tests.test_websocket_hooks import play_failure_cases, play_fixture, play_symbol_failure_cases
 
 
 class WebSocketDashboardTest(unittest.TestCase):
@@ -308,6 +308,164 @@ class WebSocketDashboardTest(unittest.TestCase):
             "WEBSOCKET_TRANSPORT_SENTINEL",
             "WS_FAILURE_OUTPUT_SENTINEL",
         ):
+            self.assertNotIn(sentinel, log_text)
+
+    def test_symbolic_failures_are_private_across_dashboard_surfaces(self) -> None:
+        conn, response, initial = self._open_events()
+        self.assertEqual(initial["type"], "snapshot")
+        self.assertEqual(initial["recs"], [])
+
+        try:
+            cases = play_symbol_failure_cases()
+            expected_ids = {rid for _flow, rid in cases.values()}
+            terminal: dict[int, dict] = {}
+            while set(terminal) != expected_ids:
+                event = self._read_event(response)
+                rec = event.get("rec", {})
+                if (
+                    event.get("type") == "record"
+                    and rec.get("id") in expected_ids
+                    and rec.get("state") == "error"
+                ):
+                    terminal[rec["id"]] = event
+        finally:
+            response.close()
+            conn.close()
+            self._release_subscribers()
+
+        wire_ids = (
+            "WS_WIRE_RESPONSE_ID_SAME_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_SAME_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_C_SECRET",
+        )
+        details: dict[str, dict] = {}
+        sanitized_diagnostics: dict[str, dict] = {}
+        for name, (_flow, rid) in cases.items():
+            with self.subTest(case=name):
+                event = terminal[rid]
+                light = event["rec"]
+                self.assertEqual(light["state"], "error")
+                self.assertEqual(
+                    light["notes"], ["captura WebSocket interrumpida: peticiones solapadas"]
+                )
+                self.assertNotIn("ws_diagnostic", light)
+                self.assertNotIn("id_symbol", json.dumps(event))
+                self.assertFalse(any(sentinel in json.dumps(event) for sentinel in wire_ids))
+
+                status, payload = self._request(f"/api/record/{rid}")
+                self.assertEqual(status, 200)
+                detail = json.loads(payload)
+                details[name] = detail
+                self.assertEqual(detail["state"], "error")
+                self.assertEqual(detail["status"], 101)
+                self.assertEqual(detail["notes"], light["notes"])
+                self.assertIn("model", detail)  # Normal record fields are not diagnostic leaks.
+                self.assertNotIn("usage", detail)
+                self.assertNotIn("cost", detail)
+                self.assertNotIn("cost_missing", detail)
+                diagnostic = detail["ws_diagnostic"]
+                symbols = [
+                    step.get("id_symbol")
+                    for step in diagnostic["events"]
+                    if step["direction"] == "server"
+                ]
+                self.assertEqual(symbols, [1, 2, 2] if name == "other_same" else [1, 2, 3])
+                detail_text = payload.decode("utf-8")
+                for sentinel in wire_ids:
+                    self.assertNotIn(sentinel, detail_text)
+
+                with self.assertRaises(runner.RunnerError) as raised:
+                    runner.decode_completed_record(detail, rid)
+                failure_text = str(raised.exception)
+                prefix = "the WebSocket record did not complete successfully; diagnostic="
+                self.assertTrue(failure_text.startswith(prefix))
+                failure = json.loads(failure_text[len(prefix) :])
+                self.assertEqual(
+                    set(failure),
+                    {"transport", "status", "state", "verdict", "reason", "ws_diagnostic"},
+                )
+                self.assertEqual(failure["reason"], "overlap")
+                self.assertEqual(failure["ws_diagnostic"], diagnostic)
+                sanitized_diagnostics[name] = failure["ws_diagnostic"]
+                allowed_step_keys = {
+                    "direction",
+                    "event",
+                    "action",
+                    "identified",
+                    "id_relation",
+                    "generate",
+                    "incremental",
+                    "id_symbol",
+                }
+                for step in failure["ws_diagnostic"]["events"]:
+                    self.assertLessEqual(set(step), allowed_step_keys)
+                    if step["direction"] == "server" and "id_symbol" in step:
+                        self.assertIs(type(step["id_symbol"]), int)
+                        self.assertGreaterEqual(step["id_symbol"], 1)
+                        self.assertLessEqual(step["id_symbol"], 32)
+                    else:
+                        self.assertNotIn("id_symbol", step)
+                for sentinel in wire_ids:
+                    self.assertNotIn(sentinel, failure_text)
+
+                status, payload = self._request(f"/api/body/{rid}")
+                self.assertEqual(status, 200)
+                body = json.loads(payload)
+                self.assertNotIn("headers", body)
+                self.assertNotIn("ws_diagnostic", body)
+                body_text = payload.decode("utf-8")
+                for sentinel in wire_ids:
+                    self.assertNotIn(sentinel, body_text)
+
+        same = json.loads(json.dumps(details["other_same"]["ws_diagnostic"]))
+        different = json.loads(json.dumps(details["other_different"]["ws_diagnostic"]))
+        for diagnostic in (same, different):
+            for step in diagnostic["events"]:
+                step.pop("id_symbol", None)
+        self.assertEqual(same, different)
+        self.assertEqual(
+            sanitized_diagnostics["other_same"]["events"],
+            details["other_same"]["ws_diagnostic"]["events"],
+        )
+        self.assertEqual(
+            sanitized_diagnostics["other_different"]["events"],
+            details["other_different"]["ws_diagnostic"]["events"],
+        )
+
+        _snapshot_conn, _snapshot_response, snapshot = self._open_events()
+        try:
+            self.assertEqual(snapshot["type"], "snapshot")
+            snapshot_rows = {row["id"]: row for row in snapshot["recs"]}
+            self.assertEqual(set(snapshot_rows), expected_ids)
+            snapshot_text = json.dumps(snapshot)
+            self.assertNotIn("ws_diagnostic", snapshot_text)
+            self.assertNotIn("id_symbol", snapshot_text)
+            for sentinel in wire_ids:
+                self.assertNotIn(sentinel, snapshot_text)
+            for rid in expected_ids:
+                self.assertEqual(snapshot_rows[rid]["state"], "error")
+                self.assertEqual(
+                    snapshot_rows[rid]["notes"],
+                    ["captura WebSocket interrumpida: peticiones solapadas"],
+                )
+        finally:
+            _snapshot_response.close()
+            _snapshot_conn.close()
+            self._release_subscribers()
+
+        with store.LOCK:
+            self.assertFalse(store.ACTIVE_CAPTURES)
+            self.assertEqual(store.CONV_TOTALS, {})
+            for rid in expected_ids:
+                self.assertNotIn("usage", store.RECORDS[rid])
+                self.assertNotIn("cost", store.RECORDS[rid])
+                self.assertNotIn("cost_missing", store.RECORDS[rid])
+
+        log_text = self.log_path.read_text(encoding="utf-8") if self.log_path.exists() else ""
+        self.assertEqual(log_text, "")
+        for sentinel in ("ws_diagnostic", "output", *wire_ids):
             self.assertNotIn(sentinel, log_text)
 
 

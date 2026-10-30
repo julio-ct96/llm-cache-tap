@@ -271,6 +271,67 @@ def play_failure_cases() -> tuple[mitmproxy.http.HTTPFlow, int, mitmproxy.http.H
     return overlap, overlap_rid, closed, close_rid
 
 
+def play_symbol_failure_cases() -> dict[str, tuple[mitmproxy.http.HTTPFlow, int]]:
+    """Generate matching hook failures whose server IDs differ only by equality."""
+    cases = {
+        "other_same": (
+            "WS_WIRE_RESPONSE_ID_SAME_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_SAME_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_SAME_B_SECRET",
+        ),
+        "other_different": (
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_C_SECRET",
+        ),
+    }
+    results: dict[str, tuple[mitmproxy.http.HTTPFlow, int]] = {}
+    for case_index, (name, response_ids) in enumerate(cases.items()):
+        with store.LOCK:
+            before = set(store.RECORDS)
+        flow = _flow()
+        tap.websocket_start(flow)
+        try:
+            _message(
+                flow,
+                from_client=True,
+                payload={"type": "response.create", "model": _MODEL, "input": "synthetic"},
+                timestamp=170.0 + case_index,
+            )
+            for event_index, (event_type, response_id) in enumerate(
+                zip(("created", "in_progress", "completed"), response_ids, strict=True),
+                start=1,
+            ):
+                _message(
+                    flow,
+                    from_client=False,
+                    payload={
+                        "type": f"response.{event_type}",
+                        "response": {"id": response_id, "model": _MODEL},
+                    },
+                    timestamp=170.0 + case_index + event_index / 10,
+                )
+            _message(
+                flow,
+                from_client=True,
+                payload={
+                    "type": "response.create",
+                    "model": _MODEL,
+                    "input": "synthetic overlap trigger",
+                },
+                timestamp=170.5 + case_index,
+            )
+        finally:
+            tap.websocket_end(flow)
+
+        with store.LOCK:
+            created = set(store.RECORDS) - before
+        if len(created) != 1:
+            raise AssertionError(f"{name} created {len(created)} records, expected one")
+        results[name] = (flow, created.pop())
+    return results
+
+
 class WebSocketHookTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -624,6 +685,59 @@ class WebSocketHookTest(unittest.TestCase):
             "synthetic-previous-response-id",
             "WS_FAILURE_OUTPUT_SENTINEL",
             _REQUEST_SENTINEL,
+        ):
+            self.assertNotIn(sentinel, rendered)
+
+    def test_symbolic_equality_distinguishes_failure_diagnostics_without_mutating_messages(
+        self,
+    ) -> None:
+        cases = play_symbol_failure_cases()
+        with store.LOCK:
+            records = {
+                name: copy.deepcopy(store.RECORDS[rid]) for name, (_flow, rid) in cases.items()
+            }
+            self.assertFalse(store.ACTIVE_CAPTURES)
+            self.assertEqual(store.CONV_TOTALS, {})
+
+        diagnostics = {name: rec["ws_diagnostic"] for name, rec in records.items()}
+        for rec in records.values():
+            self.assertEqual(rec["state"], "error")
+            self.assertNotIn("usage", rec)
+            self.assertNotIn("cost", rec)
+            self.assertNotIn("cost_missing", rec)
+
+        same = copy.deepcopy(diagnostics["other_same"])
+        different = copy.deepcopy(diagnostics["other_different"])
+        for diagnostic in (same, different):
+            for event in diagnostic["events"]:
+                event.pop("id_symbol", None)
+        self.assertEqual(same, different)
+
+        same_symbols = [
+            event.get("id_symbol")
+            for event in diagnostics["other_same"]["events"]
+            if event["direction"] == "server"
+        ]
+        different_symbols = [
+            event.get("id_symbol")
+            for event in diagnostics["other_different"]["events"]
+            if event["direction"] == "server"
+        ]
+        self.assertEqual(same_symbols, [1, 2, 2])
+        self.assertEqual(different_symbols, [1, 2, 3])
+        self.assertEqual(
+            [event["action"] for event in diagnostics["other_same"]["events"]],
+            [event["action"] for event in diagnostics["other_different"]["events"]],
+        )
+        self.assertNotEqual(diagnostics["other_same"], diagnostics["other_different"])
+
+        rendered = json.dumps(diagnostics)
+        for sentinel in (
+            "WS_WIRE_RESPONSE_ID_SAME_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_SAME_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_A_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_B_SECRET",
+            "WS_WIRE_RESPONSE_ID_DIFFERENT_C_SECRET",
         ):
             self.assertNotIn(sentinel, rendered)
 
