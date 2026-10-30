@@ -39,7 +39,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 2.04 | Errores, límites y desincronización | [2.04](fase-2/2.04-errores-y-limites.md) | 2.03 | terminada con commit | Auditada: error sin ID y fallo de log corregidos; CHECK: 339 Python y 20 JS; golden intacto |
 | 2.05 | Cablear hooks mitmproxy | [2.05](fase-2/2.05-hooks-mitmproxy.md) | 2.04 | terminada con commit | Auditado: fixture acordado, host/ruta y no-mutación; CHECK: 349 Python y 20 JS; golden intacto |
 | 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | terminada con commit | Auditada; fixture generado por hooks; 350 Python y 20 JS; FULL/C34 repetido; golden intacto |
-| 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | pendiente | Prepararlo no llama al modelo |
+| 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | terminada con commit | Auditado contra contratos reales; COLD, métricas y cleanup cubiertos; mypy y FULL OK; 370 Python y 20 JS; sin cuota |
 | 3.02 | Documentar soporte y límites | [3.02](fase-3/3.02-documentacion.md) | 2.06 | terminada con commit | Documentación auditada; default READY, status y límites precisados; cambio previo AGENTS preservado |
 | 3.03 | Una comprobación real barata | [3.03](fase-3/3.03-verificacion-real.md) | 3.01 | pendiente | Optativa; requiere autorización vigente y acceso; nunca reintenta |
 
