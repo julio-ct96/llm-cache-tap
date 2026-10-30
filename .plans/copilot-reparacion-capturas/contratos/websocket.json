@@ -1,0 +1,11 @@
+{
+  "status": "pendiente",
+  "approved": false,
+  "sources": [],
+  "decision": null,
+  "unknowns": [
+    "Whether in_progress and completed carry the same alternative ID",
+    "Whether a field links the created ID to the later response ID",
+    "Which deterministic rule distinguishes a valid transition from a foreign terminal"
+  ]
+}

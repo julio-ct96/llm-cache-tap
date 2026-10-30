@@ -1,0 +1,11 @@
+{
+  "status": "pendiente",
+  "approved": false,
+  "sources": [],
+  "decision": null,
+  "unknowns": [
+    "Which exact field failed strict decoding for Gemini and Grok",
+    "Which missing or null fields are valid in CLI 1.0.105",
+    "The rejected raw usage files were deleted; panel usage does not reconstruct them"
+  ]
+}

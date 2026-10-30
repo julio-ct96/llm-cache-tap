@@ -1,0 +1,9 @@
+{
+  "status": "pendiente",
+  "approved": false,
+  "sources": [],
+  "decision": null,
+  "unknowns": [
+    "Official GitHub Copilot tariff for gemini-4-argon, including cache and context tiers"
+  ]
+}
