@@ -1,0 +1,12 @@
+{
+  "fixture": "tests/fixtures/copilot_responses_ws.json",
+  "cases": [
+    {"name": "sequential", "steps": ["create", "created", "completed", "create"], "states": ["done", "streaming"], "verdicts": ["PARTIAL", null], "reserved": 1, "disabled": false, "error_note": null},
+    {"name": "create_before_created", "steps": ["create", "create"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "captura WebSocket interrumpida: peticiones solapadas"},
+    {"name": "created_then_create", "steps": ["create", "created", "create"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "captura WebSocket interrumpida: peticiones solapadas"},
+    {"name": "completed_without_created", "steps": ["create", "completed", "create"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "captura WebSocket interrumpida: peticiones solapadas"},
+    {"name": "mismatched_completed", "steps": ["create", "created", "wrong_completed", "create"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "captura WebSocket interrumpida: peticiones solapadas"},
+    {"name": "generate_false_then_create", "steps": ["create_generate_false", "create"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "captura WebSocket interrumpida: peticiones solapadas"},
+    {"name": "close_before_completed", "steps": ["create", "created", "close"], "states": ["error"], "verdicts": ["ERR"], "reserved": 0, "disabled": true, "error_note": "conexión WebSocket cerrada antes de completar la respuesta"}
+  ]
+}
