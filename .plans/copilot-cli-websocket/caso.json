@@ -1,0 +1,51 @@
+{
+  "host": "api.business.githubcopilot.com",
+  "path": "/responses",
+  "client": {
+    "type": "response.create",
+    "model": "gpt-6-luna",
+    "input": [
+      {"role": "system", "content": [{"type": "input_text", "text": "Eres un asistente de pruebas."}]},
+      {"role": "user", "content": [{"type": "input_text", "text": "hola"}]}
+    ],
+    "tools": [],
+    "reasoning": {"effort": "medium"},
+    "headers": {"Authorization": "SYNTHETIC_SECRET_DO_NOT_STORE"}
+  },
+  "server": [
+    {"type": "response.created", "response": {"id": "resp_ws_1", "model": "gpt-6-luna"}, "headers": {"Authorization": "SYNTHETIC_SECRET_DO_NOT_STORE"}},
+    {"type": "response.output_text.delta", "delta": "Hola"},
+    {"type": "response.output_text.delta", "delta": " mundo"},
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_ws_1",
+        "model": "gpt-6-luna",
+        "usage": {
+          "input_tokens": 13293,
+          "input_tokens_details": {
+            "cache_write_tokens": 4286,
+            "cache_write_tokens_details": {"ttl_12h_tokens": 0, "ttl_30m_tokens": 4286},
+            "cached_tokens": 9004
+          },
+          "output_tokens": 36,
+          "output_tokens_details": {"reasoning_tokens": 21},
+          "total_tokens": 13329
+        }
+      },
+      "headers": {"Authorization": "SYNTHETIC_SECRET_DO_NOT_STORE"},
+      "copilot_usage": {"not_for_storage": "SYNTHETIC_SECRET_DO_NOT_STORE"}
+    }
+  ],
+  "expected": {
+    "model": "gpt-6-luna",
+    "usage": {"read": 9004, "write": 4286, "uncached": 3, "input_total": 13293, "output": 36, "reasoning": 21},
+    "output": "Hola mundo",
+    "verdict": "PARTIAL",
+    "ttl_s": 1800,
+    "tariff": "Copilot",
+    "usd": 0.00064409,
+    "no_cache_usd": 0.0013473,
+    "saved_usd": 0.00070321
+  }
+}
