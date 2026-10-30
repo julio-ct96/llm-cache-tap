@@ -16,7 +16,7 @@ Lee este fichero, tu tarea y solo la sección de `contrato.md` citada por tu tar
 - No persistir IDs, hashes ni contenido crudo. Los símbolos se usan solo como diagnóstico; no alteran atribución ni proyección.
 - Preserva validación estricta. `run_real` y su ciclo operativo no se modifican, excepto propagar/publicar el diagnóstico allowlisted de usage.
 - No modificar precios, coste, `cost_missing`, `approved=false`, proveedores, UI, golden, planes previos o los ficheros protegidos del checkout.
-- La tarea 1.04 queda bloqueada: no escribir una receta real ni leer la ruta privada de harness. El usuario/orquestador decide y ejecuta después de auditarla.
+- La tarea 1.04 queda bloqueada hasta auditar 1.04a. Su ficha contiene la receta operativa exclusiva del orquestador; ningún agente offline la ejecuta ni lee la evidencia privada fuera de su permiso acotado.
 - No `git add`, `commit`, `push` ni `stash`.
 
 ## Al cerrar

@@ -1,6 +1,6 @@
-# Reserva real: PENDIENTE / BLOQUEADA
+# Activación real: receta preparada, pendiente de auditoría del harness
 
-**Estado:** PENDIENTE y BLOQUEADA hasta que usuario/orquestador revise y publique la receta exacta. Los hechos de inventario read-only indicados aquí fueron aportados por el usuario y se dan por válidos; esta tarea no lee `data/`, panel, cuerpos, JSONL ni binarios.
+**Estado:** receta exacta del orquestador en la ficha 1.04; activación bloqueada hasta auditar 1.04a y repetir preflight. El inventario siguiente es histórico y no sustituye su comprobación inmediata antes de actuar. El permiso real del usuario incluye backup/recarga/pruebas low, no una reparación sin evidencia.
 
 ## Inventario aportado
 
@@ -12,12 +12,12 @@
 - Candidato de harness: `data/model-checks/20261030-194813-low-dt3k5lzg`, solo tras revisión del orquestador. Alternativa manual equivalente: razonamiento low, modelos explícitos Terra/MAI/Gemini/Grok/Opus, saludos `hola`/`que tal`/`buenas`, conservar prompts/stdout/usage/API, sin bucle de retries.
 - La ausencia de retry en harness no prueba ausencia de retries internos del CLI; declarar el límite y verificar request counts.
 
-## Bloqueos
+## Puertas de activación
 
-1. **Backup:** falta receta auditada para recopilar/relacionar snapshot inicial y final, detalle y body de cada fila, JSONL y manifest/hash/estabilidad, con fallo ante detalles ausentes o cambio durante best-effort no atómico.
-2. **Fast-forward:** falta receta auditada de verificación ancestry, fast-forward-only y comprobación de diff posterior. No avanzar `main` desde este plan.
-3. **Activación:** el proceso/puertos están inventariados, pero falta receta exacta para activar sin interrupción ni pérdida de estado. No tocar PID 73039, checkout original, `tap.py`, puertos, `start.sh` ni procesos.
-4. **Prueba real:** falta revisión del harness privado o receta manual equivalente y su captura verificable de request counts/modelos/prompts/usage/API/stdout. No abrir el harness ni ejecutar llamadas en esta fase.
+1. **Backup:** export completo inicial verificado; debe seguir coincidiendo con el estado actual al activar o repetirse. No es atómico. La recarga vacía la memoria del panel; sus datos permanecen en el backup, no se reimportan.
+2. **Fast-forward:** receta fijada en 1.04; requiere ancestry, cero overlap con cambios locales y huellas posteriores iguales. Sin stash/reset.
+3. **Activación:** solo recarga nativa por mtime de `tap.py`, sin cambiar contenido ni reiniciar procesos, tras verificar inventario actual y ausencia de capturas activas.
+4. **Prueba real:** falta auditar el harness de 1.04a y sus comprobaciones offline. No inferencias antes de cerrar esa puerta.
 
 El orquestador lleva las decisiones y la ejecución real autorizadas por el usuario. Las tareas offline no leen `data/`; el acceso operativo requiere su receta auditada. No hay autorización aquí para inventar tarifa, correlación o protocolo.
 
