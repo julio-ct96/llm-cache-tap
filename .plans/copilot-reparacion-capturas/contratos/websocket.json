@@ -1,11 +1,50 @@
 {
-  "status": "pendiente",
+  "status": "insuficiente",
   "approved": false,
-  "sources": [],
-  "decision": null,
+  "sources": [
+    {
+      "location": "evidencia.md, sección WebSocket: qué sabemos y qué no; casos.json; tests/test_websocket_repair.py::test_six_synthetic_sequences_match_the_ambiguity_matrix",
+      "version": "Evidencia local; pruebas sintéticas offline actuales",
+      "claim": "Los escenarios artificiales A→B→B y A→B→C tienen el mismo diagnóstico guardado; los tests solo verifican las decisiones actuales sobre fixtures sintéticos.",
+      "limitation": "No se guardaron IDs ni enlaces de los mensajes originales y los fixtures no son eventos de red recuperados; no prueban igualdad ni pertenencia a response.create."
+    },
+    {
+      "location": "cachetap/websocket.py::_project_response, project_event, Session._process_server_message, Session._projected_response_id",
+      "version": "Implementación local actual",
+      "claim": "La proyección conserva response.id si es string para created/in_progress/completed; response_id de nivel superior solo se proyecta en delta y terminales de error. response.completed solo finaliza con un ID coincidente con el activo; los eventos normales con un ID explícito distinto se ignoran. Una vez asociado el activo, los deltas sin response_id y response.in_progress sin ID conservan su tratamiento actual.",
+      "limitation": "Describe el inspector local, no especifica qué campos o transición emite el gateway de Copilot CLI 1.0.105."
+    },
+    {
+      "location": ".plans/copilot-cli-websocket/protocolo.md, secciones Evidencia del 30 de octubre de 2026 y Estado por conexión y límites",
+      "version": "Observaciones locales sobre Copilot CLI 1.0.105",
+      "claim": "La evidencia guardada describe response.created con response.id, deltas y response.completed con usage; el contrato local exige asociación en created y rechazo de IDs diferentes, terminales anteriores y solapamientos ambiguos.",
+      "limitation": "El registro anonimizado no conserva la relación de IDs de in_progress/completed ni un vínculo explícito entre un ID alternativo y el create activo."
+    },
+    {
+      "location": "https://platform.openai.com/docs/api-reference/responses-streaming/response/in_progress?lang=curl, sección Create a model response y ejemplo de eventos",
+      "version": "Documentación viva de OpenAI Responses API, sin versión de protocolo fijada; consultada 2026-10-30",
+      "claim": "El ejemplo público muestra response.created y response.in_progress con el mismo response.id.",
+      "limitation": "Es un ejemplo de OpenAI, no una regla normativa de igualdad ni una especificación del gateway de Copilot CLI; no demuestra la identidad del create de Copilot."
+    },
+    {
+      "location": "https://platform.openai.com/docs/guides/websocket-mode.md, secciones Connect and create responses y Run conversations in parallel",
+      "version": "Documentación viva de OpenAI Responses WebSocket, sin versión fijada; consultada 2026-10-30",
+      "claim": "OpenAI documenta stream_id como carril de correlación en su Responses WebSocket y advierte que eventos de carriles distintos pueden intercalarse.",
+      "limitation": "No acredita que Copilot CLI use o reenvíe stream_id, ni permite transferir esa regla al gateway observado."
+    },
+    {
+      "location": "https://github.com/github/copilot-cli/releases/tag/v1.0.105 (sección 1.0.105 > Assets) y https://github.com/github/copilot-cli/tree/v1.0.105 (árbol del tag)",
+      "version": "GitHub Copilot CLI v1.0.105, tag publicado el 2026-10-27",
+      "claim": "La publicación oficial ofrece archivos Source code (zip/tar.gz); el árbol público del tag muestra .github, LICENSE.md, README.md, changelog.md e install.sh.",
+      "limitation": "El árbol público consultado no expone implementación del cliente/runtime ni una sección que especifique la correlación de eventos; el artefacto no acredita la regla de IDs requerida."
+    }
+  ],
+  "decision": "insuficiente: no hay regla documentada y específica de Copilot CLI 1.0.105 que vincule un ID alternativo de in_progress/completed con el response.create activo; para finalizar con response.completed se mantiene la igualdad exacta del ID activo. No cambiar la proyección ni inferir una política nueva para deltas o errores.",
   "unknowns": [
-    "Whether in_progress and completed carry the same alternative ID",
-    "Whether a field links the created ID to the later response ID",
-    "Which deterministic rule distinguishes a valid transition from a foreign terminal"
+    "Si response.in_progress y response.completed comparten entre sí el mismo ID alternativo en Copilot CLI 1.0.105.",
+    "Qué campo o transición vincula inequívocamente ese ID con el response.create activo, incluso si hay terminal tardío o IDs contradictorios.",
+    "Qué regla negativa distingue una transición válida de un terminal ajeno sin mezclar usage ni texto cuando hay A/B/C, terminal tardío o solapamiento.",
+    "La ruta exacta y validación de cualquier campo alternativo que justificaría ampliar la proyección sin copiar el sobre completo.",
+    "Observación estructural mínima pendiente: una especificación oficial versionada del gateway o una traza estructural sanitizada y atribuible a 1.0.105 que conserve solo tipo, relaciones simbólicas de IDs por evento y vínculo por create, incluyendo orden tardío/contradictorio; sin IDs reales, cabeceras ni cuerpos. No se autoriza instrumentarla desde esta tarea."
   ]
 }

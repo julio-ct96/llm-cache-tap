@@ -2,7 +2,7 @@
 
 Objetivo: corregir las falsas capturas WebSocket fallidas, admitir uso CLI válido y cubrir la tarifa Copilot ausente, sin mezclar respuestas, inventar contadores/precios ni alterar el tráfico.
 
-**Estado: fase 1 autorizada con Luna; preparando ejecución aislada.** Las fichas de reparación de fase 2 son **reservas bloqueadas**, no instrucciones para que Luna invente la solución: faltan una regla de IDs demostrada, el esquema pertinente de uso y la tarifa oficial. Deben sustituirse por recetas cerradas tras la evidencia y la confirmación de la fase siguiente. La activación necesita permiso posterior independiente.
+**Estado: fase 1 terminada con Luna y auditada; parada antes de fase 2.** Se publicaron las regresiones y los tres contratos de investigación. Las tres puertas siguen en `insuficiente`/`approved=false`: no se ha aplicado ninguna reparación de producción. Las reservas de fase 2 necesitan evidencia suficiente, recetas cerradas y confirmación de la fase siguiente. La activación necesita permiso posterior independiente.
 
 ## Cómo se ejecuta
 
@@ -17,7 +17,7 @@ Objetivo: corregir las falsas capturas WebSocket fallidas, admitir uso CLI váli
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
 | 1.01 | Red de seguridad WebSocket | [1.01](fase-1/1.01-regresiones-websocket.md) | — | terminada con commit | Seis secuencias auditadas; acumulados y coste comprobados explícitamente; ninguna reparación de producción |
-| 1.02 | Contrato seguro de correlación | [1.02](fase-1/1.02-contrato-ids.md) | 1.01 | pendiente | Puede concluir evidencia insuficiente; no debilita la correlación |
+| 1.02 | Contrato seguro de correlación | [1.02](fase-1/1.02-contrato-ids.md) | 1.01 | terminada con commit | Insuficiente tras auditoría: la traza y las fuentes públicas no vinculan el ID alternativo al create; sin cambios de correlación |
 | 1.03 | Contrato y seguridad del uso CLI | [1.03](fase-1/1.03-contrato-uso-cli.md) | — | terminada con commit | Cinco tests sintéticos auditados y fuentes SDK ancladas; el formato del temporal y la causa histórica siguen sin acreditarse |
 | 1.04 | Fuente oficial para Argon | [1.04](fase-1/1.04-verificar-tarifa.md) | — | terminada con commit | Tarifas promocionales y tier de contexto auditados al 2026-10-30; escritura no acreditada, approved=false y cost_missing conservados |
 | 2.01 | Reparación WebSocket | [2.01](fase-2/2.01-correlacion-websocket.md) | 1.02 | bloqueada | Falta contrato aprobado y sustitución de la reserva por una receta exacta |
@@ -58,3 +58,13 @@ Objetivo: corregir las falsas capturas WebSocket fallidas, admitir uso CLI váli
 ## Comprobación reproducible
 
 Ejecuta `venv/bin/python .plans/copilot-reparacion-capturas/check_plan.py --baseline --evidence` desde la raíz. Comprueba índice/ficheros/dependencias, huellas, la base sintética y los 16 ficheros locales; no usa el panel ni proveedores. En otro checkout sin evidencia local, omite `--evidence`. Tras una reparación aprobada, omite también `--baseline`, que caracteriza el comportamiento anterior.
+
+## Cierre de fase 1
+
+- Plan publicado por separado: `697f091`. Regresiones WebSocket: `86f2f34`. Investigación de precios: `4398a61`. Contrato/test de uso CLI: `afa4405`. La investigación WebSocket y este cierre se publican juntos en el commit de 1.02.
+- Los cuatro trabajos los ejecutó GPT-6 Luna; el orquestador auditó tests, fuentes y diferencias y devolvió ajustes al mismo agente antes de aceptar cada entrega. Se comprobaron acumulados de coste explícitos, límites de vigencia de precios y procedencia SDK sin equiparar tags a binarios.
+- FULL pasó en el checkout con cambios preservados: 398 tests Python, 20 JS y Chrome completo incluida C34. En export limpio de los commits publicables pasó con 397 Python, 20 JS y Chrome completo. La diferencia es el test de precios previo del usuario, no una prueba nueva omitida.
+- RUNNER-TYPES, Ruff y formato de los tests nuevos/runner/verificador, PLAN-CHECK y BASELINE pasaron. Las diez huellas protegidas y los dieciséis ficheros de evidencia original se verificaron intactos. Las tres puertas permanecen bloqueadas de forma intencional.
+- Incidencia de verificación del orquestador: dos FULL simultáneos compitieron por el puerto de replay 8901. El export limpio se repitió secuencialmente y pasó; no se detuvo ningún proceso del usuario. Los FULL no se deben paralelizar entre sí.
+- Ningún fichero de runtime, precios, UI, arranque ni runner cambió en esta fase. No se copiaron CA/capturas al checkout aislado, no se enviaron prompts de prueba, no se recargó el inspector y no se reetiquetó la prueba histórica de Auto.
+- Siguiente decisión pendiente de autorización: preparar una adquisición estructural mínima que conserve relaciones simbólicas entre IDs y el motivo/campo cerrado de los rechazos del uso CLI, sin IDs reales, cuerpos ni credenciales. Desarrollarla offline no equivale a autorizar su activación o una llamada pagada. También sigue pendiente acreditar la semántica de escritura de caché de Argon. No se desbloquea ninguna reparación por presentar esta propuesta.
