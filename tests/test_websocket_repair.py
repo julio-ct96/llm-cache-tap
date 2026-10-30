@@ -92,7 +92,7 @@ class WebSocketRepairTests(unittest.TestCase):
         return session, self.records()
 
     def test_six_synthetic_sequences_match_the_ambiguity_matrix(self) -> None:
-        diagnostics: dict[str, object] = {}
+        diagnostics: dict[str, dict[str, Any]] = {}
 
         for case in self.fixture["cases"]:
             with self.subTest(case=case["name"]):
@@ -141,7 +141,34 @@ class WebSocketRepairTests(unittest.TestCase):
                     )
                     self.assertEqual(len(self.log_lines()), 1)
 
-        self.assertEqual(diagnostics["other_same"], diagnostics["other_different"])
+        same = diagnostics["other_same"]
+        different = diagnostics["other_different"]
+        same_without_symbols = copy.deepcopy(same)
+        different_without_symbols = copy.deepcopy(different)
+        for diagnostic in (same_without_symbols, different_without_symbols):
+            for event in diagnostic["events"]:
+                event.pop("id_symbol", None)
+
+        self.assertEqual(same_without_symbols, different_without_symbols)
+        self.assertEqual(
+            [step.get("id_symbol") for step in same["events"] if step["direction"] == "server"],
+            [1, 2, 2],
+        )
+        self.assertEqual(
+            [
+                step.get("id_symbol")
+                for step in different["events"]
+                if step["direction"] == "server"
+            ],
+            [1, 2, 3],
+        )
+        self.assertEqual(
+            [step["action"] for step in same["events"]],
+            [step["action"] for step in different["events"]],
+        )
+        self.assertNotEqual(same, different)
+        for sentinel in ("A", "B", "C"):
+            self.assertNotIn(sentinel, json.dumps([same, different]))
 
 
 if __name__ == "__main__":

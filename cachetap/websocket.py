@@ -60,6 +60,7 @@ _FAILURE_ERRORS = {
 _TERMINAL_ERRORS = frozenset(_FAILURE_ERRORS)
 _DIAGNOSTIC_EVENT_LIMIT = 32
 _DIAGNOSTIC_OMITTED_LIMIT = 255
+_DIAGNOSTIC_ID_SYMBOL_LIMIT = 32
 
 
 def _loads(content: bytes, utf8_error: str, json_error: str) -> Any:
@@ -255,6 +256,7 @@ class _ActiveCapture:
     diagnostic_events: deque[record.WebSocketDiagnosticStep] = field(
         default_factory=lambda: deque(maxlen=_DIAGNOSTIC_EVENT_LIMIT)
     )
+    id_symbols: dict[str, int] = field(default_factory=dict)
     diagnostic_truncated: bool = False
     omitted_server_events: int = 0
 
@@ -287,6 +289,7 @@ def _append_diagnostic_step(
     id_relation: record.WebSocketIdRelation | None = None,
     generate: record.WebSocketGenerate | None = None,
     incremental: bool | None = None,
+    id_symbol: int | None = None,
 ) -> None:
     step: record.WebSocketDiagnosticStep = {
         "direction": direction,
@@ -301,6 +304,8 @@ def _append_diagnostic_step(
         step["generate"] = generate
     if incremental is not None:
         step["incremental"] = incremental
+    if id_symbol is not None:
+        step["id_symbol"] = id_symbol
     if len(active.diagnostic_events) == _DIAGNOSTIC_EVENT_LIMIT:
         active.diagnostic_truncated = True
     active.diagnostic_events.append(step)
@@ -322,6 +327,7 @@ def _diagnostic_copy(active: _ActiveCapture) -> record.WebSocketDiagnostic:
 
 def _clear_diagnostic(active: _ActiveCapture) -> None:
     active.diagnostic_events.clear()
+    active.id_symbols.clear()
     active.diagnostic_truncated = False
     active.omitted_server_events = 0
 
@@ -333,9 +339,16 @@ def _append_server_diagnostic_step(
     *,
     identified: bool,
     id_relation: record.WebSocketIdRelation,
+    response_id: str | None = None,
 ) -> None:
     if event_type == "response.output_text.delta":
         return
+    id_symbol = None
+    if response_id is not None:
+        id_symbol = active.id_symbols.get(response_id)
+        if id_symbol is None and len(active.id_symbols) < _DIAGNOSTIC_ID_SYMBOL_LIMIT:
+            id_symbol = len(active.id_symbols) + 1
+            active.id_symbols[response_id] = id_symbol
     _append_diagnostic_step(
         active,
         "server",
@@ -343,6 +356,7 @@ def _append_server_diagnostic_step(
         action,
         identified=identified,
         id_relation=id_relation,
+        id_symbol=id_symbol,
     )
 
 
@@ -617,6 +631,7 @@ class Session:
                 "ignore_previous",
                 identified=identified_before,
                 id_relation=relation_before,
+                response_id=response_id,
             )
             return
 
@@ -632,6 +647,7 @@ class Session:
                     "ignore_other_id",
                     identified=identified_before,
                     id_relation=relation_before,
+                    response_id=response_id,
                 )
                 return
             _append_server_diagnostic_step(
@@ -640,6 +656,7 @@ class Session:
                 "fail",
                 identified=identified_before,
                 id_relation=relation_before,
+                response_id=response_id,
             )
             self._fail_active(active, _FAILURE_ERRORS[event_type], at)
             return
@@ -652,6 +669,7 @@ class Session:
                     "ignore_no_id",
                     identified=identified_before,
                     id_relation=relation_before,
+                    response_id=response_id,
                 )
                 return
             if active.response_id is not None and response_id != active.response_id:
@@ -661,6 +679,7 @@ class Session:
                     "ignore_other_id",
                     identified=identified_before,
                     id_relation=relation_before,
+                    response_id=response_id,
                 )
                 return
             active.response_id = response_id
@@ -671,6 +690,7 @@ class Session:
                 "ignore_no_id",
                 identified=identified_before,
                 id_relation=relation_before,
+                response_id=response_id,
             )
             return
         elif response_id is not None:
@@ -681,6 +701,7 @@ class Session:
                     "ignore_other_id",
                     identified=identified_before,
                     id_relation=relation_before,
+                    response_id=response_id,
                 )
                 return
 
@@ -692,6 +713,7 @@ class Session:
                     "ignore_no_id",
                     identified=identified_before,
                     id_relation=relation_before,
+                    response_id=response_id,
                 )
                 return
 
@@ -717,6 +739,7 @@ class Session:
             "finish" if event_type == "response.completed" else "observe",
             identified=identified_before,
             id_relation=relation_before,
+            response_id=response_id,
         )
         capture.feed(active.rid, active.state, b"data: " + data + b"\n\n", at=at)
         if active.state["limited"] is not None:

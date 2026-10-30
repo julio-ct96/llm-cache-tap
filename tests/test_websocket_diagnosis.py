@@ -127,6 +127,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                     "action": "observe",
                     "identified": False,
                     "id_relation": "unbound",
+                    "id_symbol": 1,
                 },
                 {
                     "direction": "client",
@@ -146,6 +147,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                     "action": "ignore_no_id",
                     "identified": False,
                     "id_relation": "unbound",
+                    "id_symbol": 1,
                 },
                 {
                     "direction": "client",
@@ -165,6 +167,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                     "action": "observe",
                     "identified": False,
                     "id_relation": "unbound",
+                    "id_symbol": 1,
                 },
                 {
                     "direction": "server",
@@ -172,6 +175,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                     "action": "ignore_other_id",
                     "identified": True,
                     "id_relation": "other",
+                    "id_symbol": 2,
                 },
                 {
                     "direction": "client",
@@ -203,6 +207,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                     "action": "observe",
                     "identified": False,
                     "id_relation": "unbound",
+                    "id_symbol": 1,
                 },
                 {
                     "direction": "local",
@@ -314,6 +319,8 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         client["headers"] = {"authorization": "HEADER_SECRET"}
         client["input"][0]["content"][0]["text"] = "INPUT_SECRET"
         session.client(self.encode(client), 1.0)
+        active = session._active
+        assert active is not None
         active_id = "ACTIVE_ID_SECRET"
         self.send_server_event(
             session,
@@ -378,6 +385,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                         "action": "observe",
                         "identified": False,
                         "id_relation": "unbound",
+                        "id_symbol": 1,
                     },
                     {
                         "direction": "server",
@@ -385,6 +393,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                         "action": "observe",
                         "identified": True,
                         "id_relation": "active",
+                        "id_symbol": 1,
                     },
                     {
                         "direction": "server",
@@ -392,6 +401,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                         "action": "fail",
                         "identified": True,
                         "id_relation": "active",
+                        "id_symbol": 1,
                     },
                 ],
                 "truncated": False,
@@ -410,6 +420,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
             "ERROR_SECRET",
         ):
             self.assertNotIn(sentinel, serialized)
+        self.assertEqual(active.id_symbols, {})
 
     def test_missing_and_previous_ids_are_only_relations(self) -> None:
         session = self.new_session()
@@ -421,6 +432,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         diagnostic = self.records()[0]["ws_diagnostic"]
         self.assertEqual(diagnostic["events"][1]["action"], "ignore_no_id")
         self.assertEqual(diagnostic["events"][1]["id_relation"], "missing")
+        self.assertNotIn("id_symbol", diagnostic["events"][1])
 
         adapter.reset(Path(self.tempdir.name) / "previous.jsonl")
         session = self.new_session()
@@ -452,6 +464,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         diagnostic = self.records()[1]["ws_diagnostic"]
         self.assertEqual(diagnostic["events"][1]["action"], "ignore_previous")
         self.assertEqual(diagnostic["events"][1]["id_relation"], "last")
+        self.assertEqual(diagnostic["events"][1]["id_symbol"], 1)
         self.assertNotIn("LAST_ID_SECRET", json.dumps(diagnostic))
 
     def test_invalid_messages_and_unexpected_projection_are_sanitized(self) -> None:
@@ -535,6 +548,53 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         self.assertNotIn("ws_diagnostic", rec)
         self.assertNotIn("LOG_SECRET", json.dumps(rec))
 
+    def test_id_symbols_are_bounded_stable_and_omitted_after_saturation(self) -> None:
+        session = self.new_session()
+        session.client(self.encode(self.fixture["client"]), 1.0)
+        assert session._active is not None
+        active = session._active
+
+        known_ids = {f"SYMBOL_ID_{index}": index for index in range(1, 33)}
+        self.send_server_event(
+            session,
+            {"type": "response.created", "response": {"id": "SYMBOL_ID_1"}},
+            2.0,
+        )
+        for index in range(2, 33):
+            self.send_server_event(
+                session,
+                {"type": "response.in_progress", "response": {"id": f"SYMBOL_ID_{index}"}},
+                2.0 + index,
+            )
+
+        self.assertEqual(active.id_symbols, known_ids)
+        self.assertEqual(set(active.id_symbols.values()), set(range(1, 33)))
+        for index in (33, 34, 33):
+            new_id = f"SYMBOL_ID_{index}"
+            self.send_server_event(
+                session,
+                {"type": "response.in_progress", "response": {"id": new_id}},
+                40.0 + index,
+            )
+            self.assertNotIn(new_id, active.id_symbols)
+            self.assertNotIn("id_symbol", active.diagnostic_events[-1])
+
+        self.send_server_event(
+            session,
+            {"type": "response.in_progress", "response": {"id": "SYMBOL_ID_32"}},
+            75.0,
+        )
+        self.assertEqual(active.diagnostic_events[-1]["id_symbol"], 32)
+        session.close(at=76.0)
+
+        diagnostic = self.records()[0]["ws_diagnostic"]
+        self.assertEqual(diagnostic["events"][-2]["id_symbol"], 32)
+        self.assertNotIn("id_symbol", diagnostic["events"][-3])
+        serialized = json.dumps(diagnostic)
+        for response_id in (*known_ids, "SYMBOL_ID_33", "SYMBOL_ID_34"):
+            self.assertNotIn(response_id, serialized)
+        self.assertEqual(active.id_symbols, {})
+
     def test_text_deltas_only_increment_omitted_count_across_ignored_branches(self) -> None:
         session = self.new_session()
         session.client(self.encode(self.fixture["client"]), 1.0)
@@ -559,6 +619,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
             {"type": "response.created", "response": {"id": active_id}},
             3.0,
         )
+        self.assertEqual(active.id_symbols, {active_id: 1})
         chunks_after_created = list(active.state["chunks"])
         self.send_server_event(
             session,
@@ -571,6 +632,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         )
         self.assertEqual(list(active.state["chunks"]), chunks_after_created)
         self.assertEqual(active.omitted_server_events, 2)
+        self.assertEqual(active.id_symbols, {active_id: 1})
 
         self.send_server_event(
             session,
@@ -598,6 +660,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
             [step["action"] for step in diagnostic["events"]], ["start", "observe", "fail"]
         )
         self.assertEqual(diagnostic["omitted_server_events"], 3)
+        self.assertEqual([step.get("id_symbol") for step in diagnostic["events"]], [None, 1, 1])
         allowed_events = {
             "response.create",
             "response.created",
@@ -622,6 +685,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
             "FAIL_AFTER_DELTAS_SECRET",
         ):
             self.assertNotIn(sentinel, serialized)
+        self.assertEqual(active.id_symbols, {})
 
     def test_success_releases_diagnostic_state_without_changing_result(self) -> None:
         session = self.new_session()
@@ -643,6 +707,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         )
         self.assertIsNone(session._active)
         self.assertEqual(list(active.diagnostic_events), [])
+        self.assertEqual(active.id_symbols, {})
         self.assertFalse(active.diagnostic_truncated)
         self.assertEqual(active.omitted_server_events, 0)
         self.assertEqual(active.server_bytes, sum(map(len, server_messages)))
@@ -667,6 +732,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         self.assertEqual(diagnostic["events"][-1]["event"], "close")
         self.assertNotIn(response_id, json.dumps(diagnostic))
         self.assertEqual(list(active.diagnostic_events), [])
+        self.assertEqual(active.id_symbols, {})
         self.assertFalse(active.diagnostic_truncated)
         self.assertEqual(active.omitted_server_events, 0)
         stored_before = self.records()[0]
@@ -714,6 +780,7 @@ class WebSocketDiagnosisTests(unittest.TestCase):
                 session.client(self.encode(self.fixture["client"]), 3.0)
                 self.assertEqual(self.records(), [])
                 self.assertEqual(list(active.diagnostic_events), [])
+                self.assertEqual(active.id_symbols, {})
                 self.assertFalse(active.diagnostic_truncated)
                 self.assertEqual(active.omitted_server_events, 0)
 
@@ -722,11 +789,18 @@ class WebSocketDiagnosisTests(unittest.TestCase):
         session.client(self.encode(self.fixture["client"]), 1.0)
         assert session._active is not None
         active = session._active
+        self.send_server_event(
+            session,
+            {"type": "response.created", "response": {"id": "LIMITED_ID_SECRET"}},
+            1.5,
+        )
+        self.assertEqual(active.id_symbols, {"LIMITED_ID_SECRET": 1})
         with patch.object(config, "MAX_RESPONSE_BYTES", 0):
-            session.server(b'{"type":"response.created"}', 2.0)
+            session.server(b'{"type":"response.in_progress"}', 2.0)
         limited = self.records()[0]
         self.assertEqual(limited["capture_limited"], "response_size")
         self.assertNotIn("ws_diagnostic", limited)
         self.assertEqual(list(active.diagnostic_events), [])
+        self.assertEqual(active.id_symbols, {})
         self.assertFalse(active.diagnostic_truncated)
         self.assertEqual(active.omitted_server_events, 0)

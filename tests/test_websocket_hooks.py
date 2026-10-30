@@ -562,6 +562,7 @@ class WebSocketHookTest(unittest.TestCase):
                         "action": "observe",
                         "identified": False,
                         "id_relation": "unbound",
+                        "id_symbol": 1,
                     },
                     {
                         "direction": "client",
@@ -600,6 +601,7 @@ class WebSocketHookTest(unittest.TestCase):
                         "action": "observe",
                         "identified": False,
                         "id_relation": "unbound",
+                        "id_symbol": 1,
                     },
                     {
                         "direction": "local",

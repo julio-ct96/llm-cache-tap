@@ -41,7 +41,8 @@ class RecordTest(unittest.TestCase):
             {"direction", "event", "action", "identified", "id_relation"},
         )
         self.assertEqual(
-            record.WebSocketDiagnosticStep.__optional_keys__, {"generate", "incremental"}
+            record.WebSocketDiagnosticStep.__optional_keys__,
+            {"id_symbol", "generate", "incremental"},
         )
         self.assertEqual(
             record.WebSocketDiagnostic.__required_keys__,

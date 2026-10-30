@@ -42,6 +42,7 @@ class WebSocketDiagnosticStep(TypedDict):
     action: Required[WebSocketAction]
     identified: Required[bool]
     id_relation: Required[WebSocketIdRelation]
+    id_symbol: NotRequired[int]
     generate: NotRequired[WebSocketGenerate]
     incremental: NotRequired[bool]
 
