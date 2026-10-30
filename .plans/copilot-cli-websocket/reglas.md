@@ -22,7 +22,7 @@ Lee estas reglas, el fichero de tu tarea y las secciones de `protocolo.md` que t
 
 ## Mientras trabajas
 
-- Toca solo los ficheros autorizados por tu tarea y tu fila del índice. No ejecutes otras tareas por iniciativa propia.
+- Toca solo los ficheros autorizados por tu tarea y tu fila del índice. La única excepción común es actualizar exclusivamente el mtime de `tap.py` tras cambios de `cachetap`, sin modificar su contenido si no está autorizado por tu tarea. No ejecutes otras tareas por iniciativa propia.
 - No hagas `git add`, `git commit`, `git stash`, resets ni descartes cambios.
 - Los imports de `cachetap` son de módulos y se usan con prefijo. Actualiza la tabla de dependencias y la lista de mypy cuando tu tarea añada un módulo.
 - Mantén los contratos `TypedDict`; los campos nuevos exclusivos de WebSocket no se añaden a los registros HTTP.
@@ -32,7 +32,7 @@ Lee estas reglas, el fichero de tu tarea y las secciones de `protocolo.md` que t
 - Todo acceso mutable a `store` se hace bajo `store.LOCK`. Logging, fichero y HTTP quedan fuera. `count_cost` se llama una sola vez por registro.
 - No cambies el mensaje, sus bytes, `dropped`, `injected` ni el historial WebSocket de mitmproxy. Las limitaciones del inspector no deben interrumpir al cliente.
 - No cambies precios, descuentos de Auto, reglas de otros proveedores, UI de producción ni añadas dependencias.
-- Tras modificar `cachetap`, guarda también `tap.py` o actualiza su mtime al cerrar la tarea, como exige `AGENTS.md`.
+- Tras modificar `cachetap`, actualiza el mtime de `tap.py` al cerrar la tarea, como exige `AGENTS.md`; esta operación sin cambios de contenido está expresamente autorizada aunque `tap.py` no figure en «Puedes tocar».
 
 ## Si algo no cuadra
 
