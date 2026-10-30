@@ -9,7 +9,9 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 
 | Fichero | Qué contiene |
 | --- | --- |
-| `tap.py` | Entrada del addon: hooks de mitmproxy y cableado de los módulos |
+| `tap.py` | Entrada del addon: hooks HTTP y hooks WebSocket (`websocket_start`, `websocket_message`, `websocket_end`), y cableado de los módulos |
+| `cachetap/capture.py` | Captura compartida: crear registros, reservar/limitar buffers, finalizar o fallar y liberar recursos |
+| `cachetap/websocket.py` | Sesiones Responses WebSocket: validar mensajes, proyectar eventos y correlacionar peticiones secuenciales |
 | `cachetap/__init__.py` | Marca el paquete interno del addon |
 | `cachetap/config.py` | Rutas, puertos y límites (TTL, MAX) |
 | `cachetap/record.py` | Contrato del registro de una petición y ayudas para exponerlo |
@@ -67,6 +69,8 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | añadir un proveedor | un fichero nuevo en `cachetap/providers/` con la misma interfaz que `anthropic.py`, y añadirlo a `PROVIDERS` |
 | cambiar cuándo es HIT, MISS o PARTIAL | `cachetap/verdict.py` |
 | cambiar cómo se empareja una petición con la anterior | `cachetap/linking.py` |
+| cambiar la captura compartida, sus límites o su finalización | `cachetap/capture.py` y el test correspondiente |
+| cambiar la inspección Responses WebSocket, sus proyecciones o el estado por conexión | `cachetap/websocket.py`, los hooks WebSocket de `tap.py` y sus tests |
 | añadir un campo al registro | `cachetap/record.py`, el hook de `tap.py` que lo rellena y `tests/replay/golden.json` |
 | añadir una columna a la lista | `ui/list.js`, `ui/index.html` y `ui/css/tables.css` |
 | cambiar el panel de detalle | `ui/detail.js` y `ui/css/detail.css` |
@@ -87,6 +91,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 ## Contratos y límites
 
 - `cachetap/record.py` define los contratos `TypedDict` del registro y eventos; `Record` se completa por fases (solo `id` es obligatorio) y usa `Literal` para estados/veredictos cerrados. `GET /api/record/<id>` entrega el registro sin claves internas; la lista/SSE omite campos pesados. `GET /api/body/<id>` entrega el cuerpo retenido. `GET /api/reference` sirve TTL/mínimos (`providers.reference`) y precios (`prices.reference`), `GET /events` emite snapshot y eventos, y `POST /api/clear` limpia.
+- Copilot CLI: `/auto` solo enruta y no se retiene; un `GET /responses` con respuesta `101` abre el WebSocket sin crear fila, y cada `response.create` aceptado crea una fila cuyo `status=101` es el código HTTP del handshake, no `Record.state` (por ejemplo, `done`). El campo opcional `transport="websocket"` solo aparece en esos registros; `context_partial=True` marca una petición con `previous_response_id`, que queda en `N/A` y no se enlaza como contexto completo, aunque `usage` y coste calculado puedan existir. Se elimina `headers` del sobre JSON de los mensajes retenidos y los eventos del servidor se reducen a proyecciones permitidas: no se conservan eventos crudos, contenido cifrado ni contenido de razonamiento de eventos del servidor; los contadores de tokens de razonamiento de `usage` sí pueden conservarse. Las peticiones solapadas, errores ambiguos o límites deshabilitan la inspección de esa conexión sin alterar el tráfico; reconectar crea una sesión nueva.
 - `cachetap/request_body.py` es la frontera de entrada JSON: JSON mal formado da objeto vacío para compatibilidad; raíz u opciones con formas inválidas producen `ValueError`, se registran como petición no inspeccionable y no se inspeccionan.
 - Coste: `cost` solo existe si hay `usage` y precio conocido; si falta el precio queda `cost_missing` con el motivo y nunca se estima. La tarifa la decide `prices.lookup` por el host (`githubcopilot.com` → Copilot, sin recurrir a la lista; el resto, precio de lista del proveedor del modelo) y los nombres de modelo se comparan en forma canónica (`prices.base.canonical`). `cachetap/providers/` no sabe de precios: solo lee del usage lo escrito en caché. Pasado el umbral de contexto largo toda la petición paga la tarifa larga. `lost_usd` solo aparece en MISS/PARTIAL con `usage` en la petición anterior. Los importes se redondean a 8 decimales.
 - `store.CONV_TOTALS` acumula el coste por conversación al terminar cada petición (`count_cost`, una vez por registro); sobrevive al desalojo de sus peticiones, se borra cuando no queda ninguna de la conversación y con `clear`. Viaja en `convs` del snapshot y de cada evento `record`.

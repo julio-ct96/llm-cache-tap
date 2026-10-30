@@ -2,7 +2,7 @@
 
 Objetivo: reconocer la inferencia Responses WebSocket que usa Copilot CLI y mostrar cada petición en el inspector con modelo, tokens, caché y coste por las tablas existentes. Mantener sin cambios el comportamiento HTTP, los datos del usuario y el replay histórico.
 
-**Fases 1 y 2 terminadas; fase 3 pendiente de confirmación.** El soporte WebSocket está conectado y verificado con tráfico sintético, API y Chrome. La comprobación real económica y la documentación final siguen pendientes.
+**Fases 1 y 2 terminadas; fase 3 en ejecución.** El soporte WebSocket está conectado y verificado con tráfico sintético, API y Chrome. Se prepara la documentación y una única comprobación real económica.
 
 ## Acuerdo de ejecución
 
@@ -10,7 +10,7 @@ Objetivo: reconocer la inferencia Responses WebSocket que usa Copilot CLI y most
 - El usuario pidió commit y push por tarea; los hace el orquestador, después de las verificaciones, nunca los subagentes.
 - Punto de partida acordado: checkout actual sobre `60c3b39`, conservando fuera de los commits del plan los seis ficheros con trabajo previo. Sus huellas y la del golden están en `base-ejecucion.json`.
 - El plan se versiona en un commit separado antes de empezar. No se descartan ni incluyen cambios ajenos, no se hace stash y no se fuerza ningún push.
-- La fase 2 fue autorizada tras cerrar la fase 1. Al cerrar cada fase se para y se espera confirmación antes de la siguiente.
+- Las fases 2 y 3 fueron autorizadas tras cerrar sus fases anteriores. Al cerrar cada fase se para y se espera confirmación antes de la siguiente.
 
 ## Hallazgo que determina el cambio
 
@@ -24,7 +24,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 - Solo se inicia cuando todas las dependencias están terminadas. No se lanzan tareas que comparten ficheros en paralelo.
 - Estados: `pendiente` · `en curso` · `terminada sin commit` · `terminada con commit` · `bloqueada`.
 - Al terminar cada fase se para y se espera confirmación.
-- No se hacen commits automáticamente. La comprobación de pago final es optativa y no bloquea la entrega offline.
+- Los commits y push los hace solo el orquestador, con la autorización acordada. La comprobación de pago final es optativa y no bloquea la entrega offline.
 
 ## Tareas
 
@@ -40,7 +40,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 2.05 | Cablear hooks mitmproxy | [2.05](fase-2/2.05-hooks-mitmproxy.md) | 2.04 | terminada con commit | Auditado: fixture acordado, host/ruta y no-mutación; CHECK: 349 Python y 20 JS; golden intacto |
 | 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | terminada con commit | Auditada; fixture generado por hooks; 350 Python y 20 JS; FULL/C34 repetido; golden intacto |
 | 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | pendiente | Prepararlo no llama al modelo |
-| 3.02 | Documentar soporte y límites | [3.02](fase-3/3.02-documentacion.md) | 2.06 | pendiente | Conserva los cambios ajenos de AGENTS.md |
+| 3.02 | Documentar soporte y límites | [3.02](fase-3/3.02-documentacion.md) | 2.06 | terminada con commit | Documentación auditada; default READY, status y límites precisados; cambio previo AGENTS preservado |
 | 3.03 | Una comprobación real barata | [3.03](fase-3/3.03-verificacion-real.md) | 3.01 | pendiente | Optativa; requiere autorización vigente y acceso; nunca reintenta |
 
 ## Qué se puede lanzar a la vez

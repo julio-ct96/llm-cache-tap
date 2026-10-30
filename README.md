@@ -44,6 +44,26 @@ En **otra terminal**, lanza tu cliente a través del proxy:
 
 Abre el panel y haz una petición desde el cliente: aparece una fila por cada llamada al LLM.
 
+### Copilot CLI
+
+Con el proxy ya en marcha con `./start.sh`, abre otra terminal y lanza Copilot CLI:
+
+```bash
+./via.sh copilot
+```
+
+Si `copilot` no está en `PATH`, puedes indicar la ruta habitual del binario:
+
+```bash
+./via.sh "$HOME/.local/bin/copilot"
+```
+
+El inspector reconoce Responses sobre WebSocket en los hosts de Copilot. `/auto` solo enruta la selección y no se retiene. El `GET /responses` que responde `101` abre la conexión; cada mensaje `response.create` aceptado genera una fila. `status=101` es el código HTTP del handshake WebSocket, no `Record.state` (por ejemplo, `done`) ni un `200` HTTP inventado para cada respuesta.
+
+El diagnóstico de prefijo requiere peticiones secuenciales con el contexto completo; las peticiones incrementales que usan `previous_response_id` se registran como `N/A`, aunque puedan conservar `usage` y un coste calculable. Si hay solapamiento, un error de protocolo ambiguo o se alcanza un límite del inspector, se deshabilita la inspección de esa conexión; el tráfico y sus bytes siguen hacia el cliente sin cambios. Al reconectar se crea una sesión nueva.
+
+En los mensajes WebSocket retenidos se elimina la clave `headers` del sobre JSON; de los eventos del servidor solo se guardan las proyecciones permitidas. No se guarda contenido cifrado ni contenido de razonamiento de eventos del servidor; los contadores de tokens de razonamiento de `usage` sí pueden conservarse. Estos límites no acotan los buffers o el historial de mensajes que mantiene mitmproxy ni el RSS total del proceso.
+
 ## Certificados
 
 Para leer el tráfico HTTPS, el proxy necesita su propia autoridad certificadora (CA). **No hay que generarla a mano ni viene en el repositorio.**
@@ -152,6 +172,15 @@ node --test tests/ui/unit/*.test.mjs                   # tests unitarios JS
 node tests/ui/benchmark.mjs                            # benchmark informativo, sin umbral
 venv/bin/python tests/replay/serve.py                   # panel con datos de prueba en el puerto 8901, sin proxy
 ```
+
+### Comprobación de Copilot CLI
+
+```bash
+venv/bin/python scripts/check_copilot.py
+venv/bin/python scripts/check_copilot.py --run-real
+```
+
+Sin opciones, el runner solo imprime `READY` del contrato: no lanza procesos ni hace llamadas de red. Las pruebas sintéticas son los tests unitarios del runner. `--run-real` es optativo y puede consumir cuota: ejecuta un único `hola` en modo `efficiency`, sin reintentos, desde un workspace temporal y con los puertos y las métricas del inspector aislados. No aísla ni borra el estado habitual del propio CLI. Incluso un `hola` puede enviar miles de tokens de contexto del CLI; el coste calculado con las tablas no incluye necesariamente los descuentos de Auto.
 
 La comprobación `--full` inicia el replay en `127.0.0.1:8901` y Chrome headless en el puerto de depuración `9334`; `TAP_UI_PORT`, `TAP_DEBUG_PORT` y `CHROME_BIN` permiten sustituirlos. No uses los puertos 8899/8900 para pruebas. La suite completa ejercita interfaz, accesibilidad/errores visibles, filtros, datos SSE y carreras; el runner local ejecuta también Ruff, formato, mypy, unittest y Node.
 
