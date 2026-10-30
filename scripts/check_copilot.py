@@ -73,6 +73,83 @@ FailureAction = Literal[
 ]
 FailureIdRelation = Literal["missing", "last", "unbound", "active", "other"]
 FailureGenerate = Literal["absent", "true", "false", "invalid"]
+SchemaPath = Literal[
+    "modelMetrics",
+    "modelMetrics[*]",
+    "modelMetrics[*].requests",
+    "modelMetrics[*].requests.count",
+    "modelMetrics[*].requests.cost",
+    "modelMetrics[*].usage",
+    "modelMetrics[*].usage.inputTokens",
+    "modelMetrics[*].usage.outputTokens",
+    "modelMetrics[*].usage.cacheReadTokens",
+    "modelMetrics[*].usage.cacheWriteTokens",
+    "modelMetrics[*].usage.reasoningTokens",
+    "modelMetrics[*].tokenDetails",
+    "modelMetrics[*].tokenDetails.input",
+    "modelMetrics[*].tokenDetails.cache_read",
+    "modelMetrics[*].tokenDetails.cache_write",
+    "modelMetrics[*].tokenDetails.output",
+    "modelMetrics[*].tokenDetails.input.tokenCount",
+    "modelMetrics[*].tokenDetails.cache_read.tokenCount",
+    "modelMetrics[*].tokenDetails.cache_write.tokenCount",
+    "modelMetrics[*].tokenDetails.output.tokenCount",
+    "totalNanoAiu",
+]
+SchemaExpected = Literal[
+    "object", "model_identifier", "non_negative_integer", "finite_non_negative_number"
+]
+SchemaActual = Literal[
+    "missing",
+    "null",
+    "boolean",
+    "number",
+    "string",
+    "array",
+    "object",
+    "negative_number",
+    "non_finite_number",
+    "invalid_identifier",
+]
+
+_MISSING = object()
+_SCHEMA_EXPECTED_BY_PATH: dict[SchemaPath, frozenset[SchemaExpected]] = {
+    "modelMetrics": frozenset({"object"}),
+    "modelMetrics[*]": frozenset({"object", "model_identifier"}),
+    "modelMetrics[*].requests": frozenset({"object"}),
+    "modelMetrics[*].requests.count": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].requests.cost": frozenset({"finite_non_negative_number"}),
+    "modelMetrics[*].usage": frozenset({"object"}),
+    "modelMetrics[*].usage.inputTokens": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].usage.outputTokens": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].usage.cacheReadTokens": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].usage.cacheWriteTokens": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].usage.reasoningTokens": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].tokenDetails": frozenset({"object"}),
+    "modelMetrics[*].tokenDetails.input": frozenset({"object"}),
+    "modelMetrics[*].tokenDetails.cache_read": frozenset({"object"}),
+    "modelMetrics[*].tokenDetails.cache_write": frozenset({"object"}),
+    "modelMetrics[*].tokenDetails.output": frozenset({"object"}),
+    "modelMetrics[*].tokenDetails.input.tokenCount": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].tokenDetails.cache_read.tokenCount": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].tokenDetails.cache_write.tokenCount": frozenset({"non_negative_integer"}),
+    "modelMetrics[*].tokenDetails.output.tokenCount": frozenset({"non_negative_integer"}),
+    "totalNanoAiu": frozenset({"non_negative_integer"}),
+}
+_SCHEMA_ACTUALS = frozenset(
+    {
+        "missing",
+        "null",
+        "boolean",
+        "number",
+        "string",
+        "array",
+        "object",
+        "negative_number",
+        "non_finite_number",
+        "invalid_identifier",
+    }
+)
 
 
 class FailureDiagnosticStep(TypedDict):
@@ -83,6 +160,7 @@ class FailureDiagnosticStep(TypedDict):
     id_relation: FailureIdRelation
     generate: NotRequired[FailureGenerate]
     incremental: NotRequired[bool]
+    id_symbol: NotRequired[int]
 
 
 class FailureWebSocketDiagnostic(TypedDict):
@@ -98,6 +176,12 @@ class RecordFailureDiagnostic(TypedDict):
     verdict: FailureVerdict
     reason: FailureReason
     ws_diagnostic: FailureWebSocketDiagnostic | None
+
+
+class SchemaDiagnostic(TypedDict):
+    path: SchemaPath
+    expected: SchemaExpected
+    actual: SchemaActual
 
 
 Verdict = Literal["HIT", "PARTIAL", "MISS", "N/A", "COLD"]
@@ -178,6 +262,73 @@ class SmokeSummary(TypedDict):
 
 class RunnerError(Exception):
     """An expected runner failure safe to show without subprocess output."""
+
+
+class SchemaError(RunnerError):
+    """A fixed-message CLI usage schema failure with closed diagnostic fields."""
+
+    def __init__(
+        self, path: SchemaPath | None, expected: SchemaExpected, actual: SchemaActual | None
+    ):
+        self.path = path
+        self.expected = expected
+        self.actual = actual
+        super().__init__("invalid_schema")
+
+
+def _schema_actual(value: object) -> SchemaActual | None:
+    if value is _MISSING:
+        return "missing"
+    if value is None:
+        return "null"
+    if type(value) is bool:
+        return "boolean"
+    if type(value) is int:
+        return "negative_number" if value < 0 else "number"
+    if type(value) is float:
+        if not math.isfinite(value):
+            return "non_finite_number"
+        return "negative_number" if value < 0 else "number"
+    if type(value) is str:
+        return "string"
+    if type(value) is list:
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return None
+
+
+def format_schema_diagnostic(error: SchemaError) -> SchemaDiagnostic | None:
+    """Rebuild only a valid, closed CLI usage schema diagnostic."""
+    if type(error) is not SchemaError:
+        return None
+    attributes = vars(error)
+    path = attributes.get("path")
+    expected = attributes.get("expected")
+    actual = attributes.get("actual")
+    if type(path) is not str or type(expected) is not str or type(actual) is not str:
+        return None
+    allowed_expected = _SCHEMA_EXPECTED_BY_PATH.get(cast(SchemaPath, path))
+    if (
+        allowed_expected is None
+        or expected not in allowed_expected
+        or actual not in _SCHEMA_ACTUALS
+    ):
+        return None
+    if expected == "model_identifier":
+        if actual != "invalid_identifier":
+            return None
+    elif actual == "invalid_identifier":
+        return None
+    elif expected == "object" and actual == "object":
+        return None
+    elif expected == "finite_non_negative_number" and actual == "number":
+        return None
+    return {
+        "path": cast(SchemaPath, path),
+        "expected": cast(SchemaExpected, expected),
+        "actual": cast(SchemaActual, actual),
+    }
 
 
 class HTTPResponse(Protocol):
@@ -488,6 +639,10 @@ def _failure_step(value: object) -> FailureDiagnosticStep | None:
         or type(identified) is not bool
     ):
         return None
+    if "id_symbol" in value:
+        id_symbol = value["id_symbol"]
+        if direction != "server" or type(id_symbol) is not int or not 1 <= id_symbol <= 32:
+            return None
 
     step: FailureDiagnosticStep = {
         "direction": cast(FailureDirection, direction),
@@ -510,6 +665,8 @@ def _failure_step(value: object) -> FailureDiagnosticStep | None:
         if type(incremental) is not bool:
             return None
         step["incremental"] = incremental
+    if "id_symbol" in value:
+        step["id_symbol"] = cast(int, value["id_symbol"])
     return step
 
 
@@ -637,33 +794,87 @@ def read_record(port: int, record_id: int, *, http_open: HTTPOpen) -> CompletedR
     return decode_completed_record(payload, record_id)
 
 
-def _model_metrics(value: object) -> ModelMetrics:
-    row = _object(value, "CLI modelMetrics row")
-    requests = _object(row.get("requests"), "CLI modelMetrics.requests")
-    request_count = _count(requests.get("count"), "CLI modelMetrics.requests.count")
-    request_cost = requests.get("cost")
-    if not isinstance(request_cost, (int, float)) or isinstance(request_cost, bool):
-        raise RunnerError("CLI modelMetrics.requests.cost is invalid")
-    if request_cost < 0 or (isinstance(request_cost, float) and not math.isfinite(request_cost)):
-        raise RunnerError("CLI modelMetrics.requests.cost is invalid")
+def _usage_object(value: object, path: SchemaPath | None) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise SchemaError(path, "object", _schema_actual(value))
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if type(key) is not str:
+            if path == "modelMetrics":
+                raise SchemaError("modelMetrics[*]", "model_identifier", "invalid_identifier")
+            raise RunnerError("CLI usage object has a non-string key")
+        result[key] = item
+    return result
 
-    usage = _object(row.get("usage"), "CLI modelMetrics.usage")
+
+def _usage_count(value: object, path: SchemaPath) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise SchemaError(path, "non_negative_integer", _schema_actual(value))
+    return value
+
+
+def _usage_cost(value: object) -> int | float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or value < 0
+        or (isinstance(value, float) and not math.isfinite(value))
+    ):
+        raise SchemaError(
+            "modelMetrics[*].requests.cost",
+            "finite_non_negative_number",
+            _schema_actual(value),
+        )
+    return cast(int | float, value)
+
+
+def _model_metrics(value: object) -> ModelMetrics:
+    row = _usage_object(value, "modelMetrics[*]")
+    requests = _usage_object(row.get("requests", _MISSING), "modelMetrics[*].requests")
+    request_count = _usage_count(requests.get("count", _MISSING), "modelMetrics[*].requests.count")
+    request_cost = _usage_cost(requests.get("cost", _MISSING))
+
+    usage = _usage_object(row.get("usage", _MISSING), "modelMetrics[*].usage")
     decoded_usage: ModelUsage = {
-        "inputTokens": _count(usage.get("inputTokens"), "usage.inputTokens"),
-        "outputTokens": _count(usage.get("outputTokens"), "usage.outputTokens"),
-        "cacheReadTokens": _count(usage.get("cacheReadTokens"), "usage.cacheReadTokens"),
-        "cacheWriteTokens": _count(usage.get("cacheWriteTokens"), "usage.cacheWriteTokens"),
-        "reasoningTokens": _count(usage.get("reasoningTokens"), "usage.reasoningTokens"),
+        "inputTokens": _usage_count(
+            usage.get("inputTokens", _MISSING), "modelMetrics[*].usage.inputTokens"
+        ),
+        "outputTokens": _usage_count(
+            usage.get("outputTokens", _MISSING), "modelMetrics[*].usage.outputTokens"
+        ),
+        "cacheReadTokens": _usage_count(
+            usage.get("cacheReadTokens", _MISSING), "modelMetrics[*].usage.cacheReadTokens"
+        ),
+        "cacheWriteTokens": _usage_count(
+            usage.get("cacheWriteTokens", _MISSING), "modelMetrics[*].usage.cacheWriteTokens"
+        ),
+        "reasoningTokens": _usage_count(
+            usage.get("reasoningTokens", _MISSING), "modelMetrics[*].usage.reasoningTokens"
+        ),
     }
 
-    raw_details = _object(row.get("tokenDetails"), "CLI modelMetrics.tokenDetails")
+    raw_details = _usage_object(row.get("tokenDetails", _MISSING), "modelMetrics[*].tokenDetails")
     details: TokenDetails = {
-        "input": _decode_token_count(raw_details.get("input"), "tokenDetails.input"),
-        "cache_read": _decode_token_count(raw_details.get("cache_read"), "tokenDetails.cache_read"),
-        "cache_write": _decode_token_count(
-            raw_details.get("cache_write"), "tokenDetails.cache_write"
+        "input": _decode_token_count(
+            raw_details.get("input", _MISSING),
+            "modelMetrics[*].tokenDetails.input",
+            "modelMetrics[*].tokenDetails.input.tokenCount",
         ),
-        "output": _decode_token_count(raw_details.get("output"), "tokenDetails.output"),
+        "cache_read": _decode_token_count(
+            raw_details.get("cache_read", _MISSING),
+            "modelMetrics[*].tokenDetails.cache_read",
+            "modelMetrics[*].tokenDetails.cache_read.tokenCount",
+        ),
+        "cache_write": _decode_token_count(
+            raw_details.get("cache_write", _MISSING),
+            "modelMetrics[*].tokenDetails.cache_write",
+            "modelMetrics[*].tokenDetails.cache_write.tokenCount",
+        ),
+        "output": _decode_token_count(
+            raw_details.get("output", _MISSING),
+            "modelMetrics[*].tokenDetails.output",
+            "modelMetrics[*].tokenDetails.output.tokenCount",
+        ),
     }
     return {
         "requests": {"count": request_count, "cost": request_cost},
@@ -672,23 +883,25 @@ def _model_metrics(value: object) -> ModelMetrics:
     }
 
 
-def _decode_token_count(value: object, label: str) -> TokenCount:
-    token_detail = _object(value, label)
-    return {"tokenCount": _count(token_detail.get("tokenCount"), f"{label}.tokenCount")}
+def _decode_token_count(
+    value: object, object_path: SchemaPath, count_path: SchemaPath
+) -> TokenCount:
+    token_detail = _usage_object(value, object_path)
+    return {"tokenCount": _usage_count(token_detail.get("tokenCount", _MISSING), count_path)}
 
 
 def decode_cli_usage(value: object) -> CLIUsage:
     """Decode only the verified `modelMetrics` schema; ignore mirror sections."""
-    root = _object(value, "Copilot usage output")
-    raw_models = _object(root.get("modelMetrics"), "Copilot modelMetrics")
+    root = _usage_object(value, None)
+    raw_models = _usage_object(root.get("modelMetrics", _MISSING), "modelMetrics")
     model_metrics: dict[str, ModelMetrics] = {}
     for model, raw_metrics in raw_models.items():
         if MODEL_IDENTIFIER.fullmatch(model) is None:
-            raise RunnerError("Copilot modelMetrics contains an invalid model name")
+            raise SchemaError("modelMetrics[*]", "model_identifier", "invalid_identifier")
         model_metrics[model] = _model_metrics(raw_metrics)
     decoded: CLIUsage = {"modelMetrics": model_metrics}
     if "totalNanoAiu" in root:
-        decoded["totalNanoAiu"] = _count(root["totalNanoAiu"], "totalNanoAiu")
+        decoded["totalNanoAiu"] = _usage_count(root["totalNanoAiu"], "totalNanoAiu")
     return decoded
 
 
@@ -975,6 +1188,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         summary = run_real(arguments.copilot)
+    except SchemaError as error:
+        failure: dict[str, object] = {"error": "invalid_schema"}
+        diagnostic = format_schema_diagnostic(error)
+        if diagnostic is not None:
+            failure["diagnostic"] = diagnostic
+        print(json.dumps(failure, ensure_ascii=True, separators=(",", ":")), file=sys.stderr)
+        return 1
     except RunnerError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1

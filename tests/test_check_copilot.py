@@ -520,12 +520,159 @@ class CheckCopilotTest(unittest.TestCase):
         self.assertIn(f"/api/record/{RECORD_ID}", valid_http.urls[0][0])
 
     def test_unknown_cli_usage_schema_fails_without_guessing(self):
-        with self.assertRaisesRegex(runner.RunnerError, "modelMetrics"):
+        with self.assertRaises(runner.SchemaError) as missing:
             runner.decode_cli_usage({"models": {MODEL: model_row()}})
-        with self.assertRaisesRegex(runner.RunnerError, "requests"):
+        self.assertEqual(
+            runner.format_schema_diagnostic(missing.exception),
+            {"path": "modelMetrics", "expected": "object", "actual": "missing"},
+        )
+        with self.assertRaises(runner.SchemaError) as malformed:
             runner.decode_cli_usage(
                 {"modelMetrics": {MODEL: {"requests": 1, "usage": {}, "tokenDetails": {}}}}
             )
+        self.assertEqual(
+            runner.format_schema_diagnostic(malformed.exception),
+            {"path": "modelMetrics[*].requests", "expected": "object", "actual": "number"},
+        )
+
+    def test_invalid_usage_root_has_no_field_diagnostic(self):
+        for root, actual in (([], "array"), (None, "null")):
+            with self.subTest(root=root):
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(root)
+                self.assertIsNone(raised.exception.path)
+                self.assertEqual(raised.exception.actual, actual)
+                self.assertIsNone(runner.format_schema_diagnostic(raised.exception))
+
+                stderr = io.StringIO()
+                with (
+                    patch.object(runner, "run_real", side_effect=raised.exception),
+                    contextlib.redirect_stderr(stderr),
+                ):
+                    self.assertEqual(runner.main(["--run-real"]), 1)
+                self.assertEqual(stderr.getvalue(), '{"error":"invalid_schema"}\n')
+
+        with self.assertRaises(runner.SchemaError) as missing:
+            runner.decode_cli_usage({"other": "ignored"})
+        self.assertEqual(
+            runner.format_schema_diagnostic(missing.exception),
+            {"path": "modelMetrics", "expected": "object", "actual": "missing"},
+        )
+        stderr = io.StringIO()
+        with (
+            patch.object(runner, "run_real", side_effect=missing.exception),
+            contextlib.redirect_stderr(stderr),
+        ):
+            self.assertEqual(runner.main(["--run-real"]), 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            '{"error":"invalid_schema","diagnostic":{"path":"modelMetrics",'
+            '"expected":"object","actual":"missing"}}\n',
+        )
+
+    def test_schema_error_and_diagnostic_hide_external_identifiers_and_values(self):
+        sentinel_model = "model sentinel private"
+        invalid_model = {"modelMetrics": {sentinel_model: model_row()}}
+        sentinel_value = "value-sentinel-private"
+        invalid_value = cli_usage(mirrors=False)
+        invalid_value["modelMetrics"][MODEL]["usage"]["reasoningTokens"] = sentinel_value
+
+        for usage, sentinel, expected in (
+            (
+                invalid_model,
+                sentinel_model,
+                {
+                    "path": "modelMetrics[*]",
+                    "expected": "model_identifier",
+                    "actual": "invalid_identifier",
+                },
+            ),
+            (
+                invalid_value,
+                sentinel_value,
+                {
+                    "path": "modelMetrics[*].usage.reasoningTokens",
+                    "expected": "non_negative_integer",
+                    "actual": "string",
+                },
+            ),
+        ):
+            with self.subTest(sentinel=sentinel):
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(usage)
+                self.assertEqual(str(raised.exception), "invalid_schema")
+                diagnostic = runner.format_schema_diagnostic(raised.exception)
+                self.assertEqual(diagnostic, expected)
+                self.assertNotIn(sentinel, str(raised.exception))
+                self.assertNotIn(sentinel, json.dumps(diagnostic))
+
+                stderr = io.StringIO()
+                with (
+                    patch.object(runner, "run_real", side_effect=raised.exception),
+                    contextlib.redirect_stderr(stderr),
+                ):
+                    self.assertEqual(runner.main(["--run-real"]), 1)
+                self.assertNotIn(sentinel, stderr.getvalue())
+
+    def test_schema_formatter_rebuilds_allowlists_and_omits_invalid_combinations(self):
+        error = runner.SchemaError(
+            "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+        )
+        self.assertEqual(
+            runner.format_schema_diagnostic(error),
+            {
+                "path": "modelMetrics[*].usage.reasoningTokens",
+                "expected": "non_negative_integer",
+                "actual": "missing",
+            },
+        )
+
+        for field, value in (
+            ("path", "path-sentinel"),
+            ("expected", "expected-sentinel"),
+            ("actual", "actual-sentinel"),
+        ):
+            malformed = runner.SchemaError(
+                "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+            )
+            setattr(malformed, field, value)
+            self.assertIsNone(runner.format_schema_diagnostic(malformed))
+
+        invalid_pair = runner.SchemaError("modelMetrics", "object", "object")
+        self.assertIsNone(runner.format_schema_diagnostic(invalid_pair))
+
+    def test_main_prints_only_compact_invalid_schema_json(self):
+        usage = cli_usage(mirrors=False)
+        del usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"]
+        with self.assertRaises(runner.SchemaError) as raised:
+            runner.decode_cli_usage(usage)
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with (
+            patch.object(runner, "run_real", side_effect=raised.exception),
+            contextlib.redirect_stderr(stderr),
+            contextlib.redirect_stdout(stdout),
+        ):
+            status = runner.main(["--run-real"])
+        self.assertEqual(status, 1)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(
+            stderr.getvalue(),
+            '{"error":"invalid_schema","diagnostic":{"path":"modelMetrics[*].usage.reasoningTokens",'
+            '"expected":"non_negative_integer","actual":"missing"}}\n',
+        )
+
+        unmappable = runner.SchemaError(
+            "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+        )
+        unmappable.actual = "outside-allowlist"
+        with (
+            patch.object(runner, "run_real", side_effect=unmappable),
+            contextlib.redirect_stderr(stderr := io.StringIO()),
+        ):
+            status = runner.main(["--run-real"])
+        self.assertEqual(status, 1)
+        self.assertEqual(stderr.getvalue(), '{"error":"invalid_schema"}\n')
 
     def test_deep_json_recursion_becomes_a_fixed_runner_error(self):
         with patch.object(runner.json, "loads", side_effect=RecursionError):
@@ -684,6 +831,7 @@ class CheckCopilotTest(unittest.TestCase):
                             "action": "observe",
                             "identified": True,
                             "id_relation": "active",
+                            "id_symbol": 32,
                         },
                     ],
                     "truncated": True,
@@ -703,6 +851,7 @@ class CheckCopilotTest(unittest.TestCase):
         self.assertEqual(diagnostic["events"][0]["generate"], "true")
         self.assertIs(diagnostic["events"][0]["incremental"], True)
         self.assertIs(diagnostic["events"][1]["identified"], True)
+        self.assertEqual(diagnostic["events"][1]["id_symbol"], 32)
         self.assertEqual(set(diagnostic), {"events", "truncated", "omitted_server_events"})
         self.assertEqual(
             set(diagnostic["events"][0]),
@@ -719,6 +868,28 @@ class CheckCopilotTest(unittest.TestCase):
         self.assertNotIn("foreign", diagnostic)
         self.assertNotIn("foreign", diagnostic["events"][0])
         self.assertNotIn("private-key", json.dumps(failure))
+
+    def test_id_symbol_is_exactly_bounded_and_server_only(self):
+        step = {
+            "direction": "server",
+            "event": "response.in_progress",
+            "action": "observe",
+            "identified": True,
+            "id_relation": "active",
+        }
+        for symbol in (1, 32):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(
+                    runner._failure_step({**step, "id_symbol": symbol})["id_symbol"], symbol
+                )
+        for symbol in (True, False, 0, 33, "1"):
+            with self.subTest(symbol=symbol):
+                self.assertIsNone(runner._failure_step({**step, "id_symbol": symbol}))
+        for direction in ("client", "local"):
+            with self.subTest(direction=direction):
+                self.assertIsNone(
+                    runner._failure_step({**step, "direction": direction, "id_symbol": 1})
+                )
 
     def test_invalid_or_over_limit_failure_diagnostic_becomes_null(self):
         valid = diagnostic_step()

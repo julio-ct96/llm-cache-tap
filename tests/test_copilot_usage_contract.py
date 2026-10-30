@@ -66,22 +66,57 @@ class CopilotUsageContractTests(unittest.TestCase):
         usage = cli_usage(mirrors=False)
         del usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"]
 
-        with self.assertRaisesRegex(runner.RunnerError, "reasoningTokens"):
+        with self.assertRaises(runner.SchemaError) as raised:
             runner.decode_cli_usage(usage)
+        self.assertEqual(
+            runner.format_schema_diagnostic(raised.exception),
+            {
+                "path": "modelMetrics[*].usage.reasoningTokens",
+                "expected": "non_negative_integer",
+                "actual": "missing",
+            },
+        )
 
     def test_missing_cache_write_token_detail_is_rejected(self):
         usage = cli_usage(mirrors=False)
         del usage["modelMetrics"][MODEL]["tokenDetails"]["cache_write"]
 
-        with self.assertRaisesRegex(runner.RunnerError, "cache_write"):
+        with self.assertRaises(runner.SchemaError) as raised:
             runner.decode_cli_usage(usage)
+        self.assertEqual(
+            runner.format_schema_diagnostic(raised.exception),
+            {
+                "path": "modelMetrics[*].tokenDetails.cache_write",
+                "expected": "object",
+                "actual": "missing",
+            },
+        )
+
+    def test_usage_schema_distinguishes_null_from_missing_and_boolean(self):
+        null_usage = cli_usage(mirrors=False)
+        null_usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"] = None
+        with self.assertRaises(runner.SchemaError) as null_raised:
+            runner.decode_cli_usage(null_usage)
+        self.assertEqual(runner.format_schema_diagnostic(null_raised.exception)["actual"], "null")
+
+        boolean_usage = cli_usage(mirrors=False)
+        boolean_usage["modelMetrics"][MODEL]["tokenDetails"]["input"]["tokenCount"] = True
+        with self.assertRaises(runner.SchemaError) as boolean_raised:
+            runner.decode_cli_usage(boolean_usage)
+        self.assertEqual(
+            runner.format_schema_diagnostic(boolean_raised.exception)["actual"], "boolean"
+        )
 
     def test_missing_token_details_object_is_rejected(self):
         usage = cli_usage(mirrors=False)
         del usage["modelMetrics"][MODEL]["tokenDetails"]
 
-        with self.assertRaisesRegex(runner.RunnerError, "tokenDetails"):
+        with self.assertRaises(runner.SchemaError) as raised:
             runner.decode_cli_usage(usage)
+        self.assertEqual(
+            runner.format_schema_diagnostic(raised.exception),
+            {"path": "modelMetrics[*].tokenDetails", "expected": "object", "actual": "missing"},
+        )
 
     def test_mirror_sections_do_not_add_model_requests_to_the_count(self):
         decoded = runner.decode_cli_usage(cli_usage(mirrors=True))
