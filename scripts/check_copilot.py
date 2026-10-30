@@ -224,7 +224,7 @@ class ModelUsage(TypedDict):
     outputTokens: int
     cacheReadTokens: int
     cacheWriteTokens: int
-    reasoningTokens: int
+    reasoningTokens: NotRequired[int]
 
 
 class TokenCount(TypedDict):
@@ -234,7 +234,7 @@ class TokenCount(TypedDict):
 class TokenDetails(TypedDict):
     input: TokenCount
     cache_read: TokenCount
-    cache_write: TokenCount
+    cache_write: NotRequired[TokenCount]
     output: TokenCount
 
 
@@ -848,10 +848,11 @@ def _model_metrics(value: object) -> ModelMetrics:
         "cacheWriteTokens": _usage_count(
             usage.get("cacheWriteTokens", _MISSING), "modelMetrics[*].usage.cacheWriteTokens"
         ),
-        "reasoningTokens": _usage_count(
-            usage.get("reasoningTokens", _MISSING), "modelMetrics[*].usage.reasoningTokens"
-        ),
     }
+    if "reasoningTokens" in usage:
+        decoded_usage["reasoningTokens"] = _usage_count(
+            usage["reasoningTokens"], "modelMetrics[*].usage.reasoningTokens"
+        )
 
     raw_details = _usage_object(row.get("tokenDetails", _MISSING), "modelMetrics[*].tokenDetails")
     details: TokenDetails = {
@@ -865,17 +866,20 @@ def _model_metrics(value: object) -> ModelMetrics:
             "modelMetrics[*].tokenDetails.cache_read",
             "modelMetrics[*].tokenDetails.cache_read.tokenCount",
         ),
-        "cache_write": _decode_token_count(
-            raw_details.get("cache_write", _MISSING),
-            "modelMetrics[*].tokenDetails.cache_write",
-            "modelMetrics[*].tokenDetails.cache_write.tokenCount",
-        ),
         "output": _decode_token_count(
             raw_details.get("output", _MISSING),
             "modelMetrics[*].tokenDetails.output",
             "modelMetrics[*].tokenDetails.output.tokenCount",
         ),
     }
+    if "cache_write" in raw_details:
+        details["cache_write"] = _decode_token_count(
+            raw_details["cache_write"],
+            "modelMetrics[*].tokenDetails.cache_write",
+            "modelMetrics[*].tokenDetails.cache_write.tokenCount",
+        )
+    elif decoded_usage["cacheWriteTokens"] != 0:
+        raise SchemaError("modelMetrics[*].tokenDetails.cache_write", "object", "missing")
     return {
         "requests": {"count": request_count, "cost": request_cost},
         "usage": decoded_usage,
@@ -919,11 +923,20 @@ def compare_usage(record: CompletedRecord, cli_usage: CLIUsage) -> SmokeSummary:
     expected = record["usage"]
     details = metrics["tokenDetails"]
     usage = metrics["usage"]
+    if "cache_write" in details:
+        write_matches = (
+            usage["cacheWriteTokens"] == expected["write"]
+            and usage["cacheWriteTokens"] == details["cache_write"]["tokenCount"]
+        )
+    else:
+        record_write = expected.get("write")
+        write_matches = (
+            usage["cacheWriteTokens"] == 0 and type(record_write) is int and record_write == 0
+        )
     if (
         usage["cacheReadTokens"] != expected["read"]
         or usage["cacheReadTokens"] != details["cache_read"]["tokenCount"]
-        or usage["cacheWriteTokens"] != expected["write"]
-        or usage["cacheWriteTokens"] != details["cache_write"]["tokenCount"]
+        or not write_matches
         or usage["outputTokens"] != expected["output"]
         or usage["outputTokens"] != details["output"]["tokenCount"]
         or details["cache_read"]["tokenCount"] != expected["read"]

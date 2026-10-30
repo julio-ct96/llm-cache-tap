@@ -616,12 +616,12 @@ class CheckCopilotTest(unittest.TestCase):
 
     def test_schema_formatter_rebuilds_allowlists_and_omits_invalid_combinations(self):
         error = runner.SchemaError(
-            "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+            "modelMetrics[*].usage.outputTokens", "non_negative_integer", "missing"
         )
         self.assertEqual(
             runner.format_schema_diagnostic(error),
             {
-                "path": "modelMetrics[*].usage.reasoningTokens",
+                "path": "modelMetrics[*].usage.outputTokens",
                 "expected": "non_negative_integer",
                 "actual": "missing",
             },
@@ -633,7 +633,7 @@ class CheckCopilotTest(unittest.TestCase):
             ("actual", "actual-sentinel"),
         ):
             malformed = runner.SchemaError(
-                "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+                "modelMetrics[*].usage.outputTokens", "non_negative_integer", "missing"
             )
             setattr(malformed, field, value)
             self.assertIsNone(runner.format_schema_diagnostic(malformed))
@@ -643,7 +643,7 @@ class CheckCopilotTest(unittest.TestCase):
 
     def test_main_prints_only_compact_invalid_schema_json(self):
         usage = cli_usage(mirrors=False)
-        del usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"]
+        del usage["modelMetrics"][MODEL]["usage"]["outputTokens"]
         with self.assertRaises(runner.SchemaError) as raised:
             runner.decode_cli_usage(usage)
         stderr = io.StringIO()
@@ -658,12 +658,12 @@ class CheckCopilotTest(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "")
         self.assertEqual(
             stderr.getvalue(),
-            '{"error":"invalid_schema","diagnostic":{"path":"modelMetrics[*].usage.reasoningTokens",'
+            '{"error":"invalid_schema","diagnostic":{"path":"modelMetrics[*].usage.outputTokens",'
             '"expected":"non_negative_integer","actual":"missing"}}\n',
         )
 
         unmappable = runner.SchemaError(
-            "modelMetrics[*].usage.reasoningTokens", "non_negative_integer", "missing"
+            "modelMetrics[*].usage.outputTokens", "non_negative_integer", "missing"
         )
         unmappable.actual = "outside-allowlist"
         with (

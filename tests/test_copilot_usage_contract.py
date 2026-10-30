@@ -62,20 +62,43 @@ class CopilotUsageContractTests(unittest.TestCase):
             RECORD_USAGE,
         )
 
-    def test_missing_reasoning_tokens_is_rejected(self):
+    def test_missing_reasoning_tokens_is_accepted_without_a_synthetic_zero(self):
         usage = cli_usage(mirrors=False)
         del usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"]
 
-        with self.assertRaises(runner.SchemaError) as raised:
-            runner.decode_cli_usage(usage)
+        decoded = runner.decode_cli_usage(usage)
+        decoded_usage = decoded["modelMetrics"][MODEL]["usage"]
+        self.assertNotIn("reasoningTokens", decoded_usage)
         self.assertEqual(
-            runner.format_schema_diagnostic(raised.exception),
-            {
-                "path": "modelMetrics[*].usage.reasoningTokens",
-                "expected": "non_negative_integer",
-                "actual": "missing",
-            },
+            decoded_usage,
+            {key: value for key, value in model_row()["usage"].items() if key != "reasoningTokens"},
         )
+        self.assertEqual(
+            runner.compare_usage(completed_record(), decoded)["write"],
+            RECORD_USAGE["write"],
+        )
+
+    def test_present_invalid_reasoning_tokens_remain_rejected(self):
+        for value, actual in (
+            (None, "null"),
+            (True, "boolean"),
+            (-1, "negative_number"),
+            ("not-a-count", "string"),
+        ):
+            with self.subTest(actual=actual):
+                usage = cli_usage(mirrors=False)
+                usage["modelMetrics"][MODEL]["usage"]["reasoningTokens"] = value
+
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(usage)
+                self.assertEqual(
+                    runner.format_schema_diagnostic(raised.exception),
+                    {
+                        "path": "modelMetrics[*].usage.reasoningTokens",
+                        "expected": "non_negative_integer",
+                        "actual": actual,
+                    },
+                )
 
     def test_missing_cache_write_token_detail_is_rejected(self):
         usage = cli_usage(mirrors=False)
@@ -91,6 +114,138 @@ class CopilotUsageContractTests(unittest.TestCase):
                 "actual": "missing",
             },
         )
+
+    def test_missing_cache_write_detail_is_accepted_only_with_explicit_zero(self):
+        usage = cli_usage(mirrors=False)
+        usage["modelMetrics"][MODEL]["usage"]["cacheWriteTokens"] = 0
+        del usage["modelMetrics"][MODEL]["tokenDetails"]["cache_write"]
+
+        decoded = runner.decode_cli_usage(usage)
+        metrics = decoded["modelMetrics"][MODEL]
+        self.assertNotIn("cache_write", metrics["tokenDetails"])
+        self.assertEqual(metrics["usage"]["cacheWriteTokens"], 0)
+
+        zero_record = completed_record()
+        zero_record["usage"] = {**RECORD_USAGE, "write": 0}
+        self.assertEqual(runner.compare_usage(zero_record, decoded)["write"], 0)
+
+        nonzero_record = completed_record()
+        with self.assertRaisesRegex(runner.RunnerError, "CLI usage counters differ"):
+            runner.compare_usage(nonzero_record, decoded)
+
+        missing_write_record = completed_record()
+        missing_write_record["usage"] = dict(RECORD_USAGE)
+        del missing_write_record["usage"]["write"]
+        with self.assertRaisesRegex(runner.RunnerError, "CLI usage counters differ"):
+            runner.compare_usage(missing_write_record, decoded)
+
+        boolean_write_record = completed_record()
+        boolean_write_record["usage"] = {**RECORD_USAGE, "write": False}
+        with self.assertRaisesRegex(runner.RunnerError, "CLI usage counters differ"):
+            runner.compare_usage(boolean_write_record, decoded)
+
+    def test_missing_cache_write_detail_requires_valid_explicit_usage_zero(self):
+        cases = (
+            ("positive", 1, "modelMetrics[*].tokenDetails.cache_write", "object", "missing"),
+            (
+                "missing",
+                None,
+                "modelMetrics[*].usage.cacheWriteTokens",
+                "non_negative_integer",
+                "missing",
+            ),
+            (
+                "null",
+                None,
+                "modelMetrics[*].usage.cacheWriteTokens",
+                "non_negative_integer",
+                "null",
+            ),
+            (
+                "boolean",
+                True,
+                "modelMetrics[*].usage.cacheWriteTokens",
+                "non_negative_integer",
+                "boolean",
+            ),
+        )
+        for case, value, path, expected, actual in cases:
+            with self.subTest(case=case):
+                usage = cli_usage(mirrors=False)
+                row = usage["modelMetrics"][MODEL]
+                del row["tokenDetails"]["cache_write"]
+                if case == "missing":
+                    del row["usage"]["cacheWriteTokens"]
+                else:
+                    row["usage"]["cacheWriteTokens"] = value
+
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(usage)
+                self.assertEqual(
+                    runner.format_schema_diagnostic(raised.exception),
+                    {"path": path, "expected": expected, "actual": actual},
+                )
+
+    def test_present_invalid_cache_write_detail_is_rejected_even_with_zero_usage(self):
+        cases = (
+            (None, "modelMetrics[*].tokenDetails.cache_write", "object", "null"),
+            (
+                {"tokenCount": True},
+                "modelMetrics[*].tokenDetails.cache_write.tokenCount",
+                "non_negative_integer",
+                "boolean",
+            ),
+            (
+                {"tokenCount": -1},
+                "modelMetrics[*].tokenDetails.cache_write.tokenCount",
+                "non_negative_integer",
+                "negative_number",
+            ),
+        )
+        for value, path, expected, actual in cases:
+            with self.subTest(actual=actual):
+                usage = cli_usage(mirrors=False)
+                row = usage["modelMetrics"][MODEL]
+                row["usage"]["cacheWriteTokens"] = 0
+                row["tokenDetails"]["cache_write"] = value
+
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(usage)
+                self.assertEqual(
+                    runner.format_schema_diagnostic(raised.exception),
+                    {"path": path, "expected": expected, "actual": actual},
+                )
+
+    def test_other_token_detail_fields_remain_required(self):
+        for field in ("input", "cache_read", "output"):
+            with self.subTest(field=field):
+                usage = cli_usage(mirrors=False)
+                del usage["modelMetrics"][MODEL]["tokenDetails"][field]
+
+                with self.assertRaises(runner.SchemaError) as raised:
+                    runner.decode_cli_usage(usage)
+                self.assertEqual(
+                    runner.format_schema_diagnostic(raised.exception),
+                    {
+                        "path": f"modelMetrics[*].tokenDetails.{field}",
+                        "expected": "object",
+                        "actual": "missing",
+                    },
+                )
+
+    def test_present_write_counter_or_detail_must_still_match_record(self):
+        for field in ("cacheWriteTokens", "tokenCount"):
+            with self.subTest(field=field):
+                usage = cli_usage(mirrors=False)
+                row = usage["modelMetrics"][MODEL]
+                if field == "cacheWriteTokens":
+                    row["usage"][field] = RECORD_USAGE["write"] + 1
+                else:
+                    row["tokenDetails"]["cache_write"][field] = RECORD_USAGE["write"] + 1
+
+                decoded = runner.decode_cli_usage(usage)
+                with self.assertRaisesRegex(runner.RunnerError, "CLI usage counters differ"):
+                    runner.compare_usage(completed_record(), decoded)
 
     def test_usage_schema_distinguishes_null_from_missing_and_boolean(self):
         null_usage = cli_usage(mirrors=False)
