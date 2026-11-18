@@ -2,6 +2,8 @@
 
 **Objetivo:** dar la misma lectura de caché en lista y detalle para cualquier cliente soportado, aunque el diagnóstico diga `N/A`. Conservar el significado de los veredictos y el design system del panel.
 
+**Para retomar:** [handoff con el estado y la evidencia](HANDOFF.md).
+
 ## Ejecución
 
 - Una tarea por ejecutor; lee [reglas.md](reglas.md) y solo el fichero de la tarea, más las secciones que esta cite. No ejecutar este plan automáticamente al redactarlo.
@@ -17,7 +19,7 @@
 | 1.04 | Ayuda y README | [1.04](fase-1/1.04-ayuda.md) | 1.03 | terminada con commit | FULL: C12 conserva tablas y tamaños; los dos denominadores quedan documentados |
 | 1.05 | Matriz visual de las rutas en Chrome | [1.05](fase-1/1.05-matriz-visual.md) | 1.04 | terminada con commit | FULL/C35: 32 combinaciones verificadas; golden intacto y sin llamadas reales |
 | 1.06 | Verificador visual reutilizable | [1.06](fase-1/1.06-verificador-panel.md) | 1.05 | terminada con commit | FULL/C35 y 4 combinaciones sobre un replay externo; argumentos inválidos rechazados |
-| 2.01 | Validar visualmente por cliente real | [2.01](fase-2/2.01-clientes-reales.md) | 1.06 | bloqueada | [Evidencia parcial](validacion-real.md): cuatro scripts verificados; el proveedor rechazó el intento de OpenCode con su cuenta habitual |
+| 2.01 | Validar visualmente por cliente real | [2.01](fase-2/2.01-clientes-reales.md) | 1.06 | terminada sin commit | [Evidencia](validacion-real.md): Copilot CLI, Claude Code y OpenCode con capturas útiles y 4/4 en Chrome por fila, más los cuatro scripts; FULL al cierre: 423 Python, 24 JS y C35. Anomalía abierta: OpenCode + `gpt-6-luna` por HTTP `/responses` acaba en `ERR` |
 
 La cadena es deliberada: primero el contrato, luego la presentación, después la documentación y la matriz contra el estado final. No se comparte el navegador de FULL entre tareas paralelas.
 
