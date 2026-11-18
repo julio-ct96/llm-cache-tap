@@ -25,6 +25,15 @@ class PricesTest(unittest.TestCase):
 
     def test_gpt_rows_are_the_list_price(self):
         self.assertEqual(copilot.PRICES["gpt-6.1-sol"], openai.PRICES["gpt-6.1-sol"])
+        self.assertEqual(copilot.PRICES["gpt-6.1-terra"], openai.PRICES["gpt-6.1-terra"])
+
+    def test_gpt_6_2_copilot_has_only_the_published_write_rate(self):
+        for model, expected in (("gpt-6.2-sol", (2.5, 5)), ("gpt-6.2-astra", (10, 20))):
+            with self.subTest(model=model):
+                price = copilot.PRICES[model]
+                self.assertEqual((price["write"], price["long"]["write"]), expected)
+                self.assertNotIn("write_12h", price)
+                self.assertNotIn("write_12h", price["long"])
 
     def test_gpt_5_6_luna_long_context_starts_earlier(self):
         self.assertEqual(copilot.PRICES["gpt-5.6-luna"]["over"], 200_000)

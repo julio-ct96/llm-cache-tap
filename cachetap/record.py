@@ -97,6 +97,7 @@ class CostRates(TypedDict):
     read: Required[float]
     write: Required[float]
     write_1h: Required[float]
+    write_12h: NotRequired[float]
     output: Required[float]
 
 
@@ -110,7 +111,7 @@ class CostParts(TypedDict):
 
 
 class Cost(TypedDict):
-    tariff: Required[str]  # price table applied: Copilot, Anthropic or OpenAI
+    tariff: Required[str]  # price table applied: Copilot, Anthropic, OpenAI or Google
     rates: Required[CostRates]  # rates applied, long-context tier included
     parts: Required[CostParts]
     usd: Required[float]  # what the request cost
@@ -119,6 +120,7 @@ class Cost(TypedDict):
     lost_usd: NotRequired[float]  # overpaid because the cache missed; only MISS and PARTIAL
     long_over: NotRequired[int]  # long-context threshold the input went over
     write_1h: NotRequired[int]  # written tokens billed at the 1 hour rate
+    write_12h: NotRequired[int]  # written tokens billed at the 12 hour rate
     note: NotRequired[str]  # remark of the price table about this model
 
 
@@ -137,6 +139,9 @@ class Record(TypedDict):
     id: Required[int]  # request number
     transport: NotRequired[Literal["websocket"]]  # transport used for this request, absent for HTTP
     context_partial: NotRequired[Literal[True]]  # whether the full prompt prefix is unavailable
+    uncached_instructions: NotRequired[
+        Literal[True]
+    ]  # GPT-6.2+ Responses instructions outside the prefix
     ts: NotRequired[float]  # request start, epoch
     time: NotRequired[str]  # local time HH:MM:SS
     host: NotRequired[str]  # destination host

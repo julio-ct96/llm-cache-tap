@@ -40,7 +40,7 @@ def begin(
     context_partial: bool = False,
 ) -> int:
     """Create and publish a pending record for a validated request."""
-    messages = req.get("messages") or req.get("input") or []
+    messages = segments.messages_of(req)
     n_msgs = (
         int(bool(messages))
         if isinstance(messages, str)
@@ -50,6 +50,7 @@ def begin(
     )
     tools = req.get("tools")
     model = req.get("model")
+    uncached_instructions = providers.openai.uncached_instructions(req, path)
     with store.LOCK:
         rid = store.next_id()
         rec: record.Record = {
@@ -77,13 +78,15 @@ def begin(
             "n_tools": len(tools) if isinstance(tools, (list, dict)) else 0,
             "n_msgs": n_msgs,
             "cc_marks": text.count('"cache_control"'),
-            "segs": segments.segments(req),
+            "segs": segments.segments(req, exclude_instructions=uncached_instructions),
             "state": "pending",
         }
         if transport is not None:
             rec["transport"] = transport
         if context_partial:
             rec["context_partial"] = True
+        if uncached_instructions:
+            rec["uncached_instructions"] = True
         if started_at is not None:
             rec["ts"] = started_at
             rec["time"] = time.strftime("%H:%M:%S", time.localtime(started_at))
@@ -238,7 +241,12 @@ def finish(
                 prev_id = rec.get("prev_id")
                 prev = store.RECORDS.get(prev_id) if prev_id is not None else None
                 verdict.judge(rec, prev)
-                cost.price_record(rec, prev, providers.written_1h(events))
+                cost.price_record(
+                    rec,
+                    prev,
+                    providers.written_1h(events),
+                    write_12h=providers.openai.written_12h(events),
+                )
                 _count_cost_transaction(rec)
             state["committed"] = True
             store.push(rec)

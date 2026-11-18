@@ -3,10 +3,10 @@
 from typing import TypedDict
 
 from cachetap import config, record
-from cachetap.providers import anthropic, openai
+from cachetap.providers import anthropic, google, openai
 
 # the order is the order in which providers are tried
-PROVIDERS = (anthropic, openai)
+PROVIDERS = (anthropic, google, openai)
 
 FIRST_TOKEN = anthropic.FIRST_TOKEN + openai.FIRST_TOKEN
 
@@ -22,9 +22,8 @@ DEFAULT_TTL_HELP: anthropic.TTLHelpRow = {
     "ttl": "5 min, supuesto",
     "anchor": "final de la petición",
 }
-
 # date on which the providers' prompt caching guides were last reviewed
-REVIEWED = "octubre de 2026"
+REVIEWED = "noviembre de 2026"
 
 
 def reference() -> Reference:
@@ -39,8 +38,7 @@ def cache_ttl(req: record.JsonObject) -> record.CacheTTL:
 
     ttl_s is the lifetime that can be relied on; ttl_max_s, when present, is how
     long the entry may survive beyond that. ttl_anchor says whether the provider
-    counts from the start or the end of the request. Sources: the prompt caching
-    guides of Anthropic and OpenAI, as of October 2026.
+    counts from the start or the end of the request.
     """
     if config.TTL_FORCED:
         return {
@@ -87,12 +85,14 @@ def deltas(ev: record.JsonObject) -> tuple[list[str], str | None]:
         return [], None
     a_texts, a_stop = anthropic.deltas(ev)
     o_texts, o_stop = openai.deltas(ev)
-    return a_texts + o_texts, o_stop or a_stop
+    g_texts, g_stop = google.deltas(ev)
+    return a_texts + o_texts + g_texts, g_stop or o_stop or a_stop
 
 
 def normalize(events: list[record.UsageEvent]) -> record.Usage | None:
     """Token usage of a response, in one shape for every provider."""
     merged: record.JsonObject = {}
+    gemini_usage = False
     counters = {
         "input_tokens",
         "prompt_tokens",
@@ -102,11 +102,12 @@ def normalize(events: list[record.UsageEvent]) -> record.Usage | None:
         "cache_creation_input_tokens",
         "cached_tokens",
         "reasoning_tokens",
-    }
+    } | google.USAGE_COUNTERS
     for e in events:
         if not isinstance(e, dict) or not isinstance(e.get("usage"), dict):
             continue
         usage = e["usage"]
+        gemini_usage |= bool(google.USAGE_COUNTERS & usage.keys())
         for key, value in usage.items():
             if key in counters and (
                 not isinstance(value, int) or isinstance(value, bool) or value < 0
@@ -134,8 +135,6 @@ def normalize(events: list[record.UsageEvent]) -> record.Usage | None:
                 merged[key] = value
     if not merged:
         return None
-    for provider in PROVIDERS:
-        usage = provider.normalize(merged)
-        if usage is not None:
-            return usage
-    return None
+    if gemini_usage:
+        return google.normalize(merged)
+    return anthropic.normalize(merged) or openai.normalize(merged)

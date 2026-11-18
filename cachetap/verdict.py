@@ -68,12 +68,28 @@ def judge(rec: record.Record, prev: record.Record | None) -> None:
             if prev.get("state") != "done" or (prev.get("status") or 0) >= 400:
                 causes.append("prev_failed")
                 notes.append(f"la petición anterior (#{prev['id']}) no terminó bien")
-            if not notes:
+            if not notes and not (
+                prev.get("uncached_instructions") or rec.get("uncached_instructions")
+            ):
                 server_side = True
                 causes.append("server")
                 notes.append(
                     f"sin causa en el cliente: mismo prefijo, mismo esfuerzo, {rec.get('gap_s')} s desde #{prev['id']}"
                 )
+    if rec.get("uncached_instructions"):
+        notes.append(
+            "GPT-6.2+: instructions se factura sin caché; usa un mensaje developer inicial para instrucciones reutilizables"
+        )
+    if (
+        prev
+        and result in ("MISS", "PARTIAL")
+        and (prev.get("uncached_instructions") or rec.get("uncached_instructions"))
+    ):
+        notes.append(
+            "usage no separa los tokens no cacheables de instructions; no se estima el coste perdido"
+        )
+    elif not prev and rec.get("uncached_instructions") and result == "PARTIAL":
+        notes.append("el porcentaje incluye los tokens no cacheables de instructions")
     rec["verdict"], rec["notes"], rec["server_side"] = result, notes, server_side
     if causes:
         rec["miss_causes"] = causes

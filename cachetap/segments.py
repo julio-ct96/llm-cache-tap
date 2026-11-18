@@ -34,7 +34,8 @@ def preview(value: record.JsonValue, limit: int = 140) -> str:
         text = " ".join(preview(item, 80) for item in value[:4])
     elif isinstance(value, dict):
         content = value.get(
-            "content", value.get("text", value.get("output", value.get("arguments")))
+            "content",
+            value.get("parts", value.get("text", value.get("output", value.get("arguments")))),
         )
         block_type = value.get("type", "")
         if block_type == "tool_use":
@@ -79,17 +80,29 @@ def _tool_name(tool: record.JsonObject) -> record.JsonValue:
     return tool.get("type", "?")
 
 
-def segment_objects(request: record.JsonObject) -> list[tuple[str, record.JsonValue, str | None]]:
+def messages_of(request: record.JsonObject) -> record.JsonValue:
+    return request.get("messages") or request.get("input") or request.get("contents") or []
+
+
+def segment_objects(
+    request: record.JsonObject, *, exclude_instructions: bool = False
+) -> list[tuple[str, record.JsonValue, str | None]]:
     """(name, object, preview) for every cacheable block of the request, in prefix order."""
     result: list[tuple[str, record.JsonValue, str | None]] = []
     tools = request.get("tools")
     if isinstance(tools, list) and tools:
         names = [_tool_name(tool) for tool in tools if isinstance(tool, dict)]
         result.append(("tools", tools, f"{len(tools)} tools: " + ", ".join(map(str, names))[:200]))
-    system = request.get("system", request.get("instructions"))
+    system = request.get(
+        "system", request.get("systemInstruction", request.get("system_instruction"))
+    )
+    if system is None and "system" not in request and not exclude_instructions:
+        system = request.get("instructions")
     if system:
         result.append(("system", system, None))
-    messages = request.get("messages") or request.get("input") or []
+    if cached_content := request.get("cachedContent", request.get("cached_content")):
+        result.append(("cachedContent", cached_content, None))
+    messages = messages_of(request)
     if isinstance(messages, str):
         messages = [messages]
     if isinstance(messages, list):
@@ -103,10 +116,14 @@ def segment_objects(request: record.JsonObject) -> list[tuple[str, record.JsonVa
     return result
 
 
-def segments(request: record.JsonObject) -> list[record.Segment]:
+def segments(
+    request: record.JsonObject, *, exclude_instructions: bool = False
+) -> list[record.Segment]:
     return [
         build_segment(name, obj, preview_text)
-        for name, obj, preview_text in segment_objects(request)
+        for name, obj, preview_text in segment_objects(
+            request, exclude_instructions=exclude_instructions
+        )
     ]
 
 
@@ -114,6 +131,9 @@ def first_diff(
     prev_body: str | None,
     name: str,
     req: record.JsonObject,
+    *,
+    prev_excludes_instructions: bool = False,
+    exclude_instructions: bool = False,
 ) -> record.Diff | None:
     """Text around the first differing character of segment `name` between two requests."""
     if prev_body is None:
@@ -121,10 +141,16 @@ def first_diff(
     try:
         # The previous request body is an external JSON decoder boundary.
         old_body: Any = json.loads(prev_body)
-        old = dict((segment_name, value) for segment_name, value, _ in segment_objects(old_body))[
-            name
-        ]
-        new = dict((segment_name, value) for segment_name, value, _ in segment_objects(req))[name]
+        old = {
+            key: value
+            for key, value, _ in segment_objects(
+                old_body, exclude_instructions=prev_excludes_instructions
+            )
+        }[name]
+        new = {
+            key: value
+            for key, value, _ in segment_objects(req, exclude_instructions=exclude_instructions)
+        }[name]
     except (KeyError, ValueError):
         return None
     before, after = dump(strip_cache_control(old)), dump(strip_cache_control(new))

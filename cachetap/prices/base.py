@@ -12,6 +12,7 @@ class Rates(TypedDict):
     output: Required[float]  # output, reasoning included
     write: NotRequired[float]  # cache write; absent when the provider does not bill it
     write_1h: NotRequired[float]  # cache write kept for one hour
+    write_12h: NotRequired[float]  # cache write kept for twelve hours
 
 
 class Price(Rates):
@@ -37,4 +38,6 @@ def long_context(rates: Rates, over: int, output_factor: float = 1.5) -> Price:
         long["write"] = round(rates["write"] * 2, 6)
     if "write_1h" in rates:
         long["write_1h"] = round(rates["write_1h"] * 2, 6)
+    if "write_12h" in rates:
+        long["write_12h"] = round(rates["write_12h"] * 2, 6)
     return {**rates, "over": over, "long": long}

@@ -1,6 +1,8 @@
 """What GitHub Copilot charges for the models it serves, whoever made them."""
 
-from cachetap.prices import anthropic, base, openai
+from datetime import date
+
+from cachetap.prices import anthropic, base, google, openai
 
 TARIFF = "Copilot"
 HOST = "githubcopilot.com"
@@ -18,6 +20,15 @@ def _one_write_rate(price: base.Price) -> base.Price:
     return rates
 
 
+def _without_12h(price: base.Price) -> base.Price:
+    rates = price.copy()
+    rates.pop("write_12h", None)
+    if "long" in rates:
+        rates["long"] = rates["long"].copy()
+        rates["long"].pop("write_12h", None)
+    return rates
+
+
 _UTILITY: base.Price = {
     "input": 0,
     "read": 0,
@@ -30,12 +41,12 @@ def _grok(read: float) -> base.Price:
     return base.long_context({"input": 2, "read": read, "output": 6}, 200_000, output_factor=2)
 
 
-# US dollars per million tokens, from GitHub's "Models and pricing" page as of October 2026.
+# US dollars per million tokens; see https://docs.github.com/copilot/reference/copilot-billing/models-and-pricing
 # Copilot bills tokens at each vendor's list price (1 AI credit = 0.01 USD), so the Claude and
 # GPT rows are the vendors' own; what follows them is what differs or what only GitHub lists.
 PRICES: dict[str, base.Price] = {
     **{model: _one_write_rate(price) for model, price in anthropic.PRICES.items()},
-    **openai.PRICES,
+    **{model: _without_12h(price) for model, price in openai.PRICES.items()},
     # GitHub starts this model's long-context tier at 200K input tokens, OpenAI at 272K
     "gpt-5.6-luna": {**openai.PRICES["gpt-5.6-luna"], "over": 200_000},
     # session titles and commit messages: not billed and absent from usage reports
@@ -43,14 +54,24 @@ PRICES: dict[str, base.Price] = {
     "gpt-4o": _UTILITY,
     "gpt-4o-mini": _UTILITY,
     "gemini-3.5-flash": {"input": 1.5, "read": 0.15, "output": 9},
-    # promotional prices until 2026-12-31; they double afterwards
+    # Promo rates as published; do not assume future Copilot rates match the Gemini API.
     "gemini-3.6-flash": {"input": 0.75, "read": 0.075, "output": 3.75},
     "gemini-3.7-flash": {"input": 0.75, "read": 0.075, "output": 3.75},
     "gemini-3.8-flash": {"input": 0.75, "read": 0.075, "output": 3.75},
+    "gemini-4-argon": google.FRONTIER_PROMO,
+    "gemini-4-carbon": google.FRONTIER_PROMO,
+    "gemini-4-hydrogen": google.HYDROGEN,
     "grok-4.5": _grok(0.5),
     "grok-4.6": _grok(0.5),
     "grok-4.7": _grok(0.5),
     "kimi-k3": {"input": 3, "read": 0.3, "output": 15},
     "kimi-k2.7-code": {"input": 0.95, "read": 0.19, "output": 4},
     "mai-code-1.1-flash": {"input": 0.2, "read": 0.02, "output": 1.2},
+}
+
+AFTER_PROMO: dict[str, tuple[date, base.Price | None]] = {
+    # GitHub publishes Carbon's post-promo rate, but not Argon's or Flash's.
+    "gemini-4-argon": (google.FRONTIER_CHANGE, None),
+    "gemini-4-carbon": (google.FRONTIER_CHANGE, google.FRONTIER_STANDARD),
+    "gemini-3.8-flash": (google.FLASH_CHANGE, None),
 }

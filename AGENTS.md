@@ -27,10 +27,12 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | `cachetap/providers/base.py` | Lo común a los proveedores: leer la versión del nombre del modelo |
 | `cachetap/providers/anthropic.py` | Reglas de Claude: TTL de la caché, prefijo mínimo cacheable y lectura del usage |
 | `cachetap/providers/openai.py` | Reglas de OpenAI: TTL de la caché, prefijo mínimo cacheable y lectura del usage |
+| `cachetap/providers/google.py` | Rutas y formato nativos de Gemini Developer API, mínimos de caché implícita y lectura de `usageMetadata` |
 | `cachetap/prices/__init__.py` | Qué tarifa paga una petición (`lookup`) y las tablas de precios para la ayuda |
 | `cachetap/prices/base.py` | Forma de un precio, nombre canónico de un modelo y tarifa de contexto largo |
 | `cachetap/prices/anthropic.py` | Precios de lista de los modelos Claude |
 | `cachetap/prices/openai.py` | Precios de lista de los modelos de OpenAI |
+| `cachetap/prices/google.py` | Precios de lista Standard de Gemini Developer API y fechas de fin de promoción |
 | `cachetap/prices/copilot.py` | Tarifa de GitHub Copilot: en qué difiere de las listas y los modelos que solo lista GitHub |
 | `ui/index.html` | Estructura del panel; el orden de sus `<link>` es la cascada del CSS |
 | `ui/app.js` | Entrada del panel: cablea eventos y arranca la conexión |

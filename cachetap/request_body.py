@@ -71,6 +71,7 @@ def parse(text: str) -> record.JsonObject:
         )
 
     _optional_type(req, "messages", list, "messages debe ser una lista o null")
+    _optional_type(req, "contents", list, "contents debe ser una lista o null")
     _optional_type(req, "input", (str, list), "input debe ser texto, una lista o null")
     _validate_effort_container(req, "output_config")
     _validate_effort_container(req, "reasoning")

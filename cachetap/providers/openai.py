@@ -13,6 +13,18 @@ def owns(model: str) -> bool:
     return bool(base.version(model, "gpt") or re.match(r"o\d", model))
 
 
+def uncached_instructions(req: record.JsonObject, path: str) -> bool:
+    # Responses appends this field after all eligible cache breakpoints since GPT-6.2.
+    version = base.version(str(req.get("model") or "").strip().lower(), "gpt")
+    return bool(
+        path.rstrip("/").endswith("/responses")
+        and version
+        and version >= (6, 2)
+        and isinstance(req.get("instructions"), str)
+        and req["instructions"]
+    )
+
+
 class TTLHelpRow(TypedDict):
     models: Required[str]
     ttl: Required[str]
@@ -28,7 +40,7 @@ class MinimumHelpRow(TypedDict):
 TTL_HELP: list[TTLHelpRow] = [
     {
         "models": "GPT-5.6 y posteriores",
-        "ttl": "30 min (`prompt_cache_options.ttl`)",
+        "ttl": "30 min por defecto; 12 h en Responses (`prompt_cache_options.ttl`)",
         "anchor": "última escritura o lectura",
     },
     {
@@ -49,6 +61,8 @@ def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL | None:
     if gpt and gpt >= (5, 6):
         prompt_cache_options = req.get("prompt_cache_options")
         declared = isinstance(prompt_cache_options, dict) and prompt_cache_options.get("ttl")
+        if declared == "12h":
+            return {"ttl_s": 43200, "ttl_source": "declarado: retención 12h", "ttl_anchor": "end"}
         source = (
             "declarado en prompt_cache_options"
             if declared
@@ -158,3 +172,15 @@ def normalize(merged: record.JsonObject) -> record.Usage | None:
         "output": output,
         "reasoning": reasoning,
     }
+
+
+def written_12h(events: list[record.UsageEvent]) -> int:
+    for event in reversed(events):
+        usage = event.get("usage")
+        details = usage.get("input_tokens_details") if isinstance(usage, dict) else None
+        if not isinstance(details, dict) or type(details.get("cache_write_tokens")) is not int:
+            continue
+        writes = details.get("cache_write_tokens_details")
+        count = writes.get("ttl_12h_tokens") if isinstance(writes, dict) else None
+        return count if type(count) is int and count > 0 else 0
+    return 0

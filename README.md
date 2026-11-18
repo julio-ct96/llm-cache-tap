@@ -3,7 +3,7 @@
 Inspector local de la caché de prompts de los LLM. Es un proxy que se pone entre tu cliente (opencode, Claude Code, un script…)
 y la API del proveedor, y muestra en un panel en vivo si cada petición acertó la caché y, si no, por qué.
 
-Entiende las APIs de Anthropic (`/messages`) y de OpenAI (`/responses` y `/chat/completions`).
+Entiende las APIs de Anthropic (`/messages`), OpenAI (`/responses` y `/chat/completions`) y Gemini Developer API (`generateContent` y `streamGenerateContent` en `generativelanguage.googleapis.com`; no Vertex AI ni Antigravity).
 
 ## Requisitos
 
@@ -112,6 +112,11 @@ Cada petición con `usage` y modelo de precio conocido muestra tres importes en 
 - **Perdido**: en un MISS o PARTIAL, lo pagado de más por no leer de caché el prefijo de la petición anterior.
 
 Lo que va a `githubcopilot.com` se cuenta con la tarifa de Copilot y el resto con el precio de lista del proveedor del modelo. Un modelo sin precio no se estima: queda sin coste y se cuenta aparte. La cabecera suma lo visible, el botón **Costes** lo reparte por modelo, por causa del fallo y por conversación (acumulado de toda la conversación, aunque sus primeras peticiones ya no estén en la lista), y la **Ayuda** lista los precios aplicados y su fecha de revisión. Los precios viven en `cachetap/prices/`, un fichero por tarifa, y se actualizan a mano.
+
+- **GPT‑6.2 Astra y Sol:** se aplica la tarifa Standard con el tramo de contexto largo por encima de 272.000 tokens de entrada. La tarifa de OpenAI distingue escrituras de 30 min y 12 h cuando `usage` informa el desglose. La tabla de Copilot solo publica una tarifa de escritura. Desde GPT‑6.2, `instructions` se factura siempre sin caché: no participa en la comparación del prefijo, a diferencia de un mensaje `developer` en `input`. [OpenCode 2.3.2](https://github.com/anomalyco/opencode/releases/tag/v2.3.2) ya envía así el prompt de sistema. El inspector no modifica el cuerpo ni atribuye un coste perdido a esos tokens cuando no puede separarlos.
+- **Gemini 4 Argon, Carbon e Hydrogen:** se usan los precios Standard de cada canal. La promoción de Carbon termina el 1 de diciembre de 2026 en ambos; la de Argon también, pero solo Google publica el precio posterior. Si no hay tarifa Copilot publicada, el panel muestra «sin precio» en vez de aplicar la de Google. Los cambios se aplican según la fecha UTC de inicio de la petición. El importe refleja el coste de tokens de lista, no cuotas de suscripción, precios de servicio alternativos ni cargos externos al uso de tokens (p. ej., almacenamiento de caché explícita).
+
+Fuentes: [precios de OpenAI](https://developers.openai.com/api/docs/pricing), [caché de OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching#how-prefix-matching-works), [precios de Gemini](https://ai.google.dev/gemini-api/docs/pricing) y [tarifas de GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing).
 
 ## Privacidad
 

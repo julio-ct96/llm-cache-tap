@@ -1,7 +1,7 @@
 """mitmproxy addon: live prompt-cache inspector for LLM calls.
 
-Captures every POST to */messages, */responses or */chat/completions that goes
-through the proxy, and serves a live dashboard on http://127.0.0.1:8900.
+Captures POSTs to */messages, */responses, */chat/completions and Gemini
+generation routes, and serves a live dashboard on http://127.0.0.1:8900.
 
 Privacy: request headers are never read or stored (that is where the auth token
 lives). Request bodies are kept in memory only (last MAX requests) so the UI can
@@ -26,6 +26,7 @@ from cachetap import (  # noqa: E402  # mitmproxy reloads cachetap modules above
     capture,
     config,
     dashboard,
+    providers,
     request_body,
     store,
     websocket,
@@ -45,8 +46,10 @@ UNSAFE_HEADER = re.compile(r"token|auth|cookie|secret|key", re.I)
 
 
 def _is_llm(flow: mitmproxy.http.HTTPFlow) -> bool:
-    return flow.request.method == "POST" and flow.request.path.split("?")[0].rstrip("/").endswith(
-        LLM_PATHS
+    path = flow.request.path.split("?", 1)[0]
+    return flow.request.method == "POST" and (
+        path.rstrip("/").endswith(LLM_PATHS)
+        or providers.google.generation_model(flow.request.pretty_host, path) is not None
     )
 
 
@@ -64,11 +67,15 @@ def request(flow: mitmproxy.http.HTTPFlow) -> None:
     except ValueError as exc:
         logger.warning("Petición no inspeccionable: %s", exc)
         return
+    path = flow.request.path.split("?", 1)[0]
+    gemini_model = providers.google.generation_model(flow.request.pretty_host, path)
+    if gemini_model is not None:
+        req["model"] = gemini_model
     rid = capture.begin(
         req,
         text,
         flow.request.pretty_host,
-        flow.request.path.split("?")[0],
+        path,
         len(flow.request.raw_content or b""),
         flow.request.timestamp_start,
     )

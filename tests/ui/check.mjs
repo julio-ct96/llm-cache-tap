@@ -291,19 +291,29 @@ async function main() {
       expect(await js(`document.getElementById('help').open`), true, 'dialog open');
       await until('help tables', () => js(`document.querySelectorAll('#help table')[1].tBodies[0].rows.length > 0`), 3000).catch(() => {});
       const sizes = await js(`[...document.querySelectorAll('#help table')].map((table) => table.tBodies[0].rows.length)`);
-      const minimum = (await js(`!!document.getElementById('help-min')`)) ? 5 : 4;
-      expect(sizes.slice(0, 3), [5, 5, minimum], 'rows per help table');
+      const minimum = (await js(`!!document.getElementById('help-min')`)) ? 6 : 4;
+      expect(sizes.slice(0, 3), [5, 6, minimum], 'rows per help table');
       if (await js(`!!document.getElementById('help-prices')`)) {
         const price = await js(`[...document.querySelectorAll('#help-prices tr')].map((row) => [...row.cells].map((c) => c.textContent)).find((c) => c[0] === 'Copilot' && c[1] === 'gpt-6.1-sol')`);
         expect(price, ['Copilot', 'gpt-6.1-sol', '2', '0,1', '2,5', '10', 'más de 272.000: 4 / 0,2 / 5 / 15'], 'Copilot price row');
-        expect(await text('#help-prices-reviewed'), 'octubre de 2026', '#help-prices-reviewed');
+        const newPrices = await js(`[...document.querySelectorAll('#help-prices tr')]
+          .map((row) => [...row.cells].map((c) => c.textContent))
+          .filter((c) => c[1] === 'gpt-6.2-sol' || c[1] === 'gemini-4-hydrogen')
+          .map((c) => [c[0], c[1], c[3], c[4]])`);
+        expect(newPrices, [
+          ['Copilot', 'gpt-6.2-sol', '0,1', '2,5'],
+          ['Copilot', 'gemini-4-hydrogen', '0,075', '–'],
+          ['OpenAI', 'gpt-6.2-sol', '0,1', '2,5 · 12 h: 5'],
+          ['Google', 'gemini-4-hydrogen', '0,075', '–'],
+        ], 'new model rates and cache write tiers');
+        expect(await text('#help-prices-reviewed'), 'noviembre de 2026', '#help-prices-reviewed');
       }
-      if (minimum === 5) {
+      if (minimum === 6) {
         const first = await js(`(() => { const row = document.querySelector('#help-ttl tr'); return [row.cells[0].textContent, [...row.querySelectorAll('code')].map((c) => c.textContent)]; })()`);
         expect(first, ['Claude (todos)', ['cache_control', 'ttl: "1h"']], 'first TTL row');
         const tokens = await js(`[...document.querySelectorAll('#help-min tr')].map((row) => row.cells[1].textContent)`);
-        expect(tokens, ['512', '1.024', '2.048', '4.096', '1.024'], 'minimum cacheable column');
-        expect(await text('#help-reviewed'), 'octubre de 2026', '#help-reviewed');
+        expect(tokens, ['512', '1.024', '2.048', '4.096', '4.096', '1.024'], 'minimum cacheable column');
+        expect(await text('#help-reviewed'), 'noviembre de 2026', '#help-reviewed');
       }
       await js(`document.getElementById('help').close()`);
     });

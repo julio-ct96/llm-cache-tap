@@ -49,7 +49,7 @@ class ReferenceTest(unittest.TestCase):
 
     def test_ttl_rows(self):
         rows = providers.reference()["ttl"]
-        self.assertEqual(len(rows), 5)
+        self.assertEqual(len(rows), 6)
         self.assertEqual(rows[0]["models"], "Claude (todos)")
         self.assertEqual(rows[-1]["models"], "Otros proveedores")
         for row in rows:
@@ -57,7 +57,7 @@ class ReferenceTest(unittest.TestCase):
 
     def test_min_cacheable_rows(self):
         rows = providers.reference()["min_cacheable"]
-        self.assertEqual(len(rows), 5)
+        self.assertEqual(len(rows), 6)
         for row in rows:
             self.assertIsInstance(row["tokens"], int)
 

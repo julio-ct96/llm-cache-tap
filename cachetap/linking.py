@@ -5,7 +5,9 @@ from collections.abc import Iterable, Sequence
 
 from cachetap import record, segments
 
-STATIC_SEG = re.compile(r"^(tools|system)$|:(system|developer)$")
+STATIC_SEG = re.compile(
+    r"^(tools|system|cachedContent)$|^msg0:additional_tools$|:(system|developer)$"
+)
 
 
 def common_prefix_length(a: Sequence[object], b: Sequence[object]) -> int:
@@ -87,4 +89,10 @@ def link(
     rec["prefix_intact"] = diverge is None
     rec["diverge_at"] = diverge
     if diverge:
-        rec["diff"] = segments.first_diff(prev_body, diverge, req)
+        rec["diff"] = segments.first_diff(
+            prev_body,
+            diverge,
+            req,
+            prev_excludes_instructions=bool(previous.get("uncached_instructions")),
+            exclude_instructions=bool(rec.get("uncached_instructions")),
+        )

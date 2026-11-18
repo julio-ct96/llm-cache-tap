@@ -17,6 +17,7 @@ export function costHtml(r) {
   }
   const u = r.usage || {};
   const hour = c.write_1h ? ` <span class="muted">(${num(c.write_1h)} a 1 h: ${rate(c.rates.write_1h)})</span>` : '';
+  const longWrite = c.write_12h ? ` <span class="muted">(${num(c.write_12h)} a 12 h: ${rate(c.rates.write_12h)})</span>` : '';
   const reasoning = u.reasoning != null ? ` <span class="muted">(razonamiento ${num(u.reasoning)})</span>` : '';
   const line = (label, tokens, price, amount) =>
     `<tr><td>${label}</td><td class="num">${num(tokens)}</td><td class="num">${price}</td><td class="num">${usd(amount)}</td></tr>`;
@@ -28,7 +29,7 @@ export function costHtml(r) {
       <tbody>
         ${line('Entrada sin caché', u.uncached, rate(c.rates.input), c.parts.uncached)}
         ${line('Leído de caché', u.read, rate(c.rates.read), c.parts.read)}
-        ${line(`Escrito en caché${hour}`, u.write, rate(c.rates.write), c.parts.write)}
+        ${line(`Escrito en caché${hour}${longWrite}`, u.write, rate(c.rates.write), c.parts.write)}
         ${line(`Salida${reasoning}`, u.output, rate(c.rates.output), c.parts.output)}
       </tbody>
       <tfoot><tr><td>Total</td><td></td><td></td><td class="num">${usd(c.usd)}</td></tr></tfoot>

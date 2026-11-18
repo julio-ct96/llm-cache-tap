@@ -12,7 +12,9 @@ const isRates = (p) => p && [p.input, p.read, p.output].every(Number.isFinite);
 
 function priceRow({ tariff, model, price }) {
   const note = price.note ? ` <span class="muted">${esc(price.note)}</span>` : '';
-  const write = (p) => (p.write == null ? '–' : rate(p.write) + (p.write_1h == null ? '' : ` · 1 h: ${rate(p.write_1h)}`));
+  const write = (p) => p.write == null ? '–' : rate(p.write)
+    + (p.write_1h == null ? '' : ` · 1 h: ${rate(p.write_1h)}`)
+    + (p.write_12h == null ? '' : ` · 12 h: ${rate(p.write_12h)}`);
   const long = price.long
     ? `más de ${TOKENS.format(price.over)}: ${rate(price.long.input)} / ${rate(price.long.read)} / ${write(price.long)} / ${rate(price.long.output)}`
     : '–';

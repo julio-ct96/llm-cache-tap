@@ -75,10 +75,10 @@ class DashboardTest(unittest.TestCase):
         res = self._request("GET", "/api/reference")
         data = json.loads(res.read())
         self.assertEqual(res.status, 200)
-        self.assertEqual(data["reviewed"], "octubre de 2026")
-        self.assertEqual(len(data["ttl"]), 5)
-        self.assertEqual(len(data["prices"]), 60)
-        self.assertEqual(data["prices_reviewed"], "octubre de 2026")
+        self.assertEqual(data["reviewed"], "noviembre de 2026")
+        self.assertEqual(len(data["ttl"]), 6)
+        self.assertTrue(any(row["model"] == "gemini-4-hydrogen" for row in data["prices"]))
+        self.assertEqual(data["prices_reviewed"], "noviembre de 2026")
 
     def test_missing_record(self):
         res = self._request("GET", "/api/record/99")
