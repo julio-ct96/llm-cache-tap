@@ -69,6 +69,11 @@ UTILITY_MODELS: dict[str, base.Price] = {
     "gpt-4o-mini": _UTILITY,
 }
 
+# fast mode is a separate model that only GitHub prices
+CLAUDE_FAST: dict[str, base.Price] = {
+    "claude-opus-4.8-fast": {"input": 10, "read": 1, "write": 12.5, "output": 50},
+}
+
 GEMINI: dict[str, base.Price] = {
     "gemini-3.5-flash": {"input": 1.5, "read": 0.15, "output": 9},
     # Promo rates as published; do not assume future Copilot rates match the Gemini API.
@@ -99,6 +104,7 @@ PRICES: dict[str, base.Price] = {
     **FROM_LISTS,
     **DIFFERENT_TIERS,
     **UTILITY_MODELS,
+    **CLAUDE_FAST,
     **GEMINI,
     **GROK,
     **KIMI,

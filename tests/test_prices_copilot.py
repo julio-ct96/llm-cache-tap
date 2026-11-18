@@ -23,6 +23,12 @@ class PricesTest(unittest.TestCase):
                 self.assertEqual(price["write"], anthropic.PRICES[model]["write"])
                 self.assertEqual(price["input"], anthropic.PRICES[model]["input"])
 
+    def test_opus_4_8_fast_mode(self):
+        self.assertEqual(
+            copilot.PRICES["claude-opus-4.8-fast"],
+            {"input": 10, "read": 1, "write": 12.5, "output": 50},
+        )
+
     def test_haiku_5_5_keeps_its_long_context_tier(self):
         self.assertEqual(
             copilot.PRICES["claude-haiku-5.5"],
