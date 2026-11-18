@@ -52,15 +52,24 @@ def _grok(read: float) -> base.Price:
 # US dollars per million tokens; see https://docs.github.com/copilot/reference/copilot-billing/models-and-pricing
 # Copilot bills tokens at each vendor's list price (1 AI credit = 0.01 USD), so the Claude and
 # GPT rows are the vendors' own; what follows them is what differs or what only GitHub lists.
-PRICES: dict[str, base.Price] = {
+FROM_LISTS: dict[str, base.Price] = {
     **{model: _one_write_rate(price) for model, price in anthropic.PRICES.items()},
     **{model: _without_12h(price) for model, price in openai.PRICES.items()},
+}
+
+DIFFERENT_TIERS: dict[str, base.Price] = {
     # GitHub starts this model's long-context tier at 200K input tokens, OpenAI at 272K
     "gpt-5.6-luna": {**openai.PRICES["gpt-5.6-luna"], "over": 200_000},
+}
+
+UTILITY_MODELS: dict[str, base.Price] = {
     # session titles and commit messages: not billed and absent from usage reports
     "gpt-4.1": _UTILITY,
     "gpt-4o": _UTILITY,
     "gpt-4o-mini": _UTILITY,
+}
+
+GEMINI: dict[str, base.Price] = {
     "gemini-3.5-flash": {"input": 1.5, "read": 0.15, "output": 9},
     # Promo rates as published; do not assume future Copilot rates match the Gemini API.
     "gemini-3.6-flash": {"input": 0.75, "read": 0.075, "output": 3.75},
@@ -69,12 +78,31 @@ PRICES: dict[str, base.Price] = {
     "gemini-4-argon": google.FRONTIER_PROMO,
     "gemini-4-carbon": google.FRONTIER_PROMO,
     "gemini-4-hydrogen": google.HYDROGEN,
+}
+
+GROK: dict[str, base.Price] = {
     "grok-4.5": _grok(0.5),
     "grok-4.6": _grok(0.5),
     "grok-4.7": _grok(0.5),
+}
+
+KIMI: dict[str, base.Price] = {
     "kimi-k3": {"input": 3, "read": 0.3, "output": 15},
     "kimi-k2.7-code": {"input": 0.95, "read": 0.19, "output": 4},
+}
+
+MAI: dict[str, base.Price] = {
     "mai-code-1.1-flash": {"input": 0.2, "read": 0.02, "output": 1.2},
+}
+
+PRICES: dict[str, base.Price] = {
+    **FROM_LISTS,
+    **DIFFERENT_TIERS,
+    **UTILITY_MODELS,
+    **GEMINI,
+    **GROK,
+    **KIMI,
+    **MAI,
 }
 
 AFTER_PROMO: dict[str, tuple[date, base.Price | None]] = {

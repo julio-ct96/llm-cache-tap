@@ -16,7 +16,7 @@ Objetivo: organizar cada tabla de precios en bloques con nombre (tirada en OpenA
 | 1.01 | OpenAI por tiradas | `fase-1/1.01-openai-por-tirada.md` | — | terminada con commit | |
 | 1.02 | Anthropic por familias | `fase-1/1.02-anthropic-por-familia.md` | — | terminada con commit | |
 | 1.03 | Google por generaciones | `fase-1/1.03-google-por-generacion.md` | — | terminada con commit | |
-| 1.04 | Copilot por proveedor | `fase-1/1.04-copilot-por-proveedor.md` | — | terminada sin commit | |
+| 1.04 | Copilot por proveedor | `fase-1/1.04-copilot-por-proveedor.md` | — | terminada con commit | |
 | 2.01 | Anthropic: modelos que faltan | `fase-2/2.01-anthropic-modelos.md` | 1.01, 1.02, 1.03, 1.04 | pendiente | |
 | 2.02 | OpenAI: modelos que faltan | `fase-2/2.02-openai-modelos.md` | 2.01 | pendiente | |
 | 2.03 | Google: modelos que faltan | `fase-2/2.03-google-modelos.md` | 2.02 | pendiente | |
