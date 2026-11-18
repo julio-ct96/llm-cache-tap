@@ -1,5 +1,7 @@
 import unittest
+from datetime import date
 
+from cachetap import prices
 from cachetap.prices import anthropic, copilot, openai
 
 
@@ -22,6 +24,17 @@ class PricesTest(unittest.TestCase):
                 self.assertNotIn("write_1h", price)
                 self.assertEqual(price["write"], anthropic.PRICES[model]["write"])
                 self.assertEqual(price["input"], anthropic.PRICES[model]["input"])
+
+    def test_mai_code_2_promotion_ends_on_may_17_2027(self):
+        for model, promo, standard in (
+            ("mai-code-2", (0.5, 0.025, 2.5), (1, 0.05, 5)),
+            ("mai-code-2-flash", (0.05, 0.005, 0.25), (0.1, 0.01, 0.5)),
+        ):
+            with self.subTest(model=model):
+                for day, expected in ((date(2027, 5, 16), promo), (date(2027, 5, 17), standard)):
+                    tariff, price = prices.lookup("api.githubcopilot.com", model, at=day)
+                    self.assertEqual(tariff, "Copilot")
+                    self.assertEqual((price["input"], price["read"], price["output"]), expected)
 
     def test_opus_4_8_fast_mode(self):
         self.assertEqual(

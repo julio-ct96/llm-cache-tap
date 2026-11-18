@@ -6,6 +6,8 @@ from cachetap.prices import anthropic, base, google, openai
 
 TARIFF = "Copilot"
 HOST = "githubcopilot.com"
+# MAI Code 2 and MAI Code 2 Flash leave their launch promotion on this day
+MAI_CHANGE = date(2027, 5, 17)
 
 
 def serves(host: str) -> bool:
@@ -98,6 +100,9 @@ KIMI: dict[str, base.Price] = {
 
 MAI: dict[str, base.Price] = {
     "mai-code-1.1-flash": {"input": 0.2, "read": 0.02, "output": 1.2},
+    # launch promotion; GitHub lists no cache write for Microsoft models
+    "mai-code-2": {"input": 0.5, "read": 0.025, "output": 2.5},
+    "mai-code-2-flash": {"input": 0.05, "read": 0.005, "output": 0.25},
 }
 
 PRICES: dict[str, base.Price] = {
@@ -116,4 +121,6 @@ AFTER_PROMO: dict[str, tuple[date, base.Price | None]] = {
     "gemini-4-argon": (google.FRONTIER_CHANGE, None),
     "gemini-4-carbon": (google.FRONTIER_CHANGE, google.FRONTIER_STANDARD),
     "gemini-3.8-flash": (google.FLASH_CHANGE, None),
+    "mai-code-2": (MAI_CHANGE, {"input": 1, "read": 0.05, "output": 5}),
+    "mai-code-2-flash": (MAI_CHANGE, {"input": 0.1, "read": 0.01, "output": 0.5}),
 }
