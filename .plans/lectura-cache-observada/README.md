@@ -13,7 +13,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 1.01 | Red de seguridad del veredicto y contadores | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | FULL: 423 Python, 21 JS y Chrome; producción y golden intactos |
 | 1.02 | Componente de lectura observada | [1.02](fase-1/1.02-indicador-presentacion.md) | 1.01 | terminada con commit | FULL: indicador aislado, umbral y contadores inválidos cubiertos |
-| 1.03 | Colocar en Reparto y Resumen | [1.03](fase-1/1.03-lista-detalle.md) | 1.02 | pendiente | Sin cambiar la tabla ni el badge de veredicto |
+| 1.03 | Colocar en Reparto y Resumen | [1.03](fase-1/1.03-lista-detalle.md) | 1.02 | terminada con commit | FULL: C3, C6, C30 y C34 intactos; matriz obligatoria para cerrar la fase |
 | 1.04 | Ayuda y README | [1.04](fase-1/1.04-ayuda.md) | 1.03 | pendiente | Explica los dos denominadores |
 | 1.05 | Matriz visual de las rutas en Chrome | [1.05](fase-1/1.05-matriz-visual.md) | 1.04 | pendiente | C35: 32 combinaciones, sin llamadas reales |
 | 1.06 | Verificador visual reutilizable | [1.06](fase-1/1.06-verificador-panel.md) | 1.05 | pendiente | Aplica la misma prueba a un panel de prueba ya iniciado |

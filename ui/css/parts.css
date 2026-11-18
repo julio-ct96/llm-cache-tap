@@ -25,6 +25,17 @@
   color: var(--on-accent);
 }
 
+.cache-read-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s1);
+}
+
+.cache-read-stack:empty {
+  display: none;
+}
+
 .v-miss,
 .v-err {
   background: var(--berry);

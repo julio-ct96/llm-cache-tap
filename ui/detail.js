@@ -2,7 +2,7 @@ import { jsonTree } from './json-tree.js';
 import { state } from './state.js';
 import { store } from './prefs.js';
 import { $, esc, num, secs } from './format.js';
-import { badge, shareBar } from './parts.js';
+import { badge, cacheReadIndicator, shareBar } from './parts.js';
 import { ttlLabel, timerHtml, tick } from './cache-timer.js';
 import { render } from './list.js';
 import { costHtml } from './detail-cost.js';
@@ -65,7 +65,8 @@ function mountTree(key, value, depth = 2) {
 function summaryHtml(r) {
   const u = r.usage || {};
   const prevEffort = r.prev_id ? ` <span class="muted">(anterior #${r.prev_id}: ${esc(r.prev_effort ?? '–')})</span>` : '';
-  const prefix = r.prev_id == null ? 'sin petición anterior' : r.prefix_intact ? 'intacto' : 'modificado en ' + esc(r.diverge_at);
+  const prefix = r.context_partial === true ? 'no comparable (contexto incremental)'
+    : r.prev_id == null ? 'sin petición anterior' : r.prefix_intact ? 'intacto' : 'modificado en ' + esc(r.diverge_at);
   const gap = r.gap_s != null ? ` · ${r.gap_s} s tras la anterior` : '';
   const next = state.successors.get(r.id);
   const stopped = next ? `parado por #${next.id} a los ${next.age_s ?? next.gap_s} s · ` : '';
@@ -80,6 +81,7 @@ function summaryHtml(r) {
       </div>
       entrada ${num(u.input_total)} · salida ${num(u.output)}${reasoning}`
     : '–';
+  const cacheRead = cacheReadIndicator(r);
   return `<dl class="kv">
     <dt>Destino</dt><dd>${esc(r.host)}${esc(r.path)} → ${esc(r.status ?? '…')}</dd>
     <dt>Esfuerzo</dt><dd>${esc(r.effort ?? '–')}${prevEffort}</dd>
@@ -88,6 +90,7 @@ function summaryHtml(r) {
     <dt>Tiempos</dt><dd>cabeceras ${secs(r.hdr_s)} · 1.er token ${secs(r.ttft_s)} · total ${secs(r.total_s)}${gap}</dd>
     <dt>Caché</dt><dd>${timerHtml(r)} <span class="muted">${cacheNote}</span></dd>
     <dt>Tokens</dt><dd>${tokens}</dd>
+    ${cacheRead ? `<dt>Lectura de caché</dt><dd>${cacheRead}</dd>` : ''}
   </dl>`;
 }
 

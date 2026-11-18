@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { $, esc, num, pct, secs, usd } from './format.js';
-import { badge, shareBar } from './parts.js';
+import { badge, cacheReadIndicator, shareBar } from './parts.js';
 import { ttlOf, timerHtml, tick } from './cache-timer.js';
 import { renderCosts, sortRecords, summarizeCosts } from './costs.js';
 
@@ -91,7 +91,7 @@ function rowHtml(r) {
     <td class="num">${num(u.input_total)}</td>
     <td class="num">${num(u.read)}</td>
     <td class="num">${num(u.write)}</td>
-    <td>${shareBar(u)}</td>
+    <td><div class="cache-read-stack">${shareBar(u)}${cacheReadIndicator(r)}</div></td>
     ${costCells(r)}
     <td class="num">${secs(r.ttft_s)}</td>
     <td class="num">${secs(r.total_s)}</td>
