@@ -16,7 +16,7 @@
 | 1.03 | Colocar en Reparto y Resumen | [1.03](fase-1/1.03-lista-detalle.md) | 1.02 | terminada con commit | FULL: C3, C6, C30 y C34 intactos; matriz obligatoria para cerrar la fase |
 | 1.04 | Ayuda y README | [1.04](fase-1/1.04-ayuda.md) | 1.03 | terminada con commit | FULL: C12 conserva tablas y tamaños; los dos denominadores quedan documentados |
 | 1.05 | Matriz visual de las rutas en Chrome | [1.05](fase-1/1.05-matriz-visual.md) | 1.04 | terminada con commit | FULL/C35: 32 combinaciones verificadas; golden intacto y sin llamadas reales |
-| 1.06 | Verificador visual reutilizable | [1.06](fase-1/1.06-verificador-panel.md) | 1.05 | pendiente | Aplica la misma prueba a un panel de prueba ya iniciado |
+| 1.06 | Verificador visual reutilizable | [1.06](fase-1/1.06-verificador-panel.md) | 1.05 | terminada con commit | FULL/C35 y 4 combinaciones sobre un replay externo; argumentos inválidos rechazados |
 | 2.01 | Validar visualmente por cliente real | [2.01](fase-2/2.01-clientes-reales.md) | 1.06 | bloqueada | Requiere autorización de cuota y perfiles; no ejecutada |
 
 La cadena es deliberada: primero el contrato, luego la presentación, después la documentación y la matriz contra el estado final. No se comparte el navegador de FULL entre tareas paralelas.

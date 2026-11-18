@@ -4,11 +4,12 @@
 //   node tests/ui/check.mjs          short list (C1-C6, C15)
 //   node tests/ui/check.mjs --full   every check
 //   node tests/ui/check.mjs --styles out.json   also dump the computed styles of every element, to compare two versions of the CSS
+//   TAP_UI_PORT=18901 node tests/ui/check.mjs --inspect-cache-read manifest.json   validate an already running test panel
 //
 // CHROME_BIN, TAP_UI_PORT (default 8901) and TAP_DEBUG_PORT (default 9334) override the defaults.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const FULL = process.argv.includes('--full');
 const STYLES = process.argv.includes('--styles') ? process.argv[process.argv.indexOf('--styles') + 1] : null;
+const INSPECT_CACHE_READ = process.argv.indexOf('--inspect-cache-read', 2);
 const UI_PORT = process.env.TAP_UI_PORT || '8901';
 const DEBUG_PORT = process.env.TAP_DEBUG_PORT || '9334';
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -144,6 +146,14 @@ function connect(wsUrl) {
 
 // ---------- checks ----------
 
+async function openPanel() {
+  const page = connect(await startChrome());
+  await page.opened;
+  for (const domain of ['Runtime', 'Network', 'Page']) await page.send(`${domain}.enable`);
+  await page.send('Page.navigate', { url: URL });
+  return page;
+}
+
 function browserActions(page) {
   const js = async (expression) => {
     const { result, exceptionDetails } = await page.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
@@ -248,11 +258,50 @@ async function checkCacheReadVisual(page, cases) {
   return passed;
 }
 
+function readCacheReadManifest() {
+  const path = process.argv[INSPECT_CACHE_READ + 1];
+  if (!path || path.startsWith('--')) throw new Error('--inspect-cache-read requires a manifest path');
+  const port = process.env.TAP_UI_PORT;
+  if (!/^\d+$/.test(port ?? '') || Number(port) < 1 || Number(port) > 65535 || [8899, 8900].includes(Number(port))) {
+    throw new Error('--inspect-cache-read requires an explicit TAP_UI_PORT from 1 to 65535, excluding 8899 and 8900');
+  }
+  let cases;
+  try {
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(readFileSync(path));
+    cases = JSON.parse(text);
+  } catch {
+    throw new Error('cannot read the manifest as UTF-8 JSON');
+  }
+  if (!Array.isArray(cases) || cases.length === 0) throw new Error('the manifest must be a non-empty array');
+  const keys = ['id', 'verdict', 'label', 'high', 'incremental'];
+  const verdicts = new Set(['HIT', 'PARTIAL', 'MISS', 'COLD', 'N/A', 'ERR']);
+  const ids = new Set();
+  for (const [index, item] of cases.entries()) {
+    if (!item || Object.keys(item).length !== keys.length || !keys.every((key) => Object.hasOwn(item, key)) ||
+      !Number.isSafeInteger(item.id) || item.id <= 0 || ids.has(item.id) || !verdicts.has(item.verdict) ||
+      typeof item.label !== 'string' || !item.label.trim() || typeof item.high !== 'boolean' || typeof item.incremental !== 'boolean') {
+      throw new Error(`invalid manifest case at index ${index}`);
+    }
+    ids.add(item.id);
+  }
+  return cases;
+}
+
+async function inspectCacheRead() {
+  const cases = readCacheReadManifest();
+  const page = await openPanel();
+  const { js } = browserActions(page);
+  await until('panel rows', () => js(`!!document.querySelector('#rows tr')`));
+  const passed = await checkCacheReadVisual(page, cases);
+  if (page.problems.length) throw new Error(`browser problems: ${page.problems.join('; ')}`);
+  for (const { id, width, theme } of passed) console.log(`     #${id} · ${width}px · ${theme}`);
+  console.log(`ok   CACHE-READ-VISUAL: ${passed.length} combinaciones`);
+  return 0;
+}
+
 async function main() {
   await startServer();
-  const page = connect(await startChrome());
-  await page.opened;
-  for (const domain of ['Runtime', 'Network', 'Page']) await page.send(`${domain}.enable`);
+  const page = await openPanel();
 
   const { js, click, text, hidden, detailHas } = browserActions(page);
   const KEYS = { Escape: 27, ArrowDown: 40, '/': 191 };
@@ -281,7 +330,6 @@ async function main() {
     expect(await rows(), expected, label);
   };
 
-  await page.send('Page.navigate', { url: URL });
   await until('rows', async () => (await rows()) > 0).catch(() => {});
 
   await check('C2', '44 rows and live connection', async () => {
@@ -985,7 +1033,7 @@ async function main() {
 
 let code = 1;
 try {
-  code = await main();
+  code = INSPECT_CACHE_READ === -1 ? await main() : await inspectCacheRead();
 } catch (error) {
   console.log(`FAIL setup: ${error.message}`);
 } finally {
