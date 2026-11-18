@@ -16,20 +16,31 @@ def _claude(input_price: float, read: float) -> base.Price:
     }
 
 
+def _family(family: str, versions: dict[str, base.Price]) -> dict[str, base.Price]:
+    """Prefix each version with its family to build the full model names."""
+    return {f"claude-{family}-{version}": price for version, price in versions.items()}
+
+
 # List prices in US dollars per million tokens, from Anthropic's pricing page as of November 2026.
+# Every model except Claude Haiku 5.5 bills the whole 1M window at the same rates.
+FABLE: dict[str, base.Price] = _family(
+    "fable", {"5.2": _claude(8, 0.2), "5.1": _claude(10, 0.25), "5": _claude(10, 1)}
+)
+OPUS: dict[str, base.Price] = _family(
+    "opus",
+    {"5.5": _claude(4, 0.2), "5": _claude(5, 0.5), "4.8": _claude(5, 0.5), "4.7": _claude(5, 0.5)},
+)
+SONNET: dict[str, base.Price] = _family(
+    "sonnet", {"5.5": _claude(2, 0.1), "5": _claude(2, 0.2), "4.6": _claude(3, 0.3)}
+)
 # Only Claude Haiku 5.5 has a long-context tier: a prompt over 100K tokens (cache reads and
-# writes included) pays 5x on every rate. The rest bill the whole 1M window at the same rates.
-PRICES: dict[str, base.Price] = {
-    "claude-fable-5.2": _claude(8, 0.2),
-    "claude-fable-5.1": _claude(10, 0.25),
-    "claude-fable-5": _claude(10, 1),
-    "claude-opus-5.5": _claude(4, 0.2),
-    "claude-opus-5": _claude(5, 0.5),
-    "claude-opus-4.8": _claude(5, 0.5),
-    "claude-opus-4.7": _claude(5, 0.5),
-    "claude-sonnet-5.5": _claude(2, 0.1),
-    "claude-sonnet-5": _claude(2, 0.2),
-    "claude-sonnet-4.6": _claude(3, 0.3),
-    "claude-haiku-5.5": {**_claude(0.1, 0.01), "over": 100_000, "long": _claude(0.5, 0.05)},
-    "claude-haiku-4.5": _claude(1, 0.1),
-}
+# writes included) pays 5x on every rate.
+HAIKU: dict[str, base.Price] = _family(
+    "haiku",
+    {
+        "5.5": {**_claude(0.1, 0.01), "over": 100_000, "long": _claude(0.5, 0.05)},
+        "4.5": _claude(1, 0.1),
+    },
+)
+
+PRICES: dict[str, base.Price] = {**FABLE, **OPUS, **SONNET, **HAIKU}
