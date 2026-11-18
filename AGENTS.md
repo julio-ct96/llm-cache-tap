@@ -57,6 +57,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | `tests/test_*.py` | Un test por módulo, más `test_replay`, `test_dependencies` y `test_ui_assets` |
 | `tests/ui/unit/` | Tests JS puros con `node:test` |
 | `scripts/check.py` | Runner local: Ruff, mypy, unittest, JS y UI opcional |
+| `scripts/check_copilot_prices.py`, `scripts/copilot_models_probe.py` | Comparan la facturación de Copilot (`GET /models`) con su tarifa. El addon guarda solo la facturación y responde 403 en local a toda llamada de modelo |
 | `requirements-dev.txt`, `requirements-ci.txt` | Dependencias de herramientas y entorno de CI |
 | `.github/workflows/check.yml` | Workflow en GitHub Actions; Python 3.12, Node 24 y Chrome |
 
@@ -65,7 +66,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | Para… | Abre |
 | --- | --- |
 | cambiar el TTL o el mínimo cacheable de un modelo | el fichero de su proveedor en `cachetap/providers/` y su test |
-| cambiar o añadir el precio de un modelo | el bloque de su familia o tirada en el fichero de su tarifa en `cachetap/prices/` (lista del proveedor, o `copilot.py` si difiere en Copilot), su test y `REVIEWED` de `cachetap/prices/__init__.py` |
+| cambiar o añadir el precio de un modelo | el bloque de su familia o tirada en el fichero de su tarifa en `cachetap/prices/` (lista del proveedor, o `copilot.py` si difiere en Copilot), su test y `REVIEWED` de `cachetap/prices/__init__.py`. En Copilot, confírmalo con `scripts/check_copilot_prices.py --run` |
 | añadir una tarifa (otro intermediario u otro proveedor) | un fichero nuevo en `cachetap/prices/` con `TARIFF` y `PRICES`, y añadirlo a `TARIFFS` y a `lookup` |
 | cambiar cómo se calcula el coste, el ahorro o lo perdido | `cachetap/cost.py` |
 | añadir un proveedor | un fichero nuevo en `cachetap/providers/` con la misma interfaz que `anthropic.py`, y añadirlo a `PROVIDERS` |
@@ -87,6 +88,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 - Tests: `venv/bin/python -m unittest discover -s tests -t . -q`.
 - Panel de prueba sin proxy: `venv/bin/python tests/replay/serve.py` (puerto 8901).
 - Comprobación de la interfaz en un Chrome sin ventana: `node tests/ui/check.mjs --full`.
+- Tarifa de Copilot contra su facturación real: `venv/bin/python scripts/check_copilot_prices.py --run`. Usa la sesión de Copilot CLI y no gasta créditos. Sale con 1 si un modelo con precio se factura distinto; los modelos sin precio se listan aparte.
 - Comprobación unificada: `venv/bin/python scripts/check.py`; añade `--full` para ejecutar también Chrome. Requiere Node 24 y el entorno `venv/`; `--full` requiere Chrome/Chromium. Para preparar herramientas, `venv/bin/python -m pip install -r requirements-dev.txt`; `requirements-ci.txt` incluye mitmproxy y esas herramientas.
 - Suite Python: 296 tests con el comando anterior de unittest; suite JS: `node --test tests/ui/unit/*.test.mjs` (20 tests). `node tests/ui/benchmark.mjs` mide informativamente 30/300/3000 registros, sin umbral de aprobación.
 
