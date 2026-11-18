@@ -38,6 +38,14 @@ def _release(
     }
 
 
+def _without_cached_input(input_price: float, output: float, *, long: bool = False) -> base.Price:
+    """Price a Pro model, which publishes no cached-input rate, billing reads as input."""
+    return {
+        **_gpt(input_price, input_price, output, long=long),
+        "note": "sin precio de caché publicado: la lectura se cobra como entrada",
+    }
+
+
 # Standard-tier list prices in US dollars per million tokens, from OpenAI's pricing page as of
 # November 2026 (https://developers.openai.com/api/docs/pricing).
 
@@ -64,18 +72,44 @@ GPT_5_6: dict[str, base.Price] = _release(
     long=True,
 )
 # GPT-5.5: no billed writes, long-context tier
-GPT_5_5: dict[str, base.Price] = _release("gpt-5.5", {"": (5, 0.5, 30)}, long=True)
+GPT_5_5: dict[str, base.Price] = {
+    **_release("gpt-5.5", {"": (5, 0.5, 30)}, long=True),
+    "gpt-5.5-pro": _without_cached_input(30, 180, long=True),
+}
 # GPT-5.4: long-context tier on the full model only; mini and nano have a single tier
 GPT_5_4: dict[str, base.Price] = {
     **_release("gpt-5.4", {"": (2.5, 0.25, 15)}, long=True),
     **_release("gpt-5.4", {"mini": (0.75, 0.075, 4.5), "nano": (0.2, 0.02, 1.25)}),
+    "gpt-5.4-pro": _without_cached_input(30, 180, long=True),
 }
 # GPT-5.3: no billed writes, single tier
 GPT_5_3: dict[str, base.Price] = _release("gpt-5.3", {"codex": (1.75, 0.175, 14)})
-# GPT-5: no billed writes, single tier
-GPT_5: dict[str, base.Price] = _release("gpt-5", {"mini": (0.25, 0.025, 2)})
+# GPT-5.2: no billed writes, single tier; Pro has no cached-input price
+GPT_5_2: dict[str, base.Price] = {
+    **_release("gpt-5.2", {"": (1.75, 0.175, 14)}),
+    "gpt-5.2-pro": _without_cached_input(21, 168),
+}
+# GPT-5.1: no billed writes, single tier
+GPT_5_1: dict[str, base.Price] = _release("gpt-5.1", {"": (1.25, 0.125, 10)})
+# GPT-5: no billed writes, single tier; Pro has no cached-input price
+GPT_5: dict[str, base.Price] = {
+    **_release(
+        "gpt-5",
+        {"": (1.25, 0.125, 10), "mini": (0.25, 0.025, 2), "nano": (0.05, 0.005, 0.4)},
+    ),
+    "gpt-5-pro": _without_cached_input(15, 120),
+}
 # GPT-4.1: no billed writes, single tier
-GPT_4_1: dict[str, base.Price] = _release("gpt-4.1", {"": (2, 0.5, 8)})
+GPT_4_1: dict[str, base.Price] = _release("gpt-4.1", {"": (2, 0.5, 8), "mini": (0.4, 0.1, 1.6)})
+# GPT-4o: no billed writes, single tier
+GPT_4O: dict[str, base.Price] = _release(
+    "gpt-4o", {"": (2.5, 1.25, 10), "mini": (0.15, 0.075, 0.6)}
+)
+# o3: no billed writes, single tier; Pro has no cached-input price
+O3: dict[str, base.Price] = {
+    **_release("o3", {"": (2, 0.5, 8)}),
+    "o3-pro": _without_cached_input(20, 80),
+}
 
 # Above 272K input tokens the whole request pays 2x input and cache, 1.5x output.
 PRICES: dict[str, base.Price] = {
@@ -86,6 +120,10 @@ PRICES: dict[str, base.Price] = {
     **GPT_5_5,
     **GPT_5_4,
     **GPT_5_3,
+    **GPT_5_2,
+    **GPT_5_1,
     **GPT_5,
     **GPT_4_1,
+    **GPT_4O,
+    **O3,
 }

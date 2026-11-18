@@ -22,10 +22,10 @@ class LookupTest(unittest.TestCase):
         self.assertEqual(prices.lookup("api.openai.com", "gpt-6-luna")[0], "OpenAI")
 
     def test_copilot_does_not_fall_back_to_a_list_price(self):
-        self.assertEqual(prices.lookup("api.githubcopilot.com", "gpt-5.2"), ("Copilot", None))
+        self.assertEqual(prices.lookup("api.githubcopilot.com", "gpt-5.6"), ("Copilot", None))
 
     def test_model_without_price(self):
-        self.assertEqual(prices.lookup("api.openai.com", "gpt-5.2"), ("OpenAI", None))
+        self.assertEqual(prices.lookup("api.openai.com", "gpt-5.6"), ("OpenAI", None))
 
     def test_gemini_4_promotions_switch_without_falling_back_from_copilot(self):
         direct, copilot = "generativelanguage.googleapis.com", "api.githubcopilot.com"
@@ -67,7 +67,7 @@ class ReferenceTest(unittest.TestCase):
 
     def test_rows(self):
         rows = prices.reference(at=date(2026, 11, 18))["prices"]
-        self.assertEqual(len(rows), 97)
+        self.assertEqual(len(rows), 121)
         self.assertEqual({row["tariff"] for row in rows}, {"Copilot", "Anthropic", "OpenAI", "Google"})
         for row in rows:
             with self.subTest(tariff=row["tariff"], model=row["model"]):

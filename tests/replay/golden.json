@@ -4140,17 +4140,35 @@
    "convs": {
     "c15": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00406,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00406
     }
    },
    "rec": {
     "cc_marks": 0,
     "conv": "c15",
-    "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+    "cost": {
+     "no_cache_usd": 0.00406,
+     "parts": {
+      "output": 0.00056,
+      "read": 0.0,
+      "uncached": 0.0035,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 1.75,
+      "output": 14,
+      "read": 0.175,
+      "write": 1.75,
+      "write_1h": 1.75
+     },
+     "saved_usd": 0.0,
+     "tariff": "OpenAI",
+     "usd": 0.00406
+    },
     "effort": "low",
     "hdr_s": 0.25,
     "host": "api.openai.com",
@@ -4193,11 +4211,11 @@
    "convs": {
     "c15": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00406,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00406
     }
    },
    "rec": {
@@ -4235,11 +4253,11 @@
    "convs": {
     "c15": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00406,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00406
     }
    },
    "rec": {
@@ -4278,19 +4296,38 @@
   {
    "convs": {
     "c15": {
-     "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "lost_usd": 0.00315,
+     "no_cache_usd": 0.008295,
+     "priced": 2,
      "saved_usd": 0.0,
-     "unpriced": 2,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.008295
     }
    },
    "rec": {
     "age_s": 58.0,
     "cc_marks": 0,
     "conv": "c15",
-    "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+    "cost": {
+     "lost_usd": 0.00315,
+     "no_cache_usd": 0.004235,
+     "parts": {
+      "output": 0.00056,
+      "read": 0.0,
+      "uncached": 0.003675,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 1.75,
+      "output": 14,
+      "read": 0.175,
+      "write": 1.75,
+      "write_1h": 1.75
+     },
+     "saved_usd": 0.0,
+     "tariff": "OpenAI",
+     "usd": 0.004235
+    },
     "diverge_at": "msg0:system",
     "effort": "low",
     "effort_changed": false,
@@ -4343,12 +4380,12 @@
   {
    "convs": {
     "c15": {
-     "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "lost_usd": 0.00315,
+     "no_cache_usd": 0.008295,
+     "priced": 2,
      "saved_usd": 0.0,
-     "unpriced": 2,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.008295
     }
    },
    "rec": {
@@ -4385,12 +4422,12 @@
   {
    "convs": {
     "c15": {
-     "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "lost_usd": 0.00315,
+     "no_cache_usd": 0.008295,
+     "priced": 2,
      "saved_usd": 0.0,
-     "unpriced": 2,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.008295
     }
    },
    "rec": {
@@ -4429,19 +4466,38 @@
   {
    "convs": {
     "c15": {
-     "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
-     "saved_usd": 0.0,
-     "unpriced": 3,
-     "usd": 0.0
+     "lost_usd": 0.0048447,
+     "no_cache_usd": 0.012705,
+     "priced": 3,
+     "saved_usd": 0.0016128,
+     "unpriced": 0,
+     "usd": 0.0110922
     }
    },
    "rec": {
     "age_s": 58.0,
     "cc_marks": 0,
     "conv": "c15",
-    "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+    "cost": {
+     "lost_usd": 0.0016947,
+     "no_cache_usd": 0.00441,
+     "parts": {
+      "output": 0.00056,
+      "read": 0.0001792,
+      "uncached": 0.002058,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 1.75,
+      "output": 14,
+      "read": 0.175,
+      "write": 1.75,
+      "write_1h": 1.75
+     },
+     "saved_usd": 0.0016128,
+     "tariff": "OpenAI",
+     "usd": 0.0027972
+    },
     "diverge_at": null,
     "effort": "low",
     "effort_changed": false,
@@ -4826,17 +4882,35 @@
    "convs": {
     "c17": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.0034,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.0034
     }
    },
    "rec": {
     "cc_marks": 0,
     "conv": "c17",
-    "cost_missing": "sin precio para gpt-4o en la tarifa de OpenAI",
+    "cost": {
+     "no_cache_usd": 0.0034,
+     "parts": {
+      "output": 0.0004,
+      "read": 0.0,
+      "uncached": 0.003,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 2.5,
+      "output": 10,
+      "read": 1.25,
+      "write": 2.5,
+      "write_1h": 2.5
+     },
+     "saved_usd": 0.0,
+     "tariff": "OpenAI",
+     "usd": 0.0034
+    },
     "effort": null,
     "hdr_s": 0.25,
     "host": "api.openai.com",
@@ -5028,17 +5102,35 @@
    "convs": {
     "c19": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.002025,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.002025
     }
    },
    "rec": {
     "cc_marks": 0,
     "conv": "c19",
-    "cost_missing": "sin precio para gpt-5-2025-08-07 en la tarifa de OpenAI",
+    "cost": {
+     "no_cache_usd": 0.002025,
+     "parts": {
+      "output": 0.0004,
+      "read": 0.0,
+      "uncached": 0.001625,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 1.25,
+      "output": 10,
+      "read": 0.125,
+      "write": 1.25,
+      "write_1h": 1.25
+     },
+     "saved_usd": 0.0,
+     "tariff": "OpenAI",
+     "usd": 0.002025
+    },
     "effort": null,
     "hdr_s": 0.25,
     "host": "api.openai.com",
@@ -7374,7 +7466,25 @@
   {
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.00406,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0,
+     "uncached": 0.0035,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.00406
+   },
    "effort": "low",
    "hdr_s": 0.25,
    "host": "api.openai.com",
@@ -7415,7 +7525,26 @@
    "age_s": 58.0,
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "lost_usd": 0.00315,
+    "no_cache_usd": 0.004235,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0,
+     "uncached": 0.003675,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.004235
+   },
    "diverge_at": "msg0:system",
    "effort": "low",
    "effort_changed": false,
@@ -7467,7 +7596,26 @@
    "age_s": 58.0,
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "lost_usd": 0.0016947,
+    "no_cache_usd": 0.00441,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0001792,
+     "uncached": 0.002058,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0016128,
+    "tariff": "OpenAI",
+    "usd": 0.0027972
+   },
    "diverge_at": null,
    "effort": "low",
    "effort_changed": false,
@@ -7641,7 +7789,25 @@
   {
    "cc_marks": 0,
    "conv": "c17",
-   "cost_missing": "sin precio para gpt-4o en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.0034,
+    "parts": {
+     "output": 0.0004,
+     "read": 0.0,
+     "uncached": 0.003,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 2.5,
+     "output": 10,
+     "read": 1.25,
+     "write": 2.5,
+     "write_1h": 2.5
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.0034
+   },
    "effort": null,
    "hdr_s": 0.25,
    "host": "api.openai.com",
@@ -7721,7 +7887,25 @@
   {
    "cc_marks": 0,
    "conv": "c19",
-   "cost_missing": "sin precio para gpt-5-2025-08-07 en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.002025,
+    "parts": {
+     "output": 0.0004,
+     "read": 0.0,
+     "uncached": 0.001625,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.25,
+     "output": 10,
+     "read": 0.125,
+     "write": 1.25,
+     "write_1h": 1.25
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.002025
+   },
    "effort": null,
    "hdr_s": 0.25,
    "host": "api.openai.com",
@@ -12391,7 +12575,25 @@
   {
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.00406,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0,
+     "uncached": 0.0035,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.00406
+   },
    "effort": "low",
    "effort_fields": {
     "reasoning_effort": "low",
@@ -12480,7 +12682,26 @@
    "age_s": 58.0,
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "lost_usd": 0.00315,
+    "no_cache_usd": 0.004235,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0,
+     "uncached": 0.003675,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.004235
+   },
    "diff": {
     "after": "{\"content\": \"Eres un asistente de pruebas. Responde breve.\", \"role\": \"system\"}",
     "before": "{\"content\": \"Eres un asistente de pruebas.\", \"role\": \"system\"}",
@@ -12605,7 +12826,26 @@
    "age_s": 58.0,
    "cc_marks": 0,
    "conv": "c15",
-   "cost_missing": "sin precio para gpt-5.2 en la tarifa de OpenAI",
+   "cost": {
+    "lost_usd": 0.0016947,
+    "no_cache_usd": 0.00441,
+    "parts": {
+     "output": 0.00056,
+     "read": 0.0001792,
+     "uncached": 0.002058,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.75,
+     "output": 14,
+     "read": 0.175,
+     "write": 1.75,
+     "write_1h": 1.75
+    },
+    "saved_usd": 0.0016128,
+    "tariff": "OpenAI",
+    "usd": 0.0027972
+   },
    "diverge_at": null,
    "effort": "low",
    "effort_changed": false,
@@ -12969,7 +13209,25 @@
   {
    "cc_marks": 0,
    "conv": "c17",
-   "cost_missing": "sin precio para gpt-4o en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.0034,
+    "parts": {
+     "output": 0.0004,
+     "read": 0.0,
+     "uncached": 0.003,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 2.5,
+     "output": 10,
+     "read": 1.25,
+     "write": 2.5,
+     "write_1h": 2.5
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.0034
+   },
    "effort": null,
    "effort_fields": {
     "stream": true
@@ -13143,7 +13401,25 @@
   {
    "cc_marks": 0,
    "conv": "c19",
-   "cost_missing": "sin precio para gpt-5-2025-08-07 en la tarifa de OpenAI",
+   "cost": {
+    "no_cache_usd": 0.002025,
+    "parts": {
+     "output": 0.0004,
+     "read": 0.0,
+     "uncached": 0.001625,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 1.25,
+     "output": 10,
+     "read": 0.125,
+     "write": 1.25,
+     "write_1h": 1.25
+    },
+    "saved_usd": 0.0,
+    "tariff": "OpenAI",
+    "usd": 0.002025
+   },
    "effort": null,
    "effort_fields": {
     "stream": true

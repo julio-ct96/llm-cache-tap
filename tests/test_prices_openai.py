@@ -57,6 +57,24 @@ class PricesTest(unittest.TestCase):
     def test_small_models_have_no_long_context_tier(self):
         self.assertEqual(openai.PRICES["gpt-5.4-mini"], {"input": 0.75, "read": 0.075, "output": 4.5})
 
+    def test_older_and_pro_models(self):
+        expected = {
+            "gpt-5.5-pro": {
+                "input": 30,
+                "read": 30,
+                "output": 180,
+                "over": 272_000,
+                "long": {"input": 60, "read": 60, "output": 270},
+                "note": "sin precio de caché publicado: la lectura se cobra como entrada",
+            },
+            "gpt-5-nano": {"input": 0.05, "read": 0.005, "output": 0.4},
+            "gpt-4o-mini": {"input": 0.15, "read": 0.075, "output": 0.6},
+            "o3": {"input": 2, "read": 0.5, "output": 8},
+        }
+        for model, price in expected.items():
+            with self.subTest(model=model):
+                self.assertEqual(openai.PRICES[model], price)
+
     def test_every_priced_model_is_owned(self):
         for model in openai.PRICES:
             with self.subTest(model=model):
