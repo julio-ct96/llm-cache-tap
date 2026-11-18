@@ -17,7 +17,7 @@
 | 1.04 | Ayuda y README | [1.04](fase-1/1.04-ayuda.md) | 1.03 | terminada con commit | FULL: C12 conserva tablas y tamaños; los dos denominadores quedan documentados |
 | 1.05 | Matriz visual de las rutas en Chrome | [1.05](fase-1/1.05-matriz-visual.md) | 1.04 | terminada con commit | FULL/C35: 32 combinaciones verificadas; golden intacto y sin llamadas reales |
 | 1.06 | Verificador visual reutilizable | [1.06](fase-1/1.06-verificador-panel.md) | 1.05 | terminada con commit | FULL/C35 y 4 combinaciones sobre un replay externo; argumentos inválidos rechazados |
-| 2.01 | Validar visualmente por cliente real | [2.01](fase-2/2.01-clientes-reales.md) | 1.06 | bloqueada | [Evidencia parcial](validacion-real.md): cuatro scripts verificados; falta autenticación aislada de OpenCode; sin gasto de cuota |
+| 2.01 | Validar visualmente por cliente real | [2.01](fase-2/2.01-clientes-reales.md) | 1.06 | bloqueada | [Evidencia parcial](validacion-real.md): cuatro scripts verificados; el proveedor rechazó el intento de OpenCode con su cuenta habitual |
 
 La cadena es deliberada: primero el contrato, luego la presentación, después la documentación y la matriz contra el estado final. No se comparte el navegador de FULL entre tareas paralelas.
 
