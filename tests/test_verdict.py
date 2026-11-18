@@ -1,6 +1,6 @@
 import unittest
 
-from cachetap import verdict
+from cachetap import record, verdict
 
 BASE_REC = {
     "model": "claude-opus-5-5",
@@ -61,6 +61,25 @@ class JudgeTest(unittest.TestCase):
     def test_partial_context_without_usage_keeps_usage_note(self):
         rec = self.run_judge({"context_partial": True}, prev=False)
         self.check(rec, "N/A", ["la respuesta no trae usage"], None)
+
+    def test_partial_context_high_read_is_exposed_without_a_hit(self):
+        rec = self.run_judge({
+            "id": 1,
+            "state": "done",
+            "model": "gpt-6-luna",
+            "transport": "websocket",
+            "context_partial": True,
+            "prev_id": None,
+            "usage": U(13789, 13847),
+        }, prev=False)
+        for project in (record.light, record.public):
+            with self.subTest(projection=project.__name__):
+                projected = project(rec)
+                self.check(projected, "N/A", ["contexto incremental WebSocket: no se dispone del prefijo completo"], False)
+                self.assertIs(projected["context_partial"], True)
+                self.assertEqual(projected["usage"]["read"], 13789)
+                self.assertEqual(projected["usage"]["input_total"], 13847)
+                self.assertNotIn("miss_causes", projected)
 
     def test_below_minimum(self):
         rec = self.run_judge({"usage": U(0, 600), "model": "claude-opus-4-7"}, prev=False)

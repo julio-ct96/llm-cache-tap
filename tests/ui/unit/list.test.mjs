@@ -32,3 +32,16 @@ test('filterRecords keeps only requests at or above the minimum cost', () => {
   assert.deepEqual(filterRecords(priced, { ...filters, minCost: 0.5 }).map((r) => r.id), [3, 2]);
   assert.equal(filterRecords(priced, { ...filters, minCost: 0 }).length, 4);
 });
+
+test('high incremental cache reads contribute tokens, not hits or failures', () => {
+  const observed = [
+    { id: 1, model: 'gpt-6-luna', verdict: 'N/A', state: 'done', transport: 'websocket', context_partial: true, usage: { read: 13789, input_total: 13847 } },
+    { id: 2, model: 'claude-opus-5-5', verdict: 'HIT', state: 'done', usage: { read: 3000, input_total: 3220 } },
+    { id: 3, model: 'gemini-4-carbon', verdict: 'PARTIAL', state: 'done', usage: { read: 5000, input_total: 6000 } },
+  ];
+  assert.deepEqual(summarizeRecords(observed), {
+    count: 3, hit: 1, miss: 1, server: 0, effortHit: 0, effort: 0, read: 21789, total: 23067,
+  });
+  const filters = { model: '', conv: '', bad: true, effort: false, text: '', minCost: 0 };
+  assert.deepEqual(filterRecords(observed, filters).map((r) => r.id), [3]);
+});

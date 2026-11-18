@@ -11,7 +11,7 @@
 
 | ID | Tarea | Fichero | Depende de | Estado | Notas |
 | --- | --- | --- | --- | --- | --- |
-| 1.01 | Red de seguridad del veredicto y contadores | [1.01](fase-1/1.01-red-seguridad.md) | — | pendiente | Solo tests preexistentes ampliados |
+| 1.01 | Red de seguridad del veredicto y contadores | [1.01](fase-1/1.01-red-seguridad.md) | — | terminada con commit | FULL: 423 Python, 21 JS y Chrome; producción y golden intactos |
 | 1.02 | Componente de lectura observada | [1.02](fase-1/1.02-indicador-presentacion.md) | 1.01 | pendiente | Usa el sistema de diseño; límites y valores ausentes |
 | 1.03 | Colocar en Reparto y Resumen | [1.03](fase-1/1.03-lista-detalle.md) | 1.02 | pendiente | Sin cambiar la tabla ni el badge de veredicto |
 | 1.04 | Ayuda y README | [1.04](fase-1/1.04-ayuda.md) | 1.03 | pendiente | Explica los dos denominadores |
