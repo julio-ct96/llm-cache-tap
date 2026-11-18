@@ -15,14 +15,21 @@ FLASH_STANDARD: base.Price = {"input": 1.5, "read": 0.15, "output": 7.5}
 FRONTIER_CHANGE = date(2026, 12, 1)
 FLASH_CHANGE = date(2027, 1, 1)
 
-PRICES: dict[str, base.Price] = {
+# Gemini 4 generation models.
+GEMINI_4: dict[str, base.Price] = {
     "gemini-4-argon": FRONTIER_PROMO,
     "gemini-4-carbon": FRONTIER_PROMO,
     "gemini-4-hydrogen": HYDROGEN,
+}
+
+# Gemini 3 generation models.
+GEMINI_3: dict[str, base.Price] = {
     "gemini-3.8-flash": FLASH_PROMO,
     "gemini-3.6-flash": FLASH_PROMO,
     "gemini-3.5-flash-lite": {"input": 0.3, "read": 0.03, "output": 2.5},
 }
+
+PRICES: dict[str, base.Price] = {**GEMINI_4, **GEMINI_3}
 
 AFTER_PROMO: dict[str, tuple[date, base.Price | None]] = {
     "gemini-4-argon": (FRONTIER_CHANGE, FRONTIER_STANDARD),
