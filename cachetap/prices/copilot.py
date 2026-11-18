@@ -46,6 +46,8 @@ FROM_LISTS: dict[str, base.Price] = {
 }
 
 DIFFERENT_TIERS: dict[str, base.Price] = {
+    # Copilot's billing data has no separate 1 h cache write for Haiku 4.5, unlike newer Claude
+    "claude-haiku-4.5": {"input": 1, "read": 0.1, "write": 1.25, "output": 5},
     # GitHub starts this model's long-context tier at 200K input tokens, OpenAI at 272K
     "gpt-5.6-luna": {**openai.PRICES["gpt-5.6-luna"], "over": 200_000},
 }
@@ -55,6 +57,8 @@ UTILITY_MODELS: dict[str, base.Price] = {
     "gpt-4.1": _UTILITY,
     "gpt-4o": _UTILITY,
     "gpt-4o-mini": _UTILITY,
+    # Copilot's billing data prices it at 0, although the public page lists OpenAI's rates
+    "gpt-5.4-nano": _UTILITY,
 }
 
 # fast mode is a separate model that only GitHub prices

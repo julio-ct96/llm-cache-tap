@@ -19,8 +19,15 @@ class ServesTest(unittest.TestCase):
 class PricesTest(unittest.TestCase):
     def test_claude_rows_are_the_list_price_with_1h_writes(self):
         for model in anthropic.PRICES:
+            if model == "claude-haiku-4.5":
+                continue
             with self.subTest(model=model):
                 self.assertEqual(copilot.PRICES[model], anthropic.PRICES[model])
+
+    def test_haiku_4_5_has_no_separate_1h_write(self):
+        self.assertEqual(
+            copilot.PRICES["claude-haiku-4.5"], {"input": 1, "read": 0.1, "write": 1.25, "output": 5}
+        )
 
     def test_mai_code_2_promotion_ends_on_may_18_2027(self):
         for model, promo, standard in (
@@ -75,7 +82,7 @@ class PricesTest(unittest.TestCase):
         self.assertEqual(copilot.PRICES["gpt-5.6-luna"]["long"], openai.PRICES["gpt-5.6-luna"]["long"])
 
     def test_utility_models_are_free_and_say_why(self):
-        for model in ("gpt-4.1", "gpt-4o", "gpt-4o-mini"):
+        for model in ("gpt-4.1", "gpt-4o", "gpt-4o-mini", "gpt-5.4-nano"):
             with self.subTest(model=model):
                 price = copilot.PRICES[model]
                 self.assertEqual((price["input"], price["read"], price["output"]), (0, 0, 0))
