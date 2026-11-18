@@ -131,7 +131,11 @@ def error(flow: mitmproxy.http.HTTPFlow) -> None:
         if rid is None:
             return
         st = flow.metadata.pop("tap_stream", None)
-        capture.fail(rid, st, str(flow.error))
+        if st is not None and flow.response is not None and capture.complete(st):
+            # the client left after the final event (OpenCode does on /responses): the response is whole
+            capture.finish(rid, st, flow.response.status_code, flow.request.timestamp_end, logger)
+        else:
+            capture.fail(rid, st, str(flow.error))
     finally:
         if session is not None:
             session.close(_websocket_end_at(flow))

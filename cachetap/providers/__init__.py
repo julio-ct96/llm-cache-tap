@@ -9,6 +9,7 @@ from cachetap.providers import anthropic, google, openai
 PROVIDERS = (anthropic, google, openai)
 
 FIRST_TOKEN = anthropic.FIRST_TOKEN + openai.FIRST_TOKEN
+FINAL_EVENTS = anthropic.FINAL_EVENTS + openai.FINAL_EVENTS
 
 
 class Reference(TypedDict):

@@ -172,6 +172,13 @@ def feed(rid: int, state: StreamState, data: bytes, *, at: float | None = None) 
     return data
 
 
+def complete(state: StreamState) -> bool:
+    """Whether the retained stream already reached the provider's final event."""
+    if state["closed"] or state["limited"] is not None:
+        return False
+    return response_body.completed(b"".join(state["chunks"]).decode("utf8", "replace"))
+
+
 def limit(rid: int, state: StreamState, reason: record.CaptureLimit) -> None:
     """Stop retaining response data and release its reservation once."""
     if state["closed"]:

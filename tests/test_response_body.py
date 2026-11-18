@@ -48,6 +48,28 @@ class UsageEventsTest(unittest.TestCase):
         self.assertEqual(response_body.output_text(body), ("válido", None))
 
 
+class CompletedTest(unittest.TestCase):
+    def test_final_events(self):
+        for body in (
+            'data: {"type":"response.completed","response":{}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+            'data: {"choices":[]}\n\ndata: [DONE]\n\n',
+        ):
+            with self.subTest(body=body):
+                self.assertTrue(response_body.completed(body))
+
+    def test_unfinished_or_mentioned_only(self):
+        for body in (
+            "",
+            'data: {"type":"response.output_text.delta","delta":"response.completed"}\n\n',
+            'data: {"type":"message_delta","usage":{"output_tokens":1}}\n\n',
+            '{"type":"response.completed"}',
+            'data: {"type":"response.compl',
+        ):
+            with self.subTest(body=body):
+                self.assertFalse(response_body.completed(body))
+
+
 class OutputTextTest(unittest.TestCase):
     def test_anthropic_text(self):
         body = "".join(builders.anthropic_sse(1, 2, 3))

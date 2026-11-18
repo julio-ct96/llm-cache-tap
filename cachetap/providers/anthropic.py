@@ -9,6 +9,8 @@ from cachetap.providers import base
 
 TTL_NAMES = {"5m": 300, "30m": 1800, "1h": 3600}
 FIRST_TOKEN = (b"content_block_delta",)
+# stream event after which the response is whole, even if the body has not ended yet
+FINAL_EVENTS = ("message_stop",)
 
 
 def owns(model: str) -> bool:

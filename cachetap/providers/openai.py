@@ -7,6 +7,8 @@ from cachetap import record
 from cachetap.providers import base
 
 FIRST_TOKEN = (b"output_text.delta", b'"delta":{"content"', b"reasoning")
+# Responses stream event after which the response is whole; Chat Completions ends with [DONE]
+FINAL_EVENTS = ("response.completed",)
 
 
 def owns(model: str) -> bool:

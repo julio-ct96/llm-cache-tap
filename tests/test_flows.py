@@ -151,6 +151,49 @@ class FlowsTest(unittest.TestCase):
         self.assertEqual(rec["output"], "")
         self.assertEqual(rec["verdict"], "N/A")
 
+    def _disconnect_after(self, host, path, model, chunks):
+        flow = FakeFlow(FakeRequest("POST", host, path, json.dumps({"model": model, "input": "hola"}), 1790000000.0))
+        adapter.hooks().request(flow)
+        flow.response = FakeResponse(200, {}, 1790000000.3)
+        adapter.hooks().responseheaders(flow)
+        for chunk in chunks:
+            flow.response.stream(chunk)
+        flow.error = "Client disconnected."
+        adapter.hooks().error(flow)
+        return adapter.records()[0], flow
+
+    def test_client_leaving_after_response_completed_keeps_the_usage(self):
+        usage = {"input_tokens": 1200, "input_tokens_details": {"cached_tokens": 1024}, "output_tokens": 9}
+        chunks = [
+            b'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Hola"}\n\n',
+            ('event: response.completed\ndata: ' + json.dumps(
+                {"type": "response.completed", "response": {"status": "completed", "usage": usage}}) + "\n\n").encode(),
+        ]
+        rec, flow = self._disconnect_after("api.githubcopilot.com", "/responses", "gpt-6-luna", chunks)
+        self.assertEqual(rec["state"], "done")
+        self.assertNotEqual(rec["verdict"], "ERR")
+        self.assertEqual((rec["usage"]["read"], rec["usage"]["input_total"]), (1024, 1200))
+        self.assertEqual(rec["output"], "Hola")
+        self.assertNotIn("tap_stream", flow.metadata)
+        self.assertEqual(store.ACTIVE_CAPTURES, set())
+
+    def test_client_leaving_after_chat_done_keeps_the_usage(self):
+        chunks = [
+            b'data: {"choices":[{"delta":{"content":"Hola"}}]}\n\n',
+            b'data: {"choices":[],"usage":{"prompt_tokens":600,"completion_tokens":3}}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+        rec, _ = self._disconnect_after("api.githubcopilot.com", "/chat/completions", "gemini-3.8-flash", chunks)
+        self.assertEqual(rec["state"], "done")
+        self.assertEqual(rec["usage"]["input_total"], 600)
+
+    def test_client_leaving_before_the_final_event_is_an_error(self):
+        chunks = [b'data: {"type":"message_start","message":{"usage":{"input_tokens":100}}}\n\n']
+        rec, _ = self._disconnect_after("api.anthropic.com", "/v1/messages", "claude-opus-5-5", chunks)
+        self.assertEqual((rec["state"], rec["verdict"]), ("error", "ERR"))
+        self.assertEqual(rec["notes"], ["Client disconnected."])
+        self.assertNotIn("usage", rec)
+
     def test_active_capture_limit_is_released_on_response_and_error(self):
         with mock.patch.object(config, "MAX_ACTIVE_CAPTURES", 16):
             flows = [self._start_response()[0] for _ in range(17)]

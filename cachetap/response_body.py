@@ -44,6 +44,25 @@ def usage_events(body: str) -> list[record.UsageEvent]:
     return events
 
 
+def completed(body: str) -> bool:
+    """Whether a streamed body already holds the provider's final event, such as response.completed."""
+    for line in body.splitlines():
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if data == "[DONE]":
+            return True
+        if not any(name in data for name in providers.FINAL_EVENTS):
+            continue
+        try:
+            event = json.loads(data)
+        except (json.JSONDecodeError, RecursionError):
+            continue
+        if isinstance(event, dict) and event.get("type") in providers.FINAL_EVENTS:
+            return True
+    return False
+
+
 def output_text(body: str) -> tuple[str, str | None]:
     out, stop = [], None
     if body.lstrip().startswith(("{", "[")):
