@@ -1,4 +1,4 @@
-import { esc } from './format.js';
+import { esc, pct } from './format.js';
 
 export function badge(r) {
   if (r.state !== 'done' && r.state !== 'error') {
@@ -6,6 +6,18 @@ export function badge(r) {
   }
   const cls = 'v-' + String(r.verdict ?? 'na').toLowerCase().replace(/[^a-z]/g, '');
   return `<span class="badge ${cls}">${esc(r.verdict)}</span>`;
+}
+
+export function cacheReadIndicator(r) {
+  if (r.state !== 'done') return '';
+  const { read, input_total: total } = r.usage ?? {};
+  if (!Number.isSafeInteger(read) || !Number.isSafeInteger(total) || total <= 0 || read < 0 || read > total) {
+    return '<span class="cache-read">Lectura de caché: sin datos</span>';
+  }
+  const high = read / total >= 0.9;
+  const percent = pct(read, total);
+  const label = !high && percent === '90,0 %' ? '<90 %' : percent;
+  return `<span class="cache-read${high ? ' cache-read-high' : ''}">Leído de caché: ${esc(label)}</span>`;
 }
 
 export function shareBar(u, wide = false) {

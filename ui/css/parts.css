@@ -1,6 +1,7 @@
 /* ---------- badge, chip, bar ---------- */
 
-.badge {
+.badge,
+.cache-read {
   display: inline-block;
   min-width: 64px;
   padding: 0 6px;
@@ -10,8 +11,18 @@
   text-align: center;
 }
 
-.v-hit {
+.cache-read {
+  white-space: nowrap;
+  color: var(--dim);
+}
+
+.v-hit,
+.cache-read-high {
   background: var(--kiwi);
+}
+
+.cache-read-high {
+  color: var(--on-accent);
 }
 
 .v-miss,
@@ -125,4 +136,3 @@
 .empty p:first-child {
   color: var(--text);
 }
-
