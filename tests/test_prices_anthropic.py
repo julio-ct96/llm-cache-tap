@@ -11,6 +11,20 @@ class PricesTest(unittest.TestCase):
             {"input": 4, "read": 0.2, "write": 5, "write_1h": 8, "output": 20},
         )
 
+    def test_older_and_mythos_models(self):
+        self.assertEqual(
+            anthropic.PRICES["claude-mythos-5.2"],
+            {"input": 8, "read": 0.2, "write": 10, "write_1h": 16, "output": 40},
+        )
+        self.assertEqual(
+            anthropic.PRICES["claude-opus-4.1"],
+            {"input": 15, "read": 1.5, "write": 18.75, "write_1h": 30, "output": 75},
+        )
+        self.assertEqual(
+            anthropic.PRICES["claude-sonnet-4"],
+            {"input": 3, "read": 0.3, "write": 3.75, "write_1h": 6, "output": 15},
+        )
+
     def test_fable_5_1_reads_cheaper_than_fable_5(self):
         self.assertEqual(anthropic.PRICES["claude-fable-5.1"]["read"], 0.25)
         self.assertEqual(anthropic.PRICES["claude-fable-5"]["read"], 1)

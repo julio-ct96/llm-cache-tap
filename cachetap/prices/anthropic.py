@@ -26,12 +26,31 @@ def _family(family: str, versions: dict[str, base.Price]) -> dict[str, base.Pric
 FABLE: dict[str, base.Price] = _family(
     "fable", {"5.2": _claude(8, 0.2), "5.1": _claude(10, 0.25), "5": _claude(10, 1)}
 )
+MYTHOS: dict[str, base.Price] = _family(
+    "mythos", {"5.2": _claude(8, 0.2), "5.1": _claude(10, 0.25), "5": _claude(10, 1)}
+)
 OPUS: dict[str, base.Price] = _family(
     "opus",
-    {"5.5": _claude(4, 0.2), "5": _claude(5, 0.5), "4.8": _claude(5, 0.5), "4.7": _claude(5, 0.5)},
+    {
+        "5.5": _claude(4, 0.2),
+        "5": _claude(5, 0.5),
+        "4.8": _claude(5, 0.5),
+        "4.7": _claude(5, 0.5),
+        "4.6": _claude(5, 0.5),
+        "4.5": _claude(5, 0.5),
+        "4.1": _claude(15, 1.5),
+        "4": _claude(15, 1.5),
+    },
 )
 SONNET: dict[str, base.Price] = _family(
-    "sonnet", {"5.5": _claude(2, 0.1), "5": _claude(2, 0.2), "4.6": _claude(3, 0.3)}
+    "sonnet",
+    {
+        "5.5": _claude(2, 0.1),
+        "5": _claude(2, 0.2),
+        "4.6": _claude(3, 0.3),
+        "4.5": _claude(3, 0.3),
+        "4": _claude(3, 0.3),
+    },
 )
 # Only Claude Haiku 5.5 has a long-context tier: a prompt over 100K tokens (cache reads and
 # writes included) pays 5x on every rate.
@@ -43,4 +62,4 @@ HAIKU: dict[str, base.Price] = _family(
     },
 )
 
-PRICES: dict[str, base.Price] = {**FABLE, **OPUS, **SONNET, **HAIKU}
+PRICES: dict[str, base.Price] = {**FABLE, **MYTHOS, **OPUS, **SONNET, **HAIKU}

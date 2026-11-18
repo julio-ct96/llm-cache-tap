@@ -151,10 +151,10 @@ class PriceRecordTest(unittest.TestCase):
         self.assertNotIn("lost_usd", rec["cost"])
 
     def test_model_without_price_is_never_guessed(self):
-        rec = self.rec(model="claude-opus-4-6", usage=U(0, 0, 600, 5))
+        rec = self.rec(model="claude-mythos-preview", usage=U(0, 0, 600, 5))
         cost.price_record(rec, None)
         self.assertNotIn("cost", rec)
-        self.assertEqual(rec["cost_missing"], "sin precio para claude-opus-4-6 en la tarifa de Anthropic")
+        self.assertEqual(rec["cost_missing"], "sin precio para claude-mythos-preview en la tarifa de Anthropic")
 
     def test_unknown_provider_has_no_tariff(self):
         rec = self.rec(host="api.mistral.ai", model="mistral-large", usage=U(0, None, 600, 5))

@@ -2854,17 +2854,35 @@
    "convs": {
     "c6": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00425,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00425
     }
    },
    "rec": {
     "cc_marks": 1,
     "conv": "c6",
-    "cost_missing": "sin precio para claude-opus-4-6 en la tarifa de Anthropic",
+    "cost": {
+     "no_cache_usd": 0.00425,
+     "parts": {
+      "output": 0.00125,
+      "read": 0.0,
+      "uncached": 0.003,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 5,
+      "output": 25,
+      "read": 0.5,
+      "write": 6.25,
+      "write_1h": 10
+     },
+     "saved_usd": 0.0,
+     "tariff": "Anthropic",
+     "usd": 0.00425
+    },
     "effort": null,
     "hdr_s": 0.25,
     "host": "api.anthropic.com",
@@ -2952,17 +2970,35 @@
    "convs": {
     "c7": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00255,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00255
     }
    },
    "rec": {
     "cc_marks": 1,
     "conv": "c7",
-    "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+    "cost": {
+     "no_cache_usd": 0.00255,
+     "parts": {
+      "output": 0.00075,
+      "read": 0.0,
+      "uncached": 0.0018,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 3,
+      "output": 15,
+      "read": 0.3,
+      "write": 3.75,
+      "write_1h": 6
+     },
+     "saved_usd": 0.0,
+     "tariff": "Anthropic",
+     "usd": 0.00255
+    },
     "effort": null,
     "hdr_s": 0.25,
     "host": "api.anthropic.com",
@@ -3148,17 +3184,35 @@
    "convs": {
     "c9": {
      "lost_usd": 0.0,
-     "no_cache_usd": 0.0,
-     "priced": 0,
+     "no_cache_usd": 0.00525,
+     "priced": 1,
      "saved_usd": 0.0,
-     "unpriced": 1,
-     "usd": 0.0
+     "unpriced": 0,
+     "usd": 0.00525
     }
    },
    "rec": {
     "cc_marks": 1,
     "conv": "c9",
-    "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+    "cost": {
+     "no_cache_usd": 0.00525,
+     "parts": {
+      "output": 0.00075,
+      "read": 0.0,
+      "uncached": 0.0045,
+      "write": 0.0
+     },
+     "rates": {
+      "input": 3,
+      "output": 15,
+      "read": 0.3,
+      "write": 3.75,
+      "write_1h": 6
+     },
+     "saved_usd": 0.0,
+     "tariff": "Anthropic",
+     "usd": 0.00525
+    },
     "effort": null,
     "hdr_s": 0.25,
     "host": "api.anthropic.com",
@@ -6761,7 +6815,25 @@
   {
    "cc_marks": 1,
    "conv": "c6",
-   "cost_missing": "sin precio para claude-opus-4-6 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00425,
+    "parts": {
+     "output": 0.00125,
+     "read": 0.0,
+     "uncached": 0.003,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 5,
+     "output": 25,
+     "read": 0.5,
+     "write": 6.25,
+     "write_1h": 10
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00425
+   },
    "effort": null,
    "hdr_s": 0.25,
    "host": "api.anthropic.com",
@@ -6800,7 +6872,25 @@
   {
    "cc_marks": 1,
    "conv": "c7",
-   "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00255,
+    "parts": {
+     "output": 0.00075,
+     "read": 0.0,
+     "uncached": 0.0018,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 3,
+     "output": 15,
+     "read": 0.3,
+     "write": 3.75,
+     "write_1h": 6
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00255
+   },
    "effort": null,
    "hdr_s": 0.25,
    "host": "api.anthropic.com",
@@ -6878,7 +6968,25 @@
   {
    "cc_marks": 1,
    "conv": "c9",
-   "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00525,
+    "parts": {
+     "output": 0.00075,
+     "read": 0.0,
+     "uncached": 0.0045,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 3,
+     "output": 15,
+     "read": 0.3,
+     "write": 3.75,
+     "write_1h": 6
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00525
+   },
    "effort": null,
    "hdr_s": 0.25,
    "host": "api.anthropic.com",
@@ -11143,7 +11251,25 @@
   {
    "cc_marks": 1,
    "conv": "c6",
-   "cost_missing": "sin precio para claude-opus-4-6 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00425,
+    "parts": {
+     "output": 0.00125,
+     "read": 0.0,
+     "uncached": 0.003,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 5,
+     "output": 25,
+     "read": 0.5,
+     "write": 6.25,
+     "write_1h": 10
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00425
+   },
    "effort": null,
    "effort_fields": {
     "max_tokens": 1024,
@@ -11232,7 +11358,25 @@
   {
    "cc_marks": 1,
    "conv": "c7",
-   "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00255,
+    "parts": {
+     "output": 0.00075,
+     "read": 0.0,
+     "uncached": 0.0018,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 3,
+     "output": 15,
+     "read": 0.3,
+     "write": 3.75,
+     "write_1h": 6
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00255
+   },
    "effort": null,
    "effort_fields": {
     "max_tokens": 1024,
@@ -11410,7 +11554,25 @@
   {
    "cc_marks": 1,
    "conv": "c9",
-   "cost_missing": "sin precio para claude-sonnet-4-5 en la tarifa de Anthropic",
+   "cost": {
+    "no_cache_usd": 0.00525,
+    "parts": {
+     "output": 0.00075,
+     "read": 0.0,
+     "uncached": 0.0045,
+     "write": 0.0
+    },
+    "rates": {
+     "input": 3,
+     "output": 15,
+     "read": 0.3,
+     "write": 3.75,
+     "write_1h": 6
+    },
+    "saved_usd": 0.0,
+    "tariff": "Anthropic",
+    "usd": 0.00525
+   },
    "effort": null,
    "effort_fields": {
     "max_tokens": 1024,
