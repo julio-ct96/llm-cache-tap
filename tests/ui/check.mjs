@@ -144,18 +144,117 @@ function connect(wsUrl) {
 
 // ---------- checks ----------
 
-async function main() {
-  await startServer();
-  const page = connect(await startChrome());
-  await page.opened;
-  for (const domain of ['Runtime', 'Network', 'Page']) await page.send(`${domain}.enable`);
-
+function browserActions(page) {
   const js = async (expression) => {
     const { result, exceptionDetails } = await page.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
     if (exceptionDetails) throw new Error(exceptionDetails.exception?.description || exceptionDetails.text);
     return result.value;
   };
   const click = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  const text = (selector) => js(`document.querySelector(${JSON.stringify(selector)})?.textContent ?? null`);
+  const hidden = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).hidden`);
+  const detailHas = async (...parts) => {
+    const missing = async () => {
+      if (await hidden('#detail')) return ['(detail is hidden)'];
+      const content = (await text('#detail')) || '';
+      return parts.filter((part) => !content.includes(part));
+    };
+    await until('detail', async () => (await missing()).length === 0, 4000).catch(() => {});
+    const left = await missing();
+    if (left.length) throw new Error(`detail lacks ${left.join(', ')}`);
+  };
+  return { js, click, text, hidden, detailHas };
+}
+
+function expect(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+}
+
+async function checkCacheReadVisual(page, cases) {
+  const { js, click, detailHas } = browserActions(page);
+  const passed = [];
+  try {
+    for (const [width, height] of [[1600, 900], [390, 844]]) {
+      await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+      for (const theme of ['dark', 'light']) {
+        await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
+        await js('document.fonts.ready.then(() => true)');
+        for (const { id, verdict, label, high, incremental, route } of cases) {
+          const selector = `#rows tr[data-id="${id}"]`;
+          const context = `${route ?? `record #${id}`} · ${width}px · ${theme}`;
+          try {
+            await click(selector);
+            await detailHas(`#${id}`);
+            const got = await js(`(() => {
+              const row = document.querySelector(${JSON.stringify(selector)});
+              const head = document.querySelector('#detail .detail-head');
+              const summary = document.querySelector('#detail [data-sec="summary"]');
+              const prefix = [...summary.querySelectorAll('dt')].find((item) => item.textContent === 'Prefijo');
+              const indicator = (el) => {
+                if (!el) return null;
+                const style = getComputedStyle(el);
+                const resolve = (token) => {
+                  const probe = document.createElement('span');
+                  probe.style.color = 'var(' + token + ')';
+                  el.append(probe);
+                  const color = getComputedStyle(probe).color;
+                  probe.remove();
+                  return color;
+                };
+                const isHigh = el.classList.contains('cache-read-high');
+                return {
+                  label: el.textContent,
+                  high: isHigh,
+                  colors: style.color === resolve(isHigh ? '--on-accent' : '--dim') &&
+                    style.backgroundColor === (isHigh ? resolve('--kiwi') : 'rgba(0, 0, 0, 0)'),
+                  fits: el.clientWidth > 0 && el.clientHeight > 0 && el.scrollWidth <= el.clientWidth,
+                  separate: !el.matches('.badge, .v-hit'),
+                };
+              };
+              return {
+                detailId: head.querySelector('.detail-id').textContent,
+                cells: row.cells.length,
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+                verdicts: [row.cells[2].querySelector('.badge')?.textContent, head.querySelector('.badge')?.textContent],
+                indicators: [indicator(row.cells[9].querySelector('.cache-read')), indicator(summary.querySelector('.cache-read'))],
+                incremental: prefix?.nextElementSibling?.textContent,
+                hit: !!(row.querySelector('.v-hit') || head.querySelector('.v-hit')),
+              };
+            })()`);
+            expect(got.detailId, `#${id}`, 'detail ID');
+            expect(got.cells, 18, 'table cells');
+            expect(got.overflow, false, 'document horizontal overflow');
+            expect(got.verdicts, [verdict, verdict], 'separate verdict badges');
+            const indicator = { label, high, colors: true, fits: true, separate: true };
+            expect(got.indicators, [indicator, indicator], 'list and summary indicators');
+            if (incremental) {
+              expect(got.incremental, 'no comparable (contexto incremental)', 'prefix');
+              expect(got.hit, false, 'incremental verdict styled as HIT');
+            }
+            passed.push({ id, width, theme });
+          } catch (error) {
+            throw new Error(`${context}: ${error.message}`);
+          }
+        }
+      }
+    }
+  } finally {
+    try {
+      await page.send('Emulation.clearDeviceMetricsOverride');
+    } finally {
+      await page.send('Emulation.setEmulatedMedia', { features: [] });
+    }
+  }
+  return passed;
+}
+
+async function main() {
+  await startServer();
+  const page = connect(await startChrome());
+  await page.opened;
+  for (const domain of ['Runtime', 'Network', 'Page']) await page.send(`${domain}.enable`);
+
+  const { js, click, text, hidden, detailHas } = browserActions(page);
   const KEYS = { Escape: 27, ArrowDown: 40, '/': 191 };
   const press = async (key) => {
     const event = { key, code: key === '/' ? 'Slash' : key, windowsVirtualKeyCode: KEYS[key] };
@@ -165,8 +264,6 @@ async function main() {
   const type = (selector, value, eventName) =>
     js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('${eventName}', { bubbles: true })); })()`);
   const rows = () => js(`document.querySelectorAll('#rows tr').length`);
-  const text = (selector) => js(`document.querySelector(${JSON.stringify(selector)})?.textContent ?? null`);
-  const hidden = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).hidden`);
 
   let failed = 0;
   const check = async (name, what, run) => {
@@ -179,22 +276,9 @@ async function main() {
       console.log(`FAIL ${name}  ${what}: ${error.message}`);
     }
   };
-  const expect = (actual, expected, label) => {
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  };
   const expectRows = async (expected, label) => {
     await until(label, async () => (await rows()) === expected, 3000).catch(() => {});
     expect(await rows(), expected, label);
-  };
-  const detailHas = async (...parts) => {
-    const missing = async () => {
-      if (await hidden('#detail')) return ['(detail is hidden)'];
-      const content = (await text('#detail')) || '';
-      return parts.filter((part) => !content.includes(part));
-    };
-    await until('detail', async () => (await missing()).length === 0, 4000).catch(() => {});
-    const left = await missing();
-    if (left.length) throw new Error(`detail lacks ${left.join(', ')}`);
   };
 
   await page.send('Page.navigate', { url: URL });
@@ -238,6 +322,76 @@ async function main() {
     await click('#f-bad');
     await expectRows(44, 'rows with the toggle off');
   });
+  if (FULL) {
+    await check('C35', 'observed cache reads: 32 route / viewport / theme combinations', async () => {
+      const raw = execFileSync(join(ROOT, 'venv/bin/python'), ['-m', 'tests.replay.cache_read_ui'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        timeout: 15000,
+      });
+      const fixtures = JSON.parse(raw);
+      const samples = Object.entries({ generateContent: 800001, streamGenerateContent: 800002, 'copilot-http': 800003, 'copilot-incremental': 800004 })
+        .map(([key, id]) => {
+          const conv = `c-cache-read-${id}`;
+          return { detail: { ...fixtures[key].detail, id, conv }, light: { ...fixtures[key].light, id, conv } };
+        });
+      const cases = [
+        [2, 'Anthropic Messages', 'HIT', '93,2 %', true],
+        [28, 'OpenAI Responses', 'HIT', '92,9 %', true],
+        [35, 'Chat Completions', 'HIT', '87,5 %', false],
+        [800001, 'Gemini generateContent', 'PARTIAL', '83,3 %', false],
+        [800002, 'Gemini streamGenerateContent', 'PARTIAL', '83,3 %', false],
+        [800003, 'Copilot HTTP', 'COLD', '0,0 %', false],
+        [800004, 'Copilot incremental WebSocket', 'N/A', '99,6 %', true, true],
+        [44, 'Missing usage', 'N/A', null, false],
+      ].map(([id, route, verdict, percent, high, incremental = false]) => ({
+        id, route, verdict, label: percent ? `Leído de caché: ${percent}` : 'Lectura de caché: sin datos', high, incremental,
+      }));
+      const initialProblems = page.problems.length;
+      try {
+        await js(`(async () => {
+          const { state, applyEvent } = await import('/state.js');
+          const { render, syncFilters } = await import('/list.js');
+          const { closeDetail, showDetail } = await import('/detail.js');
+          const originalFetch = window.fetch;
+          const bad = document.getElementById('f-bad');
+          const saved = { recs: new Map(state.recs), convs: new Map(state.convs), selected: state.selected, bad: bad.getAttribute('aria-pressed') };
+          window.__cachetapC35 = async () => {
+            window.fetch = originalFetch;
+            closeDetail();
+            state.recs = saved.recs;
+            state.convs = saved.convs;
+            if (bad.getAttribute('aria-pressed') !== saved.bad) bad.click();
+            syncFilters(); render();
+            if (saved.selected != null) await showDetail(saved.selected);
+          };
+          const samples = ${JSON.stringify(samples)};
+          const responses = new Map(samples.flatMap(({ detail }) => [
+            ['/api/record/' + detail.id, JSON.stringify(detail)], ['/api/body/' + detail.id, '{}'],
+          ]));
+          window.fetch = (url, options) => {
+            const target = typeof url === 'string' ? url : url.url;
+            if (responses.has(target)) return Promise.resolve(new Response(responses.get(target)));
+            return originalFetch(url, options);
+          };
+          for (const { light } of samples) applyEvent({ type: 'record', rec: light });
+          syncFilters(); render();
+        })()`);
+        expect(await text('#s-hit'), '9', 'hits with fixtures');
+        await click('#f-bad');
+        expect(await text('#rows tr[data-id="800004"]'), null, 'incremental record filtered out of failures');
+        await click('#f-bad');
+        expect((await checkCacheReadVisual(page, cases)).length, 32, 'visual combinations');
+      } finally {
+        await js(`(async () => {
+          const restore = window.__cachetapC35;
+          delete window.__cachetapC35;
+          await restore?.();
+        })()`);
+      }
+      expect(page.problems.slice(initialProblems), [], 'new browser problems');
+    });
+  }
   await check('C15', 'a live cache timer counts down', async () => {
     const read = () => js(`document.querySelector('.ttl[data-from]:not(.stopped) .ttl-text')?.textContent ?? null`);
     const before = await read();
