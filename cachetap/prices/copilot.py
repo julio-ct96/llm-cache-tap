@@ -6,28 +6,12 @@ from cachetap.prices import anthropic, base, google, openai
 
 TARIFF = "Copilot"
 HOST = "githubcopilot.com"
-# MAI Code 2 and MAI Code 2 Flash leave their launch promotion on this day
-MAI_CHANGE = date(2027, 5, 17)
+# Copilot's billing data ends the MAI Code 2 launch promotion at 2027-05-18T00:00Z
+MAI_CHANGE = date(2027, 5, 18)
 
 
 def serves(host: str) -> bool:
     return host == HOST or host.endswith("." + HOST)
-
-
-def _single_write(rates: base.Rates) -> base.Rates:
-    # GitHub publishes a single cache write rate per model, with no separate 1 hour rate
-    single: base.Rates = {"input": rates["input"], "read": rates["read"], "output": rates["output"]}
-    if "write" in rates:
-        single["write"] = rates["write"]
-    return single
-
-
-def _one_write_rate(price: base.Price) -> base.Price:
-    rates: base.Price = {**_single_write(price)}
-    if "over" in price and "long" in price:
-        # a long-context tier, such as Claude Haiku 5.5's over 100K, keeps its threshold
-        rates["over"], rates["long"] = price["over"], _single_write(price["long"])
-    return rates
 
 
 def _without_12h(price: base.Price) -> base.Price:
@@ -55,7 +39,9 @@ def _grok(read: float) -> base.Price:
 # Copilot bills tokens at each vendor's list price (1 AI credit = 0.01 USD), so the Claude and
 # GPT rows are the vendors' own; what follows them is what differs or what only GitHub lists.
 FROM_LISTS: dict[str, base.Price] = {
-    **{model: _one_write_rate(price) for model, price in anthropic.PRICES.items()},
+    # Copilot's billing data (GET /models) prices Claude at the list rates, 1 h cache writes
+    # included, although the public pricing page shows a single write rate
+    **anthropic.PRICES,
     **{model: _without_12h(price) for model, price in openai.PRICES.items()},
 }
 
@@ -99,7 +85,8 @@ KIMI: dict[str, base.Price] = {
 }
 
 MAI: dict[str, base.Price] = {
-    "mai-code-1.1-flash": {"input": 0.2, "read": 0.02, "output": 1.2},
+    # the billing data lists a cache write rate the public page omits
+    "mai-code-1.1-flash": {"input": 0.2, "read": 0.02, "write": 0.25, "output": 1.2},
     # launch promotion; GitHub lists no cache write for Microsoft models
     "mai-code-2": {"input": 0.5, "read": 0.025, "output": 2.5},
     "mai-code-2-flash": {"input": 0.05, "read": 0.005, "output": 0.25},

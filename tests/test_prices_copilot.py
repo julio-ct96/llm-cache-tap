@@ -17,21 +17,18 @@ class ServesTest(unittest.TestCase):
 
 
 class PricesTest(unittest.TestCase):
-    def test_claude_rows_have_a_single_write_rate(self):
+    def test_claude_rows_are_the_list_price_with_1h_writes(self):
         for model in anthropic.PRICES:
             with self.subTest(model=model):
-                price = copilot.PRICES[model]
-                self.assertNotIn("write_1h", price)
-                self.assertEqual(price["write"], anthropic.PRICES[model]["write"])
-                self.assertEqual(price["input"], anthropic.PRICES[model]["input"])
+                self.assertEqual(copilot.PRICES[model], anthropic.PRICES[model])
 
-    def test_mai_code_2_promotion_ends_on_may_17_2027(self):
+    def test_mai_code_2_promotion_ends_on_may_18_2027(self):
         for model, promo, standard in (
             ("mai-code-2", (0.5, 0.025, 2.5), (1, 0.05, 5)),
             ("mai-code-2-flash", (0.05, 0.005, 0.25), (0.1, 0.01, 0.5)),
         ):
             with self.subTest(model=model):
-                for day, expected in ((date(2027, 5, 16), promo), (date(2027, 5, 17), standard)):
+                for day, expected in ((date(2027, 5, 17), promo), (date(2027, 5, 18), standard)):
                     tariff, price = prices.lookup("api.githubcopilot.com", model, at=day)
                     self.assertEqual(tariff, "Copilot")
                     self.assertEqual((price["input"], price["read"], price["output"]), expected)
@@ -49,9 +46,10 @@ class PricesTest(unittest.TestCase):
                 "input": 0.1,
                 "read": 0.01,
                 "write": 0.125,
+                "write_1h": 0.2,
                 "output": 0.5,
                 "over": 100_000,
-                "long": {"input": 0.5, "read": 0.05, "write": 0.625, "output": 2.5},
+                "long": {"input": 0.5, "read": 0.05, "write": 0.625, "write_1h": 1, "output": 2.5},
             },
         )
 
@@ -98,7 +96,7 @@ class PricesTest(unittest.TestCase):
     def test_other_vendors(self):
         self.assertEqual(copilot.PRICES["gemini-3.8-flash"], {"input": 0.75, "read": 0.075, "output": 3.75})
         self.assertEqual(copilot.PRICES["kimi-k3"], {"input": 3, "read": 0.3, "output": 15})
-        self.assertEqual(copilot.PRICES["mai-code-1.1-flash"], {"input": 0.2, "read": 0.02, "output": 1.2})
+        self.assertEqual(copilot.PRICES["mai-code-1.1-flash"], {"input": 0.2, "read": 0.02, "write": 0.25, "output": 1.2})
 
 
 if __name__ == "__main__":

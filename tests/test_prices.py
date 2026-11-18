@@ -10,7 +10,7 @@ class LookupTest(unittest.TestCase):
         tariff, price = prices.lookup("api.githubcopilot.com", "claude-opus-5.5")
         self.assertEqual(tariff, "Copilot")
         self.assertEqual(price["input"], 4)
-        self.assertNotIn("write_1h", price)
+        self.assertEqual(price["write_1h"], 8)
 
     def test_host_is_compared_in_lower_case(self):
         self.assertEqual(prices.lookup("API.GitHubCopilot.com", "gpt-6-luna")[0], "Copilot")
