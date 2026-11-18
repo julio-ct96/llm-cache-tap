@@ -21,6 +21,20 @@ class PricesTest(unittest.TestCase):
             {"input": 1, "read": 0.1, "write": 1.25, "write_1h": 2, "output": 5},
         )
 
+    def test_haiku_5_5_pays_five_times_over_100k(self):
+        self.assertEqual(
+            anthropic.PRICES["claude-haiku-5.5"],
+            {
+                "input": 0.1,
+                "read": 0.01,
+                "write": 0.125,
+                "write_1h": 0.2,
+                "output": 0.5,
+                "over": 100_000,
+                "long": {"input": 0.5, "read": 0.05, "write": 0.625, "write_1h": 1, "output": 2.5},
+            },
+        )
+
     def test_every_priced_model_is_owned(self):
         for model in anthropic.PRICES:
             with self.subTest(model=model):

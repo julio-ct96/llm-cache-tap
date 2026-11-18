@@ -23,6 +23,19 @@ class PricesTest(unittest.TestCase):
                 self.assertEqual(price["write"], anthropic.PRICES[model]["write"])
                 self.assertEqual(price["input"], anthropic.PRICES[model]["input"])
 
+    def test_haiku_5_5_keeps_its_long_context_tier(self):
+        self.assertEqual(
+            copilot.PRICES["claude-haiku-5.5"],
+            {
+                "input": 0.1,
+                "read": 0.01,
+                "write": 0.125,
+                "output": 0.5,
+                "over": 100_000,
+                "long": {"input": 0.5, "read": 0.05, "write": 0.625, "output": 2.5},
+            },
+        )
+
     def test_gpt_rows_are_the_list_price(self):
         self.assertEqual(copilot.PRICES["gpt-6.1-sol"], openai.PRICES["gpt-6.1-sol"])
         self.assertEqual(copilot.PRICES["gpt-6.1-terra"], openai.PRICES["gpt-6.1-terra"])

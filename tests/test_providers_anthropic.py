@@ -67,6 +67,7 @@ class MinCacheableTest(unittest.TestCase):
             "claude-opus-4-7": 2048,
             "claude-opus-4-6": 4096,
             "claude-opus-4-5": 4096,
+            "claude-haiku-5-5": 512,
             "claude-haiku-4-5": 4096,
             "claude-haiku-3-5": 2048,
             "claude-sonnet-4-5": 1024,

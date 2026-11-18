@@ -12,11 +12,19 @@ def serves(host: str) -> bool:
     return host == HOST or host.endswith("." + HOST)
 
 
-def _one_write_rate(price: base.Price) -> base.Price:
+def _single_write(rates: base.Rates) -> base.Rates:
     # GitHub publishes a single cache write rate per model, with no separate 1 hour rate
-    rates: base.Price = {"input": price["input"], "read": price["read"], "output": price["output"]}
-    if "write" in price:
-        rates["write"] = price["write"]
+    single: base.Rates = {"input": rates["input"], "read": rates["read"], "output": rates["output"]}
+    if "write" in rates:
+        single["write"] = rates["write"]
+    return single
+
+
+def _one_write_rate(price: base.Price) -> base.Price:
+    rates: base.Price = {**_single_write(price)}
+    if "over" in price and "long" in price:
+        # a long-context tier, such as Claude Haiku 5.5's over 100K, keeps its threshold
+        rates["over"], rates["long"] = price["over"], _single_write(price["long"])
     return rates
 
 

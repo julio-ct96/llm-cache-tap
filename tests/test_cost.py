@@ -118,6 +118,23 @@ class PriceRecordTest(unittest.TestCase):
         self.assertEqual(rec["cost"]["tariff"], "Copilot")
         self.assertEqual(rec["cost"]["usd"], 0.01)
 
+    def test_copilot_haiku_5_5_matches_the_credits_the_cli_reported(self):
+        # Copilot CLI reported 106343000 nano AIU (1 AI credit = 0.01 USD) for these counters
+        rec = self.rec(host="api.githubcopilot.com", model="claude-haiku-5.5", usage=U(16_928, 6_762, 4, 97))
+        cost.price_record(rec, None)
+        self.assertEqual(rec["cost"]["tariff"], "Copilot")
+        self.assertEqual(rec["cost"]["usd"], 0.00106343)
+
+    def test_haiku_5_5_long_tier_counts_cache_reads_in_the_prompt(self):
+        at_limit = self.rec(model="claude-haiku-5-5", usage=U(99_999, 0, 1, 0))
+        over = self.rec(model="claude-haiku-5-5", usage=U(100_000, 0, 1, 0))
+        cost.price_record(at_limit, None)
+        cost.price_record(over, None)
+        self.assertNotIn("long_over", at_limit["cost"])
+        self.assertEqual(at_limit["cost"]["rates"]["read"], 0.01)
+        self.assertEqual(over["cost"]["long_over"], 100_000)
+        self.assertEqual(over["cost"]["rates"]["read"], 0.05)
+
     def test_miss_records_what_was_lost(self):
         rec = self.rec(usage=U(0, 1_000_000, 0, 0), verdict="MISS")
         cost.price_record(rec, {"id": 1, "usage": U(0, 0, 1_000_000, 0)})
