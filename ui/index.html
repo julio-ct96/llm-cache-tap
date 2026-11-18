@@ -133,13 +133,16 @@
         <p>Sale de los tokens que el servidor declara haber leído de caché en el <code>usage</code> de la respuesta.</p>
         <table>
           <tbody>
-            <tr><td><span class="badge v-hit">HIT</span></td><td>Leídos ≥ 90 % de la entrada de la petición anterior de la conversación.</td></tr>
-            <tr><td><span class="badge v-partial">PARTIAL</span></td><td>Se leyó algo, pero menos de ese 90 %.</td></tr>
+            <tr><td><span class="badge v-hit">HIT</span></td><td>Leídos ≥ 90 % de la entrada anterior enlazada si está disponible y es positiva; si no, de la entrada actual en los casos comparables.</td></tr>
+            <tr><td><span class="badge v-partial">PARTIAL</span></td><td>Se leyó algo, pero menos del 90 %, usando la misma base que para HIT.</td></tr>
             <tr><td><span class="badge v-miss">MISS</span></td><td>Nada leído habiendo una petición anterior.</td></tr>
             <tr><td><span class="badge v-cold">COLD</span></td><td>Nada leído y es la primera de su conversación.</td></tr>
-            <tr><td><span class="badge v-na">N/A</span></td><td>Entrada por debajo del mínimo cacheable del modelo, o respuesta sin <code>usage</code>.</td></tr>
+            <tr><td><span class="badge v-na">N/A</span></td><td>Entrada por debajo del mínimo cacheable del modelo sin lectura de caché, respuesta sin <code>usage</code>, contexto incremental o captura limitada.</td></tr>
           </tbody>
         </table>
+
+        <p>«Leído de caché» es la fracción de la entrada de esta petición que el servidor sirvió desde caché.
+          Se pone en verde al alcanzar el 90 %, pero no cambia el veredicto ni el contador de HIT. «Sin datos» no equivale a 0 %.</p>
 
         <h3>TTL de la caché</h3>
         <p>

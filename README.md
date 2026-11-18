@@ -44,6 +44,8 @@ En **otra terminal**, lanza tu cliente a través del proxy:
 
 Abre el panel y haz una petición desde el cliente: aparece una fila por cada llamada al LLM.
 
+Para todos los clientes soportados, «Leído de caché» muestra en Reparto y Resumen qué fracción de la entrada de esta petición sirvió el servidor desde caché. Se pone en verde al alcanzar el 90 % de la entrada actual y no cambia el veredicto ni el contador de `HIT`. «Sin datos» no equivale a 0 %.
+
 ### Copilot CLI
 
 Con el proxy ya en marcha con `./start.sh`, abre otra terminal y lanza Copilot CLI:
@@ -60,7 +62,7 @@ Si `copilot` no está en `PATH`, puedes indicar la ruta habitual del binario:
 
 El inspector reconoce Responses sobre WebSocket en los hosts de Copilot. `/auto` solo enruta la selección y no se retiene. El `GET /responses` que responde `101` abre la conexión; cada mensaje `response.create` aceptado genera una fila. `status=101` es el código HTTP del handshake WebSocket, no `Record.state` (por ejemplo, `done`) ni un `200` HTTP inventado para cada respuesta.
 
-El diagnóstico de prefijo requiere peticiones secuenciales con el contexto completo; las peticiones incrementales que usan `previous_response_id` se registran como `N/A`, aunque puedan conservar `usage` y un coste calculable. Si hay solapamiento, un error de protocolo ambiguo o se alcanza un límite del inspector, se deshabilita la inspección de esa conexión; el tráfico y sus bytes siguen hacia el cliente sin cambios. Al reconectar se crea una sesión nueva.
+El diagnóstico de prefijo requiere peticiones secuenciales con el contexto completo; las peticiones incrementales que usan `previous_response_id` se registran como `N/A`, aunque puedan conservar `usage` y un coste calculable. Por ejemplo, «Leído de caché: 99,6 %» puede aparecer en verde junto a `N/A`: el servidor informó de esa lectura, pero el prefijo no es comparable y la petición no se enlaza como contexto completo. Si hay solapamiento, un error de protocolo ambiguo o se alcanza un límite del inspector, se deshabilita la inspección de esa conexión; el tráfico y sus bytes siguen hacia el cliente sin cambios. Al reconectar se crea una sesión nueva.
 
 En los mensajes WebSocket retenidos se elimina la clave `headers` del sobre JSON; de los eventos del servidor solo se guardan las proyecciones permitidas. No se guarda contenido cifrado ni contenido de razonamiento de eventos del servidor; los contadores de tokens de razonamiento de `usage` sí pueden conservarse. Estos límites no acotan los buffers o el historial de mensajes que mantiene mitmproxy ni el RSS total del proceso.
 
