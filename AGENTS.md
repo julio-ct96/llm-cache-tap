@@ -30,10 +30,10 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | `cachetap/providers/google.py` | Rutas y formato nativos de Gemini Developer API, mínimos de caché implícita y lectura de `usageMetadata` |
 | `cachetap/prices/__init__.py` | Qué tarifa paga una petición (`lookup`) y las tablas de precios para la ayuda |
 | `cachetap/prices/base.py` | Forma de un precio, nombre canónico de un modelo y tarifa de contexto largo |
-| `cachetap/prices/anthropic.py` | Precios de lista de los modelos Claude |
-| `cachetap/prices/openai.py` | Precios de lista de los modelos de OpenAI |
-| `cachetap/prices/google.py` | Precios de lista Standard de Gemini Developer API y fechas de fin de promoción |
-| `cachetap/prices/copilot.py` | Tarifa de GitHub Copilot: en qué difiere de las listas y los modelos que solo lista GitHub |
+| `cachetap/prices/anthropic.py` | Precios de lista de los modelos Claude, una constante por familia (FABLE, MYTHOS, OPUS, SONNET, HAIKU) |
+| `cachetap/prices/openai.py` | Precios de lista de los modelos de OpenAI, una constante por tirada (GPT_6_2 … O3) que declara una vez sus rasgos (escrituras, contexto largo) |
+| `cachetap/prices/google.py` | Precios de lista Standard de Gemini Developer API, una constante por generación (GEMINI_4, GEMINI_3, GEMINI_2_5), y fechas de fin de promoción |
+| `cachetap/prices/copilot.py` | Tarifa de GitHub Copilot: lo heredado de las listas (FROM_LISTS), en qué difiere y los modelos que solo lista GitHub, por bloques |
 | `ui/index.html` | Estructura del panel; el orden de sus `<link>` es la cascada del CSS |
 | `ui/app.js` | Entrada del panel: cablea eventos y arranca la conexión |
 | `ui/state.js` | Estado compartido del panel |
@@ -65,7 +65,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 | Para… | Abre |
 | --- | --- |
 | cambiar el TTL o el mínimo cacheable de un modelo | el fichero de su proveedor en `cachetap/providers/` y su test |
-| cambiar o añadir el precio de un modelo | el fichero de su tarifa en `cachetap/prices/` (lista del proveedor, o `copilot.py` si difiere en Copilot), su test y `REVIEWED` de `cachetap/prices/__init__.py` |
+| cambiar o añadir el precio de un modelo | el bloque de su familia o tirada en el fichero de su tarifa en `cachetap/prices/` (lista del proveedor, o `copilot.py` si difiere en Copilot), su test y `REVIEWED` de `cachetap/prices/__init__.py` |
 | añadir una tarifa (otro intermediario u otro proveedor) | un fichero nuevo en `cachetap/prices/` con `TARIFF` y `PRICES`, y añadirlo a `TARIFFS` y a `lookup` |
 | cambiar cómo se calcula el coste, el ahorro o lo perdido | `cachetap/cost.py` |
 | añadir un proveedor | un fichero nuevo en `cachetap/providers/` con la misma interfaz que `anthropic.py`, y añadirlo a `PROVIDERS` |
