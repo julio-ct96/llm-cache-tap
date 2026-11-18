@@ -27,9 +27,19 @@ GEMINI_3: dict[str, base.Price] = {
     "gemini-3.8-flash": FLASH_PROMO,
     "gemini-3.6-flash": FLASH_PROMO,
     "gemini-3.5-flash-lite": {"input": 0.3, "read": 0.03, "output": 2.5},
+    "gemini-3.1-pro-preview": base.long_context({"input": 2, "read": 0.2, "output": 12}, 200_000),
+    "gemini-3.1-flash-lite": {"input": 0.25, "read": 0.025, "output": 1.5},
+    "gemini-3-flash-preview": {"input": 0.5, "read": 0.05, "output": 3},
 }
 
-PRICES: dict[str, base.Price] = {**GEMINI_4, **GEMINI_3}
+# from December 1, 2026 Google routes gemini-2.5-pro to gemini-3.8-flash and gemini-2.5-flash to gemini-3.5-flash-lite
+GEMINI_2_5: dict[str, base.Price] = {
+    "gemini-2.5-pro": base.long_context({"input": 1.25, "read": 0.125, "output": 10}, 200_000),
+    "gemini-2.5-flash": {"input": 0.3, "read": 0.03, "output": 2.5},
+    "gemini-2.5-flash-lite": {"input": 0.1, "read": 0.01, "output": 0.4},
+}
+
+PRICES: dict[str, base.Price] = {**GEMINI_4, **GEMINI_3, **GEMINI_2_5}
 
 AFTER_PROMO: dict[str, tuple[date, base.Price | None]] = {
     "gemini-4-argon": (FRONTIER_CHANGE, FRONTIER_STANDARD),

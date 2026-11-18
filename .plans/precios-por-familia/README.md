@@ -19,7 +19,7 @@ Objetivo: organizar cada tabla de precios en bloques con nombre (tirada en OpenA
 | 1.04 | Copilot por proveedor | `fase-1/1.04-copilot-por-proveedor.md` | — | terminada con commit | |
 | 2.01 | Anthropic: modelos que faltan | `fase-2/2.01-anthropic-modelos.md` | 1.01, 1.02, 1.03, 1.04 | terminada con commit | |
 | 2.02 | OpenAI: modelos que faltan | `fase-2/2.02-openai-modelos.md` | 2.01 | terminada con commit | |
-| 2.03 | Google: modelos que faltan | `fase-2/2.03-google-modelos.md` | 2.02 | pendiente | |
+| 2.03 | Google: modelos que faltan | `fase-2/2.03-google-modelos.md` | 2.02 | terminada con commit | |
 | 2.04 | Copilot: Opus 4.8 en modo rápido | `fase-2/2.04-copilot-opus-rapido.md` | 2.03 | pendiente | |
 | 3.01 | Documentar la nueva organización | `fase-3/3.01-documentacion.md` | 2.04 | pendiente | |
 
