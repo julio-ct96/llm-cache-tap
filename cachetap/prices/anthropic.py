@@ -16,17 +16,18 @@ def _claude(input_price: float, read: float) -> base.Price:
     }
 
 
-# List prices in US dollars per million tokens, from Anthropic's pricing page as of October 2026.
+# List prices in US dollars per million tokens, from Anthropic's pricing page as of November 2026.
 # Only Claude Haiku 5.5 has a long-context tier: a prompt over 100K tokens (cache reads and
 # writes included) pays 5x on every rate. The rest bill the whole 1M window at the same rates.
 PRICES: dict[str, base.Price] = {
+    "claude-fable-5.2": _claude(8, 0.2),
     "claude-fable-5.1": _claude(10, 0.25),
     "claude-fable-5": _claude(10, 1),
     "claude-opus-5.5": _claude(4, 0.2),
     "claude-opus-5": _claude(5, 0.5),
     "claude-opus-4.8": _claude(5, 0.5),
     "claude-opus-4.7": _claude(5, 0.5),
-    "claude-sonnet-5.5": _claude(2, 0.2),
+    "claude-sonnet-5.5": _claude(2, 0.1),
     "claude-sonnet-5": _claude(2, 0.2),
     "claude-sonnet-4.6": _claude(3, 0.3),
     "claude-haiku-5.5": {**_claude(0.1, 0.01), "over": 100_000, "long": _claude(0.5, 0.05)},

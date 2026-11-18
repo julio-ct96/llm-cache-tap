@@ -67,7 +67,7 @@ class ReferenceTest(unittest.TestCase):
 
     def test_rows(self):
         rows = prices.reference(at=date(2026, 11, 18))["prices"]
-        self.assertEqual(len(rows), 77)
+        self.assertEqual(len(rows), 79)
         self.assertEqual({row["tariff"] for row in rows}, {"Copilot", "Anthropic", "OpenAI", "Google"})
         for row in rows:
             with self.subTest(tariff=row["tariff"], model=row["model"]):

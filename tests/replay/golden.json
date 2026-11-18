@@ -1237,7 +1237,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1250,7 +1250,7 @@
     "cc_marks": 1,
     "conv": "c1",
     "cost": {
-     "lost_usd": 0.009246,
+     "lost_usd": 0.009648,
      "no_cache_usd": 0.00874,
      "parts": {
       "output": 0.0005,
@@ -1261,7 +1261,7 @@
      "rates": {
       "input": 2,
       "output": 10,
-      "read": 0.2,
+      "read": 0.1,
       "write": 2.5,
       "write_1h": 4
      },
@@ -1324,7 +1324,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1365,7 +1365,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1408,7 +1408,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1460,7 +1460,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1501,7 +1501,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.1163,
      "priced": 8,
      "saved_usd": 0.02527,
@@ -1544,7 +1544,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.12544,
      "priced": 9,
      "saved_usd": 0.02312,
@@ -1567,7 +1567,7 @@
      "rates": {
       "input": 2,
       "output": 10,
-      "read": 0.2,
+      "read": 0.1,
       "write": 2.5,
       "write_1h": 4
      },
@@ -1626,7 +1626,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.12544,
      "priced": 9,
      "saved_usd": 0.02312,
@@ -1667,7 +1667,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.12544,
      "priced": 9,
      "saved_usd": 0.02312,
@@ -1713,7 +1713,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.12544,
      "priced": 9,
      "saved_usd": 0.02312,
@@ -1754,7 +1754,7 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.12544,
      "priced": 9,
      "saved_usd": 0.02312,
@@ -1797,12 +1797,12 @@
   {
    "convs": {
     "c1": {
-     "lost_usd": 0.056574,
+     "lost_usd": 0.056976,
      "no_cache_usd": 0.13498,
      "priced": 10,
-     "saved_usd": 0.03099,
+     "saved_usd": 0.03143,
      "unpriced": 0,
-     "usd": 0.10399
+     "usd": 0.10355
     }
    },
    "rec": {
@@ -1813,20 +1813,20 @@
      "no_cache_usd": 0.00954,
      "parts": {
       "output": 0.0005,
-      "read": 0.00088,
+      "read": 0.00044,
       "uncached": 4e-05,
       "write": 0.00025
      },
      "rates": {
       "input": 2,
       "output": 10,
-      "read": 0.2,
+      "read": 0.1,
       "write": 2.5,
       "write_1h": 4
      },
-     "saved_usd": 0.00787,
+     "saved_usd": 0.00831,
      "tariff": "Anthropic",
-     "usd": 0.00167
+     "usd": 0.00123
     },
     "diverge_at": null,
     "effort": "low",
@@ -6111,7 +6111,7 @@
    "cc_marks": 1,
    "conv": "c1",
    "cost": {
-    "lost_usd": 0.009246,
+    "lost_usd": 0.009648,
     "no_cache_usd": 0.00874,
     "parts": {
      "output": 0.0005,
@@ -6122,7 +6122,7 @@
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
@@ -6234,7 +6234,7 @@
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
@@ -6296,20 +6296,20 @@
     "no_cache_usd": 0.00954,
     "parts": {
      "output": 0.0005,
-     "read": 0.00088,
+     "read": 0.00044,
      "uncached": 4e-05,
      "write": 0.00025
     },
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
-    "saved_usd": 0.00787,
+    "saved_usd": 0.00831,
     "tariff": "Anthropic",
-    "usd": 0.00167
+    "usd": 0.00123
    },
    "diverge_at": null,
    "effort": "low",
@@ -9084,7 +9084,7 @@
    "cc_marks": 1,
    "conv": "c1",
    "cost": {
-    "lost_usd": 0.009246,
+    "lost_usd": 0.009648,
     "no_cache_usd": 0.00874,
     "parts": {
      "output": 0.0005,
@@ -9095,7 +9095,7 @@
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
@@ -9535,7 +9535,7 @@
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
@@ -10015,20 +10015,20 @@
     "no_cache_usd": 0.00954,
     "parts": {
      "output": 0.0005,
-     "read": 0.00088,
+     "read": 0.00044,
      "uncached": 4e-05,
      "write": 0.00025
     },
     "rates": {
      "input": 2,
      "output": 10,
-     "read": 0.2,
+     "read": 0.1,
      "write": 2.5,
      "write_1h": 4
     },
-    "saved_usd": 0.00787,
+    "saved_usd": 0.00831,
     "tariff": "Anthropic",
-    "usd": 0.00167
+    "usd": 0.00123
    },
    "diverge_at": null,
    "effort": "low",

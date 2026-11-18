@@ -13,11 +13,14 @@ class PricesTest(unittest.TestCase):
                 "read": 0.1,
                 "output": 10,
                 "write": 2.5,
+                "write_12h": 5,
                 "over": 272_000,
-                "long": {"input": 4, "read": 0.2, "output": 15, "write": 5},
+                "long": {"input": 4, "read": 0.2, "output": 15, "write": 5, "write_12h": 10},
             },
         )
         self.assertEqual(openai.PRICES["gpt-6-luna"]["write"], 0.125)
+        self.assertEqual(openai.PRICES["gpt-6-luna"]["write_12h"], 0.25)
+        self.assertEqual(openai.PRICES["gpt-5.6-luna"]["long"]["write_12h"], 1)
 
     def test_gpt_6_1_terra_has_the_published_rates(self):
         self.assertEqual(
@@ -27,8 +30,9 @@ class PricesTest(unittest.TestCase):
                 "read": 0.05,
                 "output": 5,
                 "write": 1.25,
+                "write_12h": 2.5,
                 "over": 272_000,
-                "long": {"input": 2, "read": 0.1, "output": 7.5, "write": 2.5},
+                "long": {"input": 2, "read": 0.1, "output": 7.5, "write": 2.5, "write_12h": 5},
             },
         )
 
@@ -48,6 +52,7 @@ class PricesTest(unittest.TestCase):
         for model in ("gpt-5.5", "gpt-5.4", "gpt-5-mini", "gpt-4.1"):
             with self.subTest(model=model):
                 self.assertNotIn("write", openai.PRICES[model])
+                self.assertNotIn("write_12h", openai.PRICES[model])
 
     def test_small_models_have_no_long_context_tier(self):
         self.assertEqual(openai.PRICES["gpt-5.4-mini"], {"input": 0.75, "read": 0.075, "output": 4.5})

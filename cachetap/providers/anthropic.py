@@ -71,12 +71,16 @@ def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL:
 
 MIN_CACHEABLE_HELP: list[MinimumHelpRow] = [
     {
-        "models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.x, Haiku 5.5",
+        "models": "Claude Fable y Mythos 5.x, Opus 5.x, Sonnet 5.5, Haiku 5.5",
         "tokens": 512,
         "example": "claude-opus-5-5",
     },
-    {"models": "Claude Opus 4.8, Sonnet 4.6 y 4.5", "tokens": 1024, "example": "claude-sonnet-4-5"},
-    {"models": "Claude Opus 4.7", "tokens": 2048, "example": "claude-opus-4-7"},
+    {
+        "models": "Claude Opus 4.8, Sonnet 5, 4.6 y 4.5",
+        "tokens": 1024,
+        "example": "claude-sonnet-5",
+    },
+    {"models": "Claude Opus 4.7 y Mythos Preview", "tokens": 2048, "example": "claude-opus-4-7"},
     {"models": "Claude Opus 4.6 y 4.5, Haiku 4.5", "tokens": 4096, "example": "claude-haiku-4-5"},
 ]
 
@@ -85,7 +89,7 @@ def min_cacheable(model: str) -> int:
     if re.search(r"fable|mythos", model) and "preview" not in model:
         return 512
     opus, sonnet, haiku = (base.version(model, f"claude-{f}") for f in ("opus", "sonnet", "haiku"))
-    if (opus and opus >= (5, 0)) or (sonnet and sonnet >= (5, 0)) or (haiku and haiku >= (5, 5)):
+    if (opus and opus >= (5, 0)) or (sonnet and sonnet >= (5, 5)) or (haiku and haiku >= (5, 5)):
         return 512
     if opus == (4, 7) or haiku == (3, 5) or "mythos" in model:
         return 2048

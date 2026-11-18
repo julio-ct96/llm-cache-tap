@@ -40,7 +40,8 @@ TTL_HELP: list[TTLHelpRow] = [
     },
 ]
 MIN_CACHEABLE_HELP: list[MinimumHelpRow] = [
-    {"models": "Gemini 4, 3.8 y 3.6 Flash", "tokens": 4096, "example": "gemini-4-carbon"},
+    {"models": "Gemini 4, 3.8 y 3.6 Flash, 3.1 Pro", "tokens": 4096, "example": "gemini-4-carbon"},
+    {"models": "Gemini 2.5 Pro y 2.5 Flash", "tokens": 2048, "example": "gemini-2.5-flash"},
 ]
 
 
@@ -63,8 +64,15 @@ def cache_ttl(req: record.JsonObject, model: str) -> record.CacheTTL:
 
 def min_cacheable(model: str) -> int:
     version = base.version(model, "gemini")
-    if version == (4, 0) or model.startswith(("gemini-3.8-flash", "gemini-3.6-flash")):
+    if version == (4, 0) or model.startswith(
+        ("gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-pro")
+    ):
         return 4096
+    if model.startswith(("gemini-2.5-pro", "gemini-2.5-flash")) and not model.startswith(
+        "gemini-2.5-flash-lite"
+    ):
+        return 2048
+    # Google publishes no minimum for the remaining models (Flash-Lite, 3 Flash Preview)
     return 1024
 
 

@@ -57,9 +57,23 @@ class ReferenceTest(unittest.TestCase):
 
     def test_min_cacheable_rows(self):
         rows = providers.reference()["min_cacheable"]
-        self.assertEqual(len(rows), 6)
+        self.assertEqual(len(rows), 7)
         for row in rows:
             self.assertIsInstance(row["tokens"], int)
+
+    def test_gemini_minimums_follow_the_published_table(self):
+        cases = {
+            "gemini-4-hydrogen": 4096,
+            "gemini-3.8-flash": 4096,
+            "gemini-3.1-pro-preview": 4096,
+            "gemini-2.5-pro": 2048,
+            "gemini-2.5-flash": 2048,
+            "gemini-2.5-flash-lite": 1024,
+            "gemini-3.5-flash-lite": 1024,
+        }
+        for model, expected in cases.items():
+            with self.subTest(model=model):
+                self.assertEqual(providers.min_cacheable(model), expected)
 
     def test_help_does_not_lie(self):
         for row in providers.reference()["min_cacheable"]:

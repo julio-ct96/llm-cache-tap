@@ -493,7 +493,7 @@ async function main() {
       expect(await js(`document.getElementById('help').open`), true, 'dialog open');
       await until('help tables', () => js(`document.querySelectorAll('#help table')[1].tBodies[0].rows.length > 0`), 3000).catch(() => {});
       const sizes = await js(`[...document.querySelectorAll('#help table')].map((table) => table.tBodies[0].rows.length)`);
-      const minimum = (await js(`!!document.getElementById('help-min')`)) ? 6 : 4;
+      const minimum = (await js(`!!document.getElementById('help-min')`)) ? 7 : 4;
       expect(sizes.slice(0, 3), [5, 6, minimum], 'rows per help table');
       if (await js(`!!document.getElementById('help-prices')`)) {
         const price = await js(`[...document.querySelectorAll('#help-prices tr')].map((row) => [...row.cells].map((c) => c.textContent)).find((c) => c[0] === 'Copilot' && c[1] === 'gpt-6.1-sol')`);
@@ -521,7 +521,7 @@ async function main() {
     });
     await check('C30', 'cost counters and columns', async () => {
       const got = await js(`['s-cost-label','s-cost','s-saved','s-lost'].map((id) => document.getElementById(id).textContent)`);
-      expect(got, ['coste · 18 sin precio', '0,209 $', '0,058 $ · 21,9 %', '0,057 $'], 'cost counters');
+      expect(got, ['coste · 18 sin precio', '0,209 $', '0,059 $ · 22,0 %', '0,057 $'], 'cost counters');
       const cells = (id) => js(`[...document.querySelector('#rows tr[data-id="${id}"]').cells].slice(10, 13).map((c) => c.textContent.trim())`);
       expect(await cells(5), ['0,020 $', '-0,0038 $ -23,3 %', '0,017 $'], 'cost cells of a miss');
       expect(await cells(2), ['0,0027 $', '0,011 $ 80,7 %', '–'], 'cost cells of a hit');
@@ -557,7 +557,7 @@ async function main() {
       expect(await js(`document.getElementById('costs').open`), true, 'dialog open');
       const firstCells = (id) => js(`[...document.querySelector('#${id} tr').cells].map((c) => c.textContent.trim())`);
       expect(await firstCells('costs-models'), ['claude-opus-5-5 · Anthropic', '10', '0,097 $', '0,033 $', '25,4 %', '0,047 $'], 'costliest model');
-      expect(await firstCells('costs-causes'), ['prefijo modificado por el cliente', '1', '0,018 $', '32,4 %'], 'costliest cause');
+      expect(await firstCells('costs-causes'), ['prefijo modificado por el cliente', '1', '0,018 $', '32,2 %'], 'costliest cause');
       expect(await js(`document.querySelectorAll('#costs-causes tr').length`), 4, 'causes with a loss');
       expect(((await text('#costs-total')) || '').startsWith('22 peticiones con coste · 18 sin precio: 0,209 $'), true, 'visible total');
       await js(`document.getElementById('costs').close()`);

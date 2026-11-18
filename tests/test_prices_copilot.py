@@ -36,9 +36,13 @@ class PricesTest(unittest.TestCase):
             },
         )
 
-    def test_gpt_rows_are_the_list_price(self):
-        self.assertEqual(copilot.PRICES["gpt-6.1-sol"], openai.PRICES["gpt-6.1-sol"])
-        self.assertEqual(copilot.PRICES["gpt-6.1-terra"], openai.PRICES["gpt-6.1-terra"])
+    def test_gpt_rows_are_the_list_price_without_the_12h_write(self):
+        for model in ("gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"):
+            with self.subTest(model=model):
+                listed = openai.PRICES[model]
+                expected = {key: value for key, value in listed.items() if key not in ("write_12h", "long")}
+                expected["long"] = {key: value for key, value in listed["long"].items() if key != "write_12h"}
+                self.assertEqual(copilot.PRICES[model], expected)
 
     def test_gpt_6_2_copilot_has_only_the_published_write_rate(self):
         for model, expected in (("gpt-6.2-sol", (2.5, 5)), ("gpt-6.2-astra", (10, 20))):

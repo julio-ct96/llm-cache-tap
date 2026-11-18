@@ -62,7 +62,7 @@ class ComputeTest(unittest.TestCase):
         self.assertEqual(at_limit["rates"]["input"], 0.1)
         self.assertEqual(over["long_over"], 272_000)
         self.assertEqual(over["rates"], {
-            "input": 0.2, "read": 0.02, "write": 0.25, "write_1h": 0.25, "output": 0.75,
+            "input": 0.2, "read": 0.02, "write": 0.25, "write_1h": 0.25, "output": 0.75, "write_12h": 0.5,
         })
         self.assertEqual(over["parts"]["output"], 0.75)
 
