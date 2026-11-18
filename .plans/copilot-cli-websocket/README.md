@@ -2,7 +2,7 @@
 
 Objetivo: reconocer la inferencia Responses WebSocket que usa Copilot CLI y mostrar cada petición en el inspector con modelo, tokens, caché y coste por las tablas existentes. Mantener sin cambios el comportamiento HTTP, los datos del usuario y el replay histórico.
 
-**Fases 1 y 2 terminadas; fase 3 en ejecución.** El soporte WebSocket está conectado y verificado con tráfico sintético, API y Chrome. Se prepara la documentación y una única comprobación real económica.
+**Fases 1 y 2 terminadas; fase 3 bloqueada en 3.03.** La documentación y el runner están terminados. La única prueba real encontró una captura WebSocket, pero no pudo validarla como completada correctamente. No se reintentó; la compatibilidad real del CLI todavía no está validada.
 
 ## Acuerdo de ejecución
 
@@ -41,7 +41,7 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 | 2.06 | API y panel con tráfico sintético | [2.06](fase-2/2.06-api-y-panel.md) | 2.05 | terminada con commit | Auditada; fixture generado por hooks; 350 Python y 20 JS; FULL/C34 repetido; golden intacto |
 | 3.01 | Runner real opt-in y económico | [3.01](fase-3/3.01-smoke-economico.md) | 2.06 | terminada con commit | Auditado contra contratos reales; COLD, métricas y cleanup cubiertos; mypy y FULL OK; 370 Python y 20 JS; sin cuota |
 | 3.02 | Documentar soporte y límites | [3.02](fase-3/3.02-documentacion.md) | 2.06 | terminada con commit | Documentación auditada; default READY, status y límites precisados; cambio previo AGENTS preservado |
-| 3.03 | Una comprobación real barata | [3.03](fase-3/3.03-verificacion-real.md) | 3.01 | pendiente | Optativa; requiere autorización vigente y acceso; nunca reintenta |
+| 3.03 | Una comprobación real barata | [3.03](fase-3/3.03-verificacion-real.md) | 3.01 | bloqueada | El único intento no completó el registro WebSocket; sin reintento |
 
 ## Qué se puede lanzar a la vez
 
@@ -57,6 +57,14 @@ La prueba adicional de identificación fue un único `hola` en modo `efficiency`
 - La revisión sustituyó datos simulados incompletos por el fixture acordado y el pipeline real; reforzó snapshots de no-mutación y el aislamiento de estado/log/SSE. C34 genera su registro mediante hooks reales en un subprocess local, sin red externa.
 - Cierre local: 350 tests Python y 20 JS; FULL pasó dos veces en el ejecutor y otra en el orquestador, con C34. Las siete huellas de base (seis ficheros previos y golden) permanecieron idénticas.
 - No se hicieron llamadas reales a Copilot CLI durante esta fase. Se para antes de fase 3, cuya prueba de cuota es optativa.
+
+## Estado de fase 3
+
+- 3.02 se cerró y subió como `5ef3ed6`; el cambio previo 295→296 de AGENTS.md quedó fuera del commit mediante staging parcial.
+- 3.01 se cerró y subió como `ac0dc07`, tras corregir en auditoría los contratos SSE/IDs/usage de los mocks y aceptar COLD. Pasaron 370 tests Python, 20 JS, mypy explícito del runner y Chrome completo.
+- 3.03 ejecutó una única vez el runner real, con `hola`, Auto/efficiency y CLI 1.0.105. El CLI terminó con código 0 y se encontró una captura WebSocket, pero la validación del registro falló: `the WebSocket record did not complete successfully`.
+- El runner no llegó a exponer contadores, modelo resuelto ni créditos validados; no se inventan esos datos. Los temporales se limpiaron y no se reintentó la llamada.
+- Se deja bloqueada y sin commit la tarea fallida, con el informe en `verificacion-real.md`. Antes de otra llamada hace falta revisar el diagnóstico saneado del registro; no se da por validado el soporte real.
 
 ## Estructura final de la implementación
 

@@ -88,7 +88,7 @@ Muestra si cada una acertó la caché de prompts y, si no, por qué.
 - Panel de prueba sin proxy: `venv/bin/python tests/replay/serve.py` (puerto 8901).
 - Comprobación de la interfaz en un Chrome sin ventana: `node tests/ui/check.mjs --full`.
 - Comprobación unificada: `venv/bin/python scripts/check.py`; añade `--full` para ejecutar también Chrome. Requiere Node 24 y el entorno `venv/`; `--full` requiere Chrome/Chromium. Para preparar herramientas, `venv/bin/python -m pip install -r requirements-dev.txt`; `requirements-ci.txt` incluye mitmproxy y esas herramientas.
-- Suite Python: 295 tests con el comando anterior de unittest; suite JS: `node --test tests/ui/unit/*.test.mjs` (20 tests). `node tests/ui/benchmark.mjs` mide informativamente 30/300/3000 registros, sin umbral de aprobación.
+- Suite Python: 296 tests con el comando anterior de unittest; suite JS: `node --test tests/ui/unit/*.test.mjs` (20 tests). `node tests/ui/benchmark.mjs` mide informativamente 30/300/3000 registros, sin umbral de aprobación.
 
 ## Contratos y límites
 

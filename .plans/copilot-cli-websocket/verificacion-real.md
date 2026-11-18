@@ -1,7 +1,14 @@
 # Comprobación real posterior a la implementación
 
-Estado: pendiente y optativa. El plan todavía no se ha ejecutado.
+Estado: bloqueada; una única ejecución, sin reintento.
 
-La investigación previa sí confirmó WebSocket Responses en Copilot CLI 1.0.105. La prueba adicional de identificación usó un único `hola`, seleccionó GPT-6 Luna en modo económico y reportó 0,06 créditos. No demuestra todavía que el inspector implementado capture la llamada: esa implementación está pendiente.
+- Fecha: 2026-10-30.
+- Versión de Copilot CLI: 1.0.105.
+- Modelo solicitado: `auto` (perfil `efficiency`); modelo resuelto: no disponible, el registro no completó.
+- Peticiones: se envió un único prompt; el conteo de uso no llegó a validarse.
+- Créditos reportados: no disponibles.
+- Contadores y veredicto: no disponibles.
+- Validación del registro: falló porque el registro WebSocket no completó correctamente.
+- Limpieza: finalizada por el runner; no se informó de error de limpieza.
 
-La tarea 3.03 sustituirá este apartado por un resultado sin contenido sensible, o por el motivo del bloqueo. No se repite una llamada solo para obtener un HIT.
+Salida saneada del runner: `ERROR: the WebSocket record did not complete successfully`. No se repitió la llamada.
